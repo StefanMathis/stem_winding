@@ -1,0 +1,10 @@
+[package]
+name = "stem_winding"
+version = "0.0.1"
+edition = "2024"
+description = "Winding definition for stem - a Simulation Toolbox for Electric Motors."
+readme = "README.md"
+license  = "MIT OR Apache-2.0"
+repository = "https://github.com/StefanMathis/stem_winding.git"
+
+[dependencies]
