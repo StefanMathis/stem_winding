@@ -1,0 +1,256 @@
+/// Returns a zone plan created with the star of slots algorithm. This
+/// algorithm is taken from [Bia06].
+pub(crate) fn star_of_slots(
+    slots: u16,
+    pole_pairs: u16,
+    phases: u16,
+    layers: u16,
+    span: i32,
+) -> Result<WindingTable, Error> {
+    // Only works for odd phases
+    if phases.is_even() {
+        return Err(stem_primitives::ErrorType::WindingTableCreationFailed(
+            "The star of slots algorithm only works for an odd number of phases.".into(),
+        )
+        .into());
+    }
+
+    if layers != 1 && layers != 2 {
+        return Err(stem_primitives::ErrorType::WindingTableCreationFailed(
+            "The star of slots algorithm only works for single- or double layer windings.".into(),
+        )
+        .into());
+    }
+
+    // Winding must be symmetric (e.g. no empty slots)
+    if (layers * slots) % (2 * phases) != 0 {
+        return Err(stem_primitives::ErrorType::WindingTableCreationFailed(
+            "Inner of slots times number of layers must be a multiple of the number of phases."
+                .into(),
+        )
+        .into());
+    }
+
+    // Get the slot phasors for the pole pair harmonic (ν = 1). They are described
+    // by their angle
+    let mut phasor_angles = DMatrix::repeat(slots as usize, layers as usize, 0.0);
+    let slot_angle = TAU * (pole_pairs as f64) / (slots as f64);
+    for layer in 0..layers {
+        for slot in 0..slots {
+            phasor_angles[(slot as usize, layer as usize)] = slot as f64 * slot_angle;
+        }
+    }
+
+    // Create a two-layer zone plan by dividing the phasor star in 2*m sectors
+    // of width π/m. For each slot, find the corresponding sector (and therefore
+    // the corresponding phase) by comparing maximum and minium angle of the sector
+    // (sector borders) to the phasor angle.
+    let mut winding_table = WindingTable::new(slots, 2); // Initialize a double-layer zone plan
+    let sector_width = PI / phases as f64;
+    let (ps, _) = phase_sequence(phases);
+
+    for (idx, phase) in ps.iter().enumerate() {
+        // The small offset is necessary to avoid numerical rounding errors when doing
+        // the "<=" comparison below.
+        let angle_lower_layer = sector_width * (idx as f64 - 0.5) - 1e-10;
+        let angle_upper_layer = sector_width * (idx as f64 + 0.5) - 1e-10;
+
+        // Loop through all slots
+        for slot in 0..slots {
+            let phasor_angle = phasor_angles[(slot as usize, 0)] % TAU;
+
+            if (angle_lower_layer <= phasor_angle && phasor_angle <= angle_upper_layer)
+                || (angle_lower_layer + TAU <= phasor_angle
+                    && phasor_angle <= angle_upper_layer + TAU)
+            {
+                winding_table[Zone::new(slot, 0)] = *phase; // First conductor
+
+                // Return conductor is in the current slot + coil / slot pitch
+                // rem_euclid-operator for circular indexing
+                let return_slot = (slot as i32 + span).rem_euclid(slots as i32) as u16;
+                winding_table[Zone::new(return_slot, 1)] = -phase;
+            }
+        }
+    }
+
+    // In case of a single-layer winding, the double-layer zone plan is reduced to
+    // a single-layer winding according to [Bia06], section 6.
+    if layers == 1 {
+        for slot in (1..slots).step_by(2) {
+            winding_table[Zone::new(slot, 0)] = winding_table[Zone::new(slot, 1)];
+        }
+        return WindingTable(winding_table.0.remove_row(1)).check(phases); // Only return
+    // the first layer
+    } else {
+        return winding_table.check(phases);
+    }
+}
+
+/// Returns a zone plan created with the winding distribution table. This
+/// algorithm is taken from [Car18].
+pub(crate) fn winding_distribution_table(
+    slots: u16,
+    pole_pairs: u16,
+    phases: u16,
+    layers: u16,
+    span: i32,
+) -> Result<WindingTable, Error> {
+    if layers != 1 && layers != 2 {
+        return Err(stem_primitives::ErrorType::WindingTableCreationFailed(
+            "The winding distribution table only works for single- or double layer windings."
+                .into(),
+        )
+        .into());
+    }
+
+    // Winding must be symmetric (e.g. no empty slots)
+    if (layers * slots) % (2 * phases) != 0 {
+        return Err(stem_primitives::ErrorType::WindingTableCreationFailed(
+            "Inner of slots times number of layers must be a multiple of the number of phases."
+                .into(),
+        )
+        .into());
+    }
+
+    // Create empty winding distribution table (WDT). Since nalgebra is
+    // column-major, the table rows and columns are exchanged compared to the
+    // ordering in table 1 of [Car18]. This allows for easy indexing when
+    // populating the table.
+    let number_rows = slots / phases;
+    let mut wdt = DMatrix::repeat(number_rows as usize, phases as usize, -1i32);
+
+    // Distribute all slots to the cells of the WDT
+    for slot in 0..slots {
+        // First cell to be populated is the first one, second one has the distance
+        // pole_pairs from the first one, third one has the distance pole_pairs from the
+        // second one and so on ...
+        let index = (pole_pairs * slot).rem_euclid(slots) as usize;
+        wdt_fill_next_slot(&mut wdt, index, slot);
+    }
+
+    // Defining the border row between first and second half of the WDT. In figure 3
+    // of [Car18], it is shown that the border row itself belongs to the first half
+    // (n_c is rounded up / ceiled!)
+    let empty_slots = 0; // TODO: empty slots are currently not implemented, this code is kept in case
+    // empty slots will be implemented later.
+    let halfpoint;
+    if empty_slots == 0 {
+        halfpoint = number_rows / 2;
+
+    // In table 7 of [Car18], it can be seen that the border rows belongs to
+    // the second half if empty slots occurr
+    } else {
+        halfpoint = number_rows / 2;
+    }
+
+    // In case of a reduced system, swap quadrant 1 and 3 according to figure 4 in
+    // [Car18]
+    let reduced = false; // TODO Left here in case the reduced system will be implemented later
+    if reduced {
+        for col in 0..number_rows {
+            for row in 0..(phases / 2) {
+                let col_with_offset = number_rows + col;
+                let row_with_offset = phases / 2 + 1 + row;
+                let tmp = wdt[(row_with_offset as usize, col as usize)];
+                wdt[(row_with_offset as usize, col as usize)] =
+                    wdt[(row as usize, col_with_offset as usize)];
+                wdt[(row as usize, col_with_offset as usize)] = tmp;
+            }
+        }
+
+    // Shift the second WDT half (named ζ in [Car18]) for non-reduced
+    // systems
+    } else {
+        // More than one row (n_c > 1)
+        if number_rows > 1 {
+            let ζ: i32 = if phases.is_even() {
+                (phases as i32) / 2 - 1
+            } else {
+                (phases as i32 - 1) / 2
+            };
+
+            let wdt_tmp = wdt.clone();
+
+            for col in 0..phases {
+                for row in 0..halfpoint {
+                    let col_with_offset = (col as i32 - ζ - 1).rem_euclid(phases as i32) as usize;
+                    let row_with_offset = (number_rows - halfpoint + row) as usize;
+
+                    wdt[(row_with_offset, col as usize)] =
+                        wdt_tmp[(row_with_offset, col_with_offset)];
+                }
+            }
+            drop(wdt_tmp);
+        }
+    }
+
+    // Transpose the WDT to bring it in the same shape as in [Car18]
+    let mut wdt = wdt.transpose();
+
+    // Remove the empty slots from the first row by marking those with "-1"
+    if empty_slots != 0 {
+        for idx in (wdt.len() - empty_slots)..wdt.len() {
+            wdt[idx] = -1;
+        }
+    }
+
+    // Populate the zone plan from the WDT
+    let mut winding_table = WindingTable::new(slots, layers);
+
+    for col in 0..phases {
+        for row in 0..number_rows {
+            // Which slot is going to be filled?
+            let slot = wdt[(col as usize, row as usize)];
+
+            // Positive or negative phase? If coil_number is in the first half
+            // of the WDT, then the phase is positive, otherwise it is negative
+            // and must be shifted by 1 step.
+
+            // Empty slots are marked by a -1
+            if slot != -1 {
+                let phase = if row + 1 <= number_rows - halfpoint {
+                    col as i32 + 1
+                } else {
+                    -(col as i32 + 1)
+                };
+                winding_table[Zone::new(slot as u16, 0)] = phase;
+            }
+        }
+    }
+
+    // Second layer of the zone plan (if double-layer winding)
+    //  `*******************************************************************
+    if layers == 2 {
+        // The second layer contains the return conductors of the first layer.
+        // Therefore, the zone plan of the first layer is inverted (multiplied by -1)
+        // and circularly shifted ("rolled") by the realized coil span.
+        let mut right_coil_side: Vec<i32> = winding_table.0.row(0).iter().cloned().collect();
+        if span > 0 {
+            right_coil_side.rotate_right(span as usize);
+        } else {
+            right_coil_side.rotate_left(span.abs() as usize);
+        }
+        for slot in 0..winding_table.slots() {
+            winding_table[Zone::new(slot, 1)] = -right_coil_side[usize::from(slot)]
+        }
+    }
+
+    return winding_table.check(phases);
+}
+
+fn wdt_fill_next_slot(wdt: &mut DMatrix<i32>, index: usize, slot: u16) -> () {
+    // Check if the WDT is fully populated. This is the case when WDT does not
+    // contains any zeros anymore. In this case, idx is increased until it is
+    // equal to the number of elements in the WDT.
+    if index == wdt.len() {
+        return ();
+    }
+
+    // Recursive filling of the next free slot
+    if wdt[index] == -1 {
+        wdt[index] = slot as i32;
+        return ();
+    } else {
+        wdt_fill_next_slot(wdt, index + 1, slot)
+    }
+}
