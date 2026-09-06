@@ -55,10 +55,10 @@ impl FecSpectralAnalysis {
     is not equal to the number of phases or if the FFT fails.
 
     ```
-    use winding::{WindingDistributed, Winding, WindingTableMethod, FecSpectralAnalysis};
+    use winding::{DistributedWinding, Winding, WindingTableMethod, FecSpectralAnalysis};
     use approxim::assert_abs_diff_eq;
 
-    let winding = WindingDistributed::new_minimal(12, 1, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
+    let winding = DistributedWinding::new_minimal(12, 1, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
     let mut fec = FecSpectralAnalysis::new(1024);
     let output = fec.analyze(&winding, &[1.0, -0.5, -0.5]).unwrap();
 
@@ -140,14 +140,14 @@ impl FecSpectralAnalysis {
 mod tests {
 
     use super::*;
-    use crate::{WindingDistributed, WindingToothCoil, WindingTableMethod};
+    use crate::{DistributedWinding, ToothCoilWinding, WindingTableMethod};
     use approxim::assert_abs_diff_eq;
 
     #[test]
     fn test_fec_integer_slot_winding() {
         {
             let winding =
-                WindingDistributed::new_minimal(12, 1, 3, 2, 0, 0, WindingTableMethod::Tingley)
+                DistributedWinding::new_minimal(12, 1, 3, 2, 0, 0, WindingTableMethod::Tingley)
                     .unwrap();
             let mut fec = FecSpectralAnalysis::new(1024);
             let output = fec.analyze(&winding, &[0.5, -0.25, -0.25]).unwrap();
@@ -177,7 +177,7 @@ mod tests {
         }
         {
             let winding =
-                WindingDistributed::new_minimal(24, 2, 3, 2, 0, 0, WindingTableMethod::Tingley)
+                DistributedWinding::new_minimal(24, 2, 3, 2, 0, 0, WindingTableMethod::Tingley)
                     .unwrap();
             let mut fec = FecSpectralAnalysis::new(1024);
             let output = fec.analyze(&winding, &[0.5, -0.25, -0.25]).unwrap();
@@ -204,7 +204,8 @@ mod tests {
     #[test]
     fn test_fec_trait_object() {
         let winding =
-            WindingDistributed::new_minimal(12, 1, 3, 2, 0, 0, WindingTableMethod::Tingley).unwrap();
+            DistributedWinding::new_minimal(12, 1, 3, 2, 0, 0, WindingTableMethod::Tingley)
+                .unwrap();
         let trait_object: &dyn Winding = &winding;
         let mut fec = FecSpectralAnalysis::new(1024);
         let output = fec.analyze(trait_object, &[0.5, -0.25, -0.25]).unwrap();
@@ -236,7 +237,8 @@ mod tests {
     #[test]
     fn test_fec_short_pitched_integer_slot_winding() {
         let winding =
-            WindingDistributed::new_minimal(12, 1, 3, 2, 1, 0, WindingTableMethod::Tingley).unwrap();
+            DistributedWinding::new_minimal(12, 1, 3, 2, 1, 0, WindingTableMethod::Tingley)
+                .unwrap();
         let mut fec = FecSpectralAnalysis::new(1024);
         let output = fec.analyze(&winding, &[0.5, -0.25, -0.25]).unwrap();
 
@@ -266,7 +268,8 @@ mod tests {
 
     #[test]
     fn test_fec_tooth_coil_assembly() {
-        let winding = WindingToothCoil::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
+        let winding =
+            ToothCoilWinding::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
         let mut fec = FecSpectralAnalysis::new(1024);
         let output = fec.analyze(&winding, &[1.0, -0.5, -0.5]).unwrap();
 

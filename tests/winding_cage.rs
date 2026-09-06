@@ -3,6 +3,93 @@ use test_database::create_dbm;
 use winding::*;
 
 #[test]
+fn test_resistance_and_properties() {
+    let mut material = Material::default();
+    material.set_electrical_resistivity(ElectricalResistivity::new::<ohm_meter>(1.7857e-8).into());
+
+    let rotor_winding = SquirrelCageWinding::new(
+        28,
+        2,
+        0.0,
+        Box::new(SffWire::new(Arc::new(material), 1.0, 1.0).unwrap()),
+        Length::new::<millimeter>(11.0),
+        Length::new::<millimeter>(11.2),
+        true,
+    )
+    .unwrap();
+    let slot = SlotTrapezoidSemi::new(
+        Length::new::<millimeter>(6.76),
+        Length::new::<millimeter>(1.5),
+        Length::new::<millimeter>(1.5),
+        Length::new::<millimeter>(6.79),
+        Length::new::<millimeter>(5.54),
+        Length::new::<millimeter>(0.75),
+        -0.2243994752564138,
+        1.6829960644231035,
+        1.611245917561955,
+        Length::new::<millimeter>(0.0),
+        Length::new::<millimeter>(0.0),
+        Length::new::<millimeter>(0.0),
+        Length::new::<millimeter>(0.0),
+        Length::new::<millimeter>(0.0),
+        true,
+    )
+    .unwrap();
+
+    let core: CoreRot = magnetic_core::CoreRotBuilder {
+        air_gap_radius: Length::new::<millimeter>(54.4),
+        yoke_radius: Length::new::<millimeter>(19.0),
+        axial_length: Length::new::<millimeter>(165.0),
+        axial_coil_overhang: Length::new::<millimeter>(0.0),
+        iron_fill_factor: 0.95,
+        material: Arc::new(Material::default()),
+        pole_pairs: 2,
+        skew_angle: 0.0,
+        air_gap: Box::new(magnetic_core::AirGapSlotted {
+            slots: 28,
+            starts_in_slot_middle: true,
+            carter_factor_model: CarterFactorModel::Bin12,
+            slot: Box::new(slot),
+        }),
+        flux_barrier: None,
+    }
+    .try_into()
+    .expect("valid magnetic core");
+
+    approxim::assert_abs_diff_eq!(
+        rotor_winding
+            .resistance(
+                1,
+                core.as_lin_or_rot(),
+                &[
+                    InfluencingQuantity::Temperature(
+                        ThermodynamicTemperature::new::<degree_celsius>(20.0)
+                    ),
+                    InfluencingQuantity::Frequency(Frequency::new::<hertz>(50.0)),
+                ],
+                &Default::default(),
+            )
+            .get::<ohm>(),
+        8.624087e-5, // Expected resistance in Ohm
+        epsilon = 1e-10
+    );
+
+    approxim::assert_abs_diff_eq!(
+        rotor_winding
+            .slot_leakage_inductance(
+                1,
+                core.as_lin_or_rot(),
+                Length::new::<millimeter>(1.0),
+                &[],
+                &Default::default(),
+            )
+            .get::<henry>(),
+        2.2416022e-7, // Expected value in H
+        epsilon = 1e-12
+    );
+}
+
+#[test]
 fn test_cage_winding_properties() {
     let cage_winding = SquirrelCageWinding::new_minimal(18, 1).unwrap();
     assert_eq!(cage_winding.periodicity(), 1); // Holds true for all cage windings

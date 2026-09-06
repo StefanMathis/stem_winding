@@ -118,10 +118,10 @@ These windings have lead to crashes in the winding explorer UI
 fn test_tingley_single_layer_tooth_coil_failure() {
     assert!(
         WindingTable::with_method(
-            WindingTableMethod::Tingley,
+            &WindingTableMethod::Tingley,
             NonZeroU16::new(7).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
+            NonZeroU16::MIN,
             NonZeroU16::new(3).expect("not zero"),
             1,
         )
@@ -134,7 +134,7 @@ fn test_tingley_success() {
     {
         // 9/10 double-layer winding with 3 phases
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::Tingley,
+            &WindingTableMethod::Tingley,
             NonZeroU16::new(9).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(5).expect("not zero"),
@@ -155,7 +155,7 @@ fn test_tingley_success() {
     {
         // Test case from [Hut06], fig. 2: 9/8 double-layer winding with 3 phases
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::Tingley,
+            &WindingTableMethod::Tingley,
             NonZeroU16::new(9).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(4).expect("not zero"),
@@ -177,7 +177,7 @@ fn test_tingley_success() {
         // Test case: 12/10 double-layer winding with 3 phases. The coil span is 1
         // (tooth-coil winding)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::Tingley,
+            &WindingTableMethod::Tingley,
             NonZeroU16::new(12).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(5).expect("not zero"),
@@ -200,10 +200,10 @@ fn test_tingley_success() {
         // Test case: 12/2 double-layer winding with 3 phases. The coil span is 6
         // (integer slot winding)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::Tingley,
+            &WindingTableMethod::Tingley,
             NonZeroU16::new(12).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(3).expect("not zero"),
             6,
         )
@@ -223,7 +223,7 @@ fn test_tingley_success() {
         // Test case: 24/10 double-layer winding with 3 phases. The coil span is 2
         // (short pitching)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::Tingley,
+            &WindingTableMethod::Tingley,
             NonZeroU16::new(24).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(5).expect("not zero"),
@@ -246,7 +246,7 @@ fn test_tingley_success() {
         // Test case: 15/10 double-layer winding with 3 phases. The coil span is 1
         // (tooth-coil winding)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::Tingley,
+            &WindingTableMethod::Tingley,
             NonZeroU16::new(15).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(5).expect("not zero"),
@@ -269,10 +269,10 @@ fn test_tingley_success() {
     {
         // Test case: 12/2 single-layer winding with 3 phases. The coil span is 6
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::Tingley,
+            &WindingTableMethod::Tingley,
             NonZeroU16::new(12).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
+            NonZeroU16::MIN,
             NonZeroU16::new(3).expect("not zero"),
             6,
         )
@@ -280,7 +280,7 @@ fn test_tingley_success() {
         let expected_result = WindingTable::from_layer_major(
             [1, 1, -3, -3, 2, 2, -1, -1, 3, 3, -2, -2].into_iter(),
             NonZeroU16::new(12).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -289,10 +289,10 @@ fn test_tingley_success() {
         // Test case: 12/2 double-layer winding with 3 phases. The coil span is 5
         // (integer slot winding with short pitching)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::Tingley,
+            &WindingTableMethod::Tingley,
             NonZeroU16::new(12).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(3).expect("not zero"),
             5,
         )
@@ -311,9 +311,9 @@ fn test_tingley_success() {
     {
         // Test case: 18/4 single-layer winding with 3 phases (fractional-slot winding).
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::Tingley,
+            &WindingTableMethod::Tingley,
             NonZeroU16::new(18).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             5,
@@ -325,7 +325,7 @@ fn test_tingley_success() {
             ]
             .into_iter(),
             NonZeroU16::new(18).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -334,9 +334,9 @@ fn test_tingley_success() {
         // Test case: 12/10 single-layer winding with 3 phases (fractional-slot
         // winding).
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::Tingley,
+            &WindingTableMethod::Tingley,
             NonZeroU16::new(12).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(5).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             1,
@@ -345,7 +345,7 @@ fn test_tingley_success() {
         let expected_result = WindingTable::from_layer_major(
             [3, 1, -1, -2, 2, 3, -3, -1, 1, 2, -2, -3].into_iter(),
             NonZeroU16::new(12).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -354,10 +354,10 @@ fn test_tingley_success() {
         // Test case: 6/2 single-layer winding with 3 phases. The coil span is 4
         // (distributed winding). This test was introduced due to a found bug
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::Tingley,
+            &WindingTableMethod::Tingley,
             NonZeroU16::new(6).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
+            NonZeroU16::MIN,
             NonZeroU16::new(3).expect("not zero"),
             4,
         )
@@ -365,7 +365,7 @@ fn test_tingley_success() {
         let expected_result = WindingTable::from_layer_major(
             [1, -3, 2, -1, 3, -2].into_iter(),
             NonZeroU16::new(6).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -374,9 +374,9 @@ fn test_tingley_success() {
         // Test case: 12/4 single-layer winding with 3 phases. The coil span is 4
         // (distributed winding). This test was introduced due to a found bug
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::Tingley,
+            &WindingTableMethod::Tingley,
             NonZeroU16::new(12).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             4,
@@ -385,7 +385,7 @@ fn test_tingley_success() {
         let expected_result = WindingTable::from_layer_major(
             [1, -3, 2, -1, 3, -2, 1, -3, 2, -1, 3, -2].into_iter(),
             NonZeroU16::new(12).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -393,9 +393,9 @@ fn test_tingley_success() {
         // Test case: 12/10 single-layer winding with 3 phases. The coil span is 1
         // (tooth-coil winding)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::Tingley,
+            &WindingTableMethod::Tingley,
             NonZeroU16::new(12).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(5).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             1,
@@ -404,7 +404,7 @@ fn test_tingley_success() {
         let expected_result = WindingTable::from_layer_major(
             [3, 1, -1, -2, 2, 3, -3, -1, 1, 2, -2, -3].into_iter(),
             NonZeroU16::new(12).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -413,9 +413,9 @@ fn test_tingley_success() {
         // Test case 6: 24/20 single-layer winding with 3 phases. The coil span is 1
         // (tooth-coil winding)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::Tingley,
+            &WindingTableMethod::Tingley,
             NonZeroU16::new(24).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(10).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             1,
@@ -427,7 +427,7 @@ fn test_tingley_success() {
             ]
             .into_iter(),
             NonZeroU16::new(24).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -438,7 +438,7 @@ fn test_winding_table_tingley_error() {
     // Test case 1: 12/10 triple-layer winding with 3 phases. The coil span is 1
     // (tooth-coil winding)
     let winding_table = WindingTable::with_method(
-        WindingTableMethod::Tingley,
+        &WindingTableMethod::Tingley,
         NonZeroU16::new(12).expect("not zero"),
         NonZeroU16::new(3).expect("not zero"),
         NonZeroU16::new(5).expect("not zero"),
@@ -450,7 +450,7 @@ fn test_winding_table_tingley_error() {
     // Test case 2: 12/10 double-layer winding with 5 phases. The coil span is 1
     // (tooth-coil winding)
     let winding_table = WindingTable::with_method(
-        WindingTableMethod::Tingley,
+        &WindingTableMethod::Tingley,
         NonZeroU16::new(12).expect("not zero"),
         NonZeroU16::new(2).expect("not zero"),
         NonZeroU16::new(5).expect("not zero"),
@@ -462,9 +462,9 @@ fn test_winding_table_tingley_error() {
     // Test case 3: 13/10 double-layer winding with 3 phases. The coil span is 1
     // (tooth-coil winding)
     let winding_table = WindingTable::with_method(
-        WindingTableMethod::Tingley,
+        &WindingTableMethod::Tingley,
         NonZeroU16::new(13).expect("not zero"),
-        NonZeroU16::new(1).expect("not zero"),
+        NonZeroU16::MIN,
         NonZeroU16::new(5).expect("not zero"),
         NonZeroU16::new(3).expect("not zero"),
         1,
@@ -479,10 +479,10 @@ fn test_tingley_shift_zones() {
         // (integer slot winding). A zone shift of two is performed, resulting in a
         // doubled zone span
         let mut winding_table = WindingTable::with_method(
-            WindingTableMethod::Tingley,
+            &WindingTableMethod::Tingley,
             NonZeroU16::new(12).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(3).expect("not zero"),
             6,
         )
@@ -504,10 +504,10 @@ fn test_tingley_shift_zones() {
         // (integer slot winding with short pitching). A zone shift of two is
         // performed, resulting in a doubled zone span
         let mut winding_table = WindingTable::with_method(
-            WindingTableMethod::Tingley,
+            &WindingTableMethod::Tingley,
             NonZeroU16::new(12).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(3).expect("not zero"),
             5,
         )
@@ -530,9 +530,9 @@ fn test_zone_plan_coil_side_success() {
     {
         // 18/4 single-layer winding with 3 phases.
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::CoilSide,
+            &WindingTableMethod::CoilSide,
             NonZeroU16::new(18).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             1, // gets ignored
@@ -544,7 +544,7 @@ fn test_zone_plan_coil_side_success() {
             ]
             .into_iter(),
             NonZeroU16::new(18).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -552,9 +552,9 @@ fn test_zone_plan_coil_side_success() {
     {
         // 24/10 single-layer winding with 3 phases.
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::CoilSide,
+            &WindingTableMethod::CoilSide,
             NonZeroU16::new(24).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(5).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             1, // gets ignored
@@ -567,7 +567,7 @@ fn test_zone_plan_coil_side_success() {
             ]
             .into_iter(),
             NonZeroU16::new(24).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -575,9 +575,9 @@ fn test_zone_plan_coil_side_success() {
     {
         // 36/10 single-layer winding with 3 phases.
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::CoilSide,
+            &WindingTableMethod::CoilSide,
             NonZeroU16::new(36).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(5).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             1, // gets ignored
@@ -590,7 +590,7 @@ fn test_zone_plan_coil_side_success() {
             ]
             .into_iter(),
             NonZeroU16::new(36).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -598,10 +598,10 @@ fn test_zone_plan_coil_side_success() {
     {
         // 6/2 single-layer winding with 3 phases.
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::CoilSide,
+            &WindingTableMethod::CoilSide,
             NonZeroU16::new(6).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
+            NonZeroU16::MIN,
             NonZeroU16::new(3).expect("not zero"),
             1, // gets ignored
         )
@@ -609,7 +609,7 @@ fn test_zone_plan_coil_side_success() {
         let expected_result = WindingTable::from_layer_major(
             [1i32, -3, 2, -1, 3, -2].into_iter(),
             NonZeroU16::new(6).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -620,7 +620,7 @@ fn test_algebraic_algorithm_success() {
     {
         // Test case 1: 24/10 double-layer winding with 3 phases.
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::AlgebraicAlgorithm,
+            &WindingTableMethod::AlgebraicAlgorithm,
             NonZeroU16::new(24).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(5).expect("not zero"),
@@ -644,9 +644,9 @@ fn test_algebraic_algorithm_success() {
     {
         // Test case 2: 18/4 single-layer winding with 3 phases.
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::AlgebraicAlgorithm,
+            &WindingTableMethod::AlgebraicAlgorithm,
             NonZeroU16::new(18).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             3,
@@ -658,7 +658,7 @@ fn test_algebraic_algorithm_success() {
             ]
             .into_iter(),
             NonZeroU16::new(18).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -667,7 +667,7 @@ fn test_algebraic_algorithm_success() {
         // Test case 3: 12/10 double-layer winding with 3 phases. The coil span is 1
         // (tooth-coil winding)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::AlgebraicAlgorithm,
+            &WindingTableMethod::AlgebraicAlgorithm,
             NonZeroU16::new(12).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(5).expect("not zero"),
@@ -691,9 +691,9 @@ fn test_algebraic_algorithm_success() {
         // Test case 4: 12/10 single-layer winding with 3 phases. The coil span is 1
         // (tooth-coil winding)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::AlgebraicAlgorithm,
+            &WindingTableMethod::AlgebraicAlgorithm,
             NonZeroU16::new(12).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(5).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             1,
@@ -702,7 +702,7 @@ fn test_algebraic_algorithm_success() {
         let expected_result = WindingTable::from_layer_major(
             [1, -1, -2, 2, 3, -3, -1, 1, 2, -2, -3, 3].into_iter(),
             NonZeroU16::new(12).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -710,10 +710,10 @@ fn test_algebraic_algorithm_success() {
     {
         // Test case 5: 18/2 double-layer winding with 3 phases. The coil span is 9
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::AlgebraicAlgorithm,
+            &WindingTableMethod::AlgebraicAlgorithm,
             NonZeroU16::new(18).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(3).expect("not zero"),
             9,
         )
@@ -737,7 +737,7 @@ fn test_star_of_slots_success() {
         // Test case 1: 12/10 double-layer winding with 3 phases. The coil span is 1
         // (tooth-coil winding)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::StarOfSlots,
+            &WindingTableMethod::StarOfSlots,
             NonZeroU16::new(12).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(5).expect("not zero"),
@@ -760,10 +760,10 @@ fn test_star_of_slots_success() {
         // Test case 2: 12/2 double-layer winding with 3 phases. The coil span is 6
         // (integer slot winding)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::StarOfSlots,
+            &WindingTableMethod::StarOfSlots,
             NonZeroU16::new(12).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(3).expect("not zero"),
             6,
         )
@@ -783,7 +783,7 @@ fn test_star_of_slots_success() {
         // Test case 3: 24/10 double-layer winding with 3 phases. The coil span is 2
         // (short pitching)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::StarOfSlots,
+            &WindingTableMethod::StarOfSlots,
             NonZeroU16::new(24).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(5).expect("not zero"),
@@ -807,7 +807,7 @@ fn test_star_of_slots_success() {
         // Test case 4: 15/10 double-layer winding with 3 phases. The coil span is 1
         // (tooth-coil winding)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::StarOfSlots,
+            &WindingTableMethod::StarOfSlots,
             NonZeroU16::new(15).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(5).expect("not zero"),
@@ -831,9 +831,9 @@ fn test_star_of_slots_success() {
         // Test case 5: 12/10 single-layer winding with 3 phases. The coil span is 1
         // (tooth-coil winding)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::StarOfSlots,
+            &WindingTableMethod::StarOfSlots,
             NonZeroU16::new(12).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(5).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             1,
@@ -842,7 +842,7 @@ fn test_star_of_slots_success() {
         let expected_result = WindingTable::from_layer_major(
             [1i32, -1, -2, 2, 3, -3, -1, 1, 2, -2, -3, 3].into_iter(),
             NonZeroU16::new(12).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -850,9 +850,9 @@ fn test_star_of_slots_success() {
     {
         // Test case 6: 18/4 single-layer winding with 3 phases.
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::StarOfSlots,
+            &WindingTableMethod::StarOfSlots,
             NonZeroU16::new(18).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             4,
@@ -864,7 +864,7 @@ fn test_star_of_slots_success() {
             ]
             .into_iter(),
             NonZeroU16::new(18).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -872,9 +872,9 @@ fn test_star_of_slots_success() {
     {
         // Test case 7: 24/10 single-layer winding with 3 phases.
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::StarOfSlots,
+            &WindingTableMethod::StarOfSlots,
             NonZeroU16::new(24).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(5).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             2,
@@ -886,7 +886,7 @@ fn test_star_of_slots_success() {
             ]
             .into_iter(),
             NonZeroU16::new(24).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -894,10 +894,10 @@ fn test_star_of_slots_success() {
     {
         // Test case 8: 6/2 single-layer winding with 3 phases.
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::StarOfSlots,
+            &WindingTableMethod::StarOfSlots,
             NonZeroU16::new(6).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
+            NonZeroU16::MIN,
             NonZeroU16::new(3).expect("not zero"),
             3,
         )
@@ -905,7 +905,7 @@ fn test_star_of_slots_success() {
         let expected_result = WindingTable::from_layer_major(
             [1i32, -3, 2, -1, 3, -2].into_iter(),
             NonZeroU16::new(6).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -913,9 +913,9 @@ fn test_star_of_slots_success() {
     {
         // Test case 9: 36/10 single-layer winding with 3 phases.
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::StarOfSlots,
+            &WindingTableMethod::StarOfSlots,
             NonZeroU16::new(36).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(5).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             3,
@@ -928,7 +928,7 @@ fn test_star_of_slots_success() {
             ]
             .into_iter(),
             NonZeroU16::new(36).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -940,7 +940,7 @@ fn test_distribution_table() {
         // Test case 1: 12/10 double-layer winding with 3 phases. The coil span is 1
         // (tooth-coil winding)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::DistributionTable,
+            &WindingTableMethod::DistributionTable,
             NonZeroU16::new(12).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(5).expect("not zero"),
@@ -962,10 +962,10 @@ fn test_distribution_table() {
         // Test case 2: 12/2 double-layer winding with 3 phases. The coil span is 6
         // (integer slot winding)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::DistributionTable,
+            &WindingTableMethod::DistributionTable,
             NonZeroU16::new(12).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(3).expect("not zero"),
             6,
         )
@@ -984,7 +984,7 @@ fn test_distribution_table() {
         // Test case 3: 24/10 double-layer winding with 3 phases. The coil span is 2
         // (short pitching)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::DistributionTable,
+            &WindingTableMethod::DistributionTable,
             NonZeroU16::new(24).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(5).expect("not zero"),
@@ -1007,10 +1007,10 @@ fn test_distribution_table() {
         // Test case 4: 3/2 double-layer winding with 3 phases. The coil span is 1
         // (tooth-coil winding)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::DistributionTable,
+            &WindingTableMethod::DistributionTable,
             NonZeroU16::new(3).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(3).expect("not zero"),
             1,
         )
@@ -1026,9 +1026,9 @@ fn test_distribution_table() {
         // Test case 5: 12/10 single-layer winding with 3 phases. The coil span is 1
         // (tooth-coil winding)
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::DistributionTable,
+            &WindingTableMethod::DistributionTable,
             NonZeroU16::new(12).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(5).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             1,
@@ -1037,16 +1037,16 @@ fn test_distribution_table() {
         let expected_result = WindingTable::from_layer_major(
             [1, 2, -2, -3, 3, 1, -1, -2, 2, 3, -3, -1].into_iter(),
             NonZeroU16::new(12).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
     {
         // Test case 6: 18/4 single-layer winding with 3 phases.
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::DistributionTable,
+            &WindingTableMethod::DistributionTable,
             NonZeroU16::new(18).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             3,
@@ -1061,7 +1061,7 @@ fn test_distribution_table() {
             ]
             .into_iter(),
             NonZeroU16::new(18).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }
@@ -1069,9 +1069,9 @@ fn test_distribution_table() {
     {
         // Test case 7: 36/10 single-layer winding with 3 phases.
         let winding_table = WindingTable::with_method(
-            WindingTableMethod::DistributionTable,
+            &WindingTableMethod::DistributionTable,
             NonZeroU16::new(36).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
             NonZeroU16::new(5).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             3,
@@ -1087,7 +1087,7 @@ fn test_distribution_table() {
             ]
             .into_iter(),
             NonZeroU16::new(36).expect("not zero"),
-            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::MIN,
         );
         assert_eq!(winding_table, expected_result);
     }

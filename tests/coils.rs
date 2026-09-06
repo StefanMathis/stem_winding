@@ -33,8 +33,8 @@ fn test_coil_zones_iterator() {
         let coil: Coil = CoilHalf::new(
             Zone::new(0, 1),
             true,
-            NonZeroUsize::new(1).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
+            NonZeroUsize::MIN,
             Box::new(RoundWire::default()),
         )
         .into();
@@ -53,8 +53,8 @@ fn test_coil_zones_iterator() {
         let coil: Coil = CoilHalf::new(
             Zone::new(2, 1),
             false,
-            NonZeroUsize::new(1).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
+            NonZeroUsize::MIN,
             Box::new(RoundWire::default()),
         )
         .into();
@@ -75,8 +75,8 @@ fn test_coil_zones_iterator() {
             Zone::new(1, 1),
             true,
             false,
-            NonZeroUsize::new(1).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
+            NonZeroUsize::MIN,
             Box::new(RoundWire::default()),
         )
         .unwrap()
@@ -105,8 +105,8 @@ fn test_coil_zones_iterator() {
             Zone::new(4, 1),
             true,
             false,
-            NonZeroUsize::new(1).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
+            NonZeroUsize::MIN,
             Box::new(RoundWire::default()),
         )
         .unwrap()
@@ -135,8 +135,8 @@ fn test_coil_zones_iterator() {
             Zone::new(3, 1),
             true,
             false,
-            NonZeroUsize::new(1).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
+            NonZeroUsize::MIN,
             Box::new(RoundWire::default()),
         )
         .unwrap()
@@ -169,8 +169,8 @@ fn full_coil_same_zones() {
             Zone::new(0, 0),
             true,
             false,
-            NonZeroUsize::new(1).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
+            NonZeroUsize::MIN,
             Box::new(RoundWire::default()),
         )
         .is_err()
@@ -195,7 +195,7 @@ fn test_coil_resistance() {
 
     let resistance = 1273239.5;
     approxim::assert_abs_diff_eq!(
-        wire.resistance(length, zone_area, NonZeroUsize::new(1).unwrap(), conditions)
+        wire.resistance(length, zone_area, NonZeroUsize::MIN, conditions)
             .get::<ohm>(),
         resistance,
         epsilon = 1.0
@@ -208,7 +208,7 @@ fn test_coil_resistance() {
             true,
             true,
             NonZeroUsize::new(2).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
             Box::new(wire.clone()),
         )
         .unwrap();
@@ -225,7 +225,7 @@ fn test_coil_resistance() {
             true,
             true,
             NonZeroUsize::new(10).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
             Box::new(wire.clone()),
         )
         .unwrap();
@@ -256,7 +256,7 @@ fn test_coil_resistance() {
             true,
             true,
             NonZeroUsize::new(10).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
             Box::new(wire_sff),
         )
         .unwrap();
@@ -279,7 +279,7 @@ fn test_covered_slots() {
             true,
             true,
             NonZeroUsize::new(2).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
             Box::new(RoundWire::default()),
         )
         .unwrap();
@@ -295,7 +295,7 @@ fn test_covered_slots() {
             false,
             true,
             NonZeroUsize::new(2).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
             Box::new(RoundWire::default()),
         )
         .unwrap();
@@ -315,7 +315,7 @@ fn test_covered_slots() {
             true,
             false,
             NonZeroUsize::new(2).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
             Box::new(RoundWire::default()),
         )
         .unwrap();
@@ -335,7 +335,7 @@ fn test_covered_slots() {
             false,
             false,
             NonZeroUsize::new(2).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
             Box::new(RoundWire::default()),
         )
         .unwrap();

@@ -1,82 +1,39 @@
+use std::{
+    f64::consts::TAU,
+    num::{NonZeroU16, NonZeroUsize},
+};
+
+use compare_variables::compare_variables;
 use dyn_clone::clone_box;
-use num::rational::Ratio;
-use planar_geo::shape::Shape;
-use slot::CoilLayout;
-use std::f64::consts::TAU;
-use wire::{IsWire, SffWire};
+use stem_coil_layout::{CoilLayout, Zone};
+use stem_wire::prelude::*;
+
+use crate::{
+    coils::{Coil, CoilHalf, Coils},
+    error::Error,
+    winding::{Connection, Winding},
+};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-
-use material::{InfluencingQuantity, InfluencingQuantityType, IsQuantityFunction};
-
-
-use magnetic_core::{CoreRef, IsCoreRef};
-
-
-use stem_primitives::Overrides;
-
-#[cfg(feature = "serde")]
-use deserialize_untagged_verbose_error::DeserializeAlias;
-
-#[cfg(feature = "serde")]
-use dyn_quantity::deserialize_quantity;
-
-use uom::si::{f64::*, length::meter};
-
-use compare_variables::compare_variables;
-
-use crate::{Coil, CoilHalf, Coils, Connection, Winding, Zone};
-
 #[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize, DeserializeAlias))]
-#[cfg_attr(feature = "serde", serde(try_from = "serde_impl::WindingCageVariants"))]
-#[cfg_attr(feature = "serde", deserialize_alias(name = "NewFull"))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct SquirrelCageWinding {
-    slots: u16,                           // Inner of slots
-    pole_pairs: u16,                      // Inner of pole pairs
-    end_winding_leakage_coefficient: f64, // End winding flux leakage coefficient
-    wire: Box<dyn IsWire>,                // Wire motor
+    slots: NonZeroU16,
+    pole_pairs: NonZeroU16,
+    end_winding_leakage_coefficient: f64,
+    wire: Box<dyn Wire>,
     #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_quantity"))]
     end_ring_width: Length,
     #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_quantity"))]
     end_ring_height: Length,
     consider_current_displacement: bool,
+    #[cfg_attr(feature = "serde", serde(skip))]
     coils: Coils,
 }
 
 impl SquirrelCageWinding {
-    pub fn new(
-        slots: u16,
-        pole_pairs: u16,
-        end_winding_leakage_coefficient: f64,
-        wire: Box<dyn IsWire>,
-        end_ring_width: Length,
-        end_ring_height: Length,
-        consider_current_displacement: bool,
-    ) -> stem_primitives::Result<Self> {
-        // Create the coils vector
-        let mut coils = Coils::with_capacity(slots.into());
-        for slot in 0..slots {
-            let zone = Zone::new(slot, 0);
-            let coil: Coil = CoilHalf::new(zone, true, 1, slot + 1, clone_box(&*wire)).into();
-            coils.0.insert(zone, coil);
-        }
-
-        let winding = Self {
-            slots,
-            pole_pairs,
-            end_winding_leakage_coefficient,
-            wire,
-            end_ring_width,
-            end_ring_height,
-            consider_current_displacement,
-            coils,
-        };
-        return winding.check();
-    }
-
     pub fn end_ring_width(&self) -> Length {
         return self.end_ring_width;
     }
@@ -93,16 +50,8 @@ impl SquirrelCageWinding {
         self.consider_current_displacement = consider;
     }
 
-    pub fn wire(&self) -> &dyn IsWire {
+    pub fn wire(&self) -> &dyn Wire {
         return &*self.wire;
-    }
-
-    /// Check if self is properly defined (no illegal parameter values)
-    fn check(self) -> stem_primitives::Result<Self> {
-        compare_variables!(0 < self.slots)?;
-        compare_variables!(0 < self.pole_pairs)?;
-        compare_variables!(0.0 <= self.end_winding_leakage_coefficient)?;
-        return Ok(self);
     }
 }
 
@@ -121,102 +70,89 @@ impl Clone for SquirrelCageWinding {
     }
 }
 
-impl Default for SquirrelCageWinding {
-    fn default() -> Self {
-        return SquirrelCageWinding::new(
-            28,
-            2,
-            0.0,
-            Box::new(SffWire::default()),
-            Length::new::<meter>(0.0),
-            Length::new::<meter>(0.0),
-            true,
-        )
-        .unwrap();
-    }
-}
-
 #[cfg_attr(feature = "serde", typetag::serde)]
 impl Winding for SquirrelCageWinding {
-    fn phases(&self) -> u16 {
-        return self.slots;
+    fn phases(&self) -> NonZeroU16 {
+        self.slots
     }
 
-    fn slots(&self) -> u16 {
-        return self.slots;
+    fn slots(&self) -> NonZeroU16 {
+        self.slots
     }
 
-    fn pole_pairs(&self) -> u16 {
-        return self.pole_pairs;
+    fn pole_pairs(&self) -> NonZeroU16 {
+        self.pole_pairs
     }
 
-    fn layers(&self) -> u16 {
-        return 1;
+    fn layers(&self) -> NonZeroU16 {
+        NonZeroU16::MIN
     }
 
-    fn periodicity(&self) -> u16 {
-        return num::integer::gcd(self.slots(), self.pole_pairs());
+    fn periodicity(&self) -> NonZeroU16 {
+        return num::integer::gcd(self.slots().get(), self.pole_pairs().get())
+            .try_into()
+            .expect("not zero");
     }
 
     fn turns_at(&self, _zone: Zone) -> usize {
-        return 1;
+        1
     }
 
     fn phase_at(&self, zone: Zone) -> Option<i32> {
-        return Some(zone.slot as i32 + 1);
+        Some(i32::from(u16::from(zone.slot)) + 1)
     }
 
     fn coil_layout(&self) -> CoilLayout {
-        return CoilLayout::Single;
+        CoilLayout::Single
     }
 
-    fn parallel_paths(&self) -> u16 {
-        return 1;
+    fn parallel_paths(&self) -> NonZeroU16 {
+        NonZeroU16::MIN
     }
 
     /// According to the "Stabmodell" as presented in [Hut18], the number of
     /// turns per phase is 0.5 for a cage winding
-    fn turns_per_phase(&self, _phase: u16) -> Ratio<usize> {
-        return Ratio::new(1, 2);
+    fn turns_per_phase(&self, _phase: NonZeroU16) -> num::rational::Ratio<usize> {
+        num::rational::Ratio::new(1, 2)
     }
 
     fn connection(&self) -> Connection {
-        return Connection::Star;
+        Connection::Star
     }
 
     fn end_winding_leakage_coefficient(&self) -> f64 {
-        return self.end_winding_leakage_coefficient;
+        self.end_winding_leakage_coefficient
     }
 
     /// Returns the angle between two neighbouring phases.
     fn phase_angle_difference(&self) -> f64 {
-        return TAU / ((self.phases() / self.periodicity()) as f64);
+        TAU / f64::from(self.phases().get() / self.periodicity().get())
     }
 
     /// Returns the number of wound coils per phase (equals winding_holes in
     /// case of single-layer winding).
     fn coils_per_phase(&self) -> u16 {
-        return 1;
+        1
     }
 
-    fn coil_groups_per_phase(&self) -> u16 {
-        return 1;
+    fn coil_groups_per_phase(&self) -> NonZeroU16 {
+        NonZeroU16::MIN
     }
 
     fn coil_at(&self, zone: Zone) -> Option<&Coil> {
-        return self.coils.0.get(&zone);
+        self.coils.0.get(&zone)
     }
 
     fn as_dyn(&self) -> &dyn Winding {
         self
     }
 
-    
+    #[cfg(feature = "stem_core")]
     fn is_symmetric(&self, _core: CoreRef<'_>, _overrides: &Overrides) -> bool {
         return true;
     }
 
-    
+    #[cfg(feature = "stem_core")]
     fn slot_leakage_inductance(
         &self,
         _: u16,
@@ -280,7 +216,7 @@ impl Winding for SquirrelCageWinding {
         }
     }
 
-    
+    #[cfg(feature = "stem_core")]
     fn end_winding_half_turn_volume(
         &self,
         core: CoreRef<'_>,
@@ -315,10 +251,10 @@ impl Winding for SquirrelCageWinding {
         }
     }
 
-    
+    #[cfg(feature = "stem_core")]
     fn resistance(
         &self,
-        _phase: u16,
+        _phase: NonZeroU16,
         core: CoreRef<'_>,
         conditions: &[InfluencingQuantity],
         overrides: &Overrides,
@@ -409,7 +345,7 @@ impl Winding for SquirrelCageWinding {
 
     // Calculate the end winding inductance according to [Mat19], eq. (3.70) and
     // (3.71).
-    
+    #[cfg(feature = "stem_core")]
     fn end_winding_leakage_inductance(
         &self,
         _: u16,
@@ -430,7 +366,7 @@ impl Winding for SquirrelCageWinding {
         return ring_segment_inductance / (2.0 * (PI * poles_per_slot).sin());
     }
 
-    
+    #[cfg(feature = "stem_core")]
     fn end_winding_half_turn_length(
         &self,
         core: CoreRef<'_>,
@@ -455,6 +391,7 @@ impl Winding for SquirrelCageWinding {
         }
     }
 
+    #[cfg(feature = "stem_core")]
     fn slot_shapes(&self, slot: &dyn slot::IsSlot) -> Vec<Shape> {
         // Check if the slot opening is filled. This is the case for cage windings with
         // a bar wire.
@@ -467,84 +404,99 @@ impl Winding for SquirrelCageWinding {
     }
 }
 
+#[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
-struct New {
-    slots: u16,                           // Inner of slots
-    pole_pairs: u16,                      // Inner of pole pairs
-    end_winding_leakage_coefficient: f64, // End winding flux leakage coefficient
-    wire: Box<dyn IsWire>,                // Wire motor
+pub struct SquirrelCageBuilder {
+    pub slots: NonZeroU16,
+    pub pole_pairs: NonZeroU16,
+    pub end_winding_leakage_coefficient: f64,
+    pub wire: Box<dyn Wire>,
     #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_quantity"))]
-    end_ring_width: Length,
+    pub end_ring_width: Length,
     #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_quantity"))]
-    end_ring_height: Length,
-    consider_current_displacement: bool,
+    pub end_ring_height: Length,
+    pub consider_current_displacement: bool,
 }
 
-impl TryFrom<New> for SquirrelCageWinding {
-    type Error = stem_primitives::Error;
+impl TryFrom<SquirrelCageBuilder> for SquirrelCageWinding {
+    type Error = Error;
 
-    fn try_from(value: New) -> Result<Self, Self::Error> {
-        return Self::new(
-            value.slots,
-            value.pole_pairs,
-            value.end_winding_leakage_coefficient,
-            value.wire,
-            value.end_ring_width,
-            value.end_ring_height,
-            value.consider_current_displacement,
-        );
+    fn try_from(builder: SquirrelCageBuilder) -> Result<Self, Self::Error> {
+        compare_variables!(0.0 <= builder.end_winding_leakage_coefficient)?;
+
+        let mut coils = Coils::with_capacity(u16::from(builder.slots).into());
+        for slot in 0..u16::from(builder.slots) {
+            let zone = Zone::new(slot, 0);
+            let coil: Coil = CoilHalf::new(
+                zone,
+                true,
+                NonZeroUsize::MIN,
+                NonZeroU16::new(slot + 1).expect("is non-zero"),
+                clone_box(&*builder.wire),
+            )
+            .into();
+            coils.0.insert(zone, coil);
+        }
+
+        return Ok(SquirrelCageWinding {
+            slots: builder.slots,
+            pole_pairs: builder.pole_pairs,
+            end_winding_leakage_coefficient: builder.end_winding_leakage_coefficient,
+            wire: builder.wire,
+            end_ring_width: builder.end_ring_width,
+            end_ring_height: builder.end_ring_height,
+            consider_current_displacement: builder.consider_current_displacement,
+            coils,
+        });
     }
 }
 
-#[derive(constructor)]
+#[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
-#[constructor(
-    target = "SquirrelCageWinding",
-    fn_name = "new_minimal",
-    error = "stem_primitives::Error"
-)]
-struct NewMinimal {
-    pub slots: u16,      // Inner of slots
-    pub pole_pairs: u16, // Inner of pole pairs
+pub struct SquirrelCageMinimalBuilder {
+    pub slots: NonZeroU16,
+    pub pole_pairs: NonZeroU16,
 }
 
-impl TryFrom<NewMinimal> for SquirrelCageWinding {
-    type Error = stem_primitives::Error;
+impl TryFrom<SquirrelCageMinimalBuilder> for SquirrelCageWinding {
+    type Error = Error;
 
-    fn try_from(value: NewMinimal) -> Result<Self, Self::Error> {
-        return Self::new(
-            value.slots,
-            value.pole_pairs,
-            0.0,
-            Box::new(SffWire::default()),
-            Length::new::<meter>(0.0),
-            Length::new::<meter>(0.0),
-            true,
-        );
+    fn try_from(builder: SquirrelCageMinimalBuilder) -> Result<Self, Self::Error> {
+        return SquirrelCageBuilder {
+            slots: builder.slots,
+            pole_pairs: builder.pole_pairs,
+            end_winding_leakage_coefficient: 0.0,
+            wire: Box::new(SffWire::default()),
+            end_ring_width: Length::new::<meter>(0.0),
+            end_ring_height: Length::new::<meter>(0.0),
+            consider_current_displacement: true,
+        }
+        .try_into();
     }
 }
 
 #[cfg(feature = "serde")]
-mod serde_impl {
-    use super::*;
-    use deserialize_untagged_verbose_error::{DeserializeUntaggedVerboseError, TryFromEnum};
-
-    #[derive(TryFromEnum, DeserializeUntaggedVerboseError)]
-    #[try_from_enum(target = "SquirrelCageWinding", error = "stem_primitives::Error")]
-    pub(super) enum WindingCageVariants {
-        #[try_from_enum(convert_with = "check")]
-        NewFull(NewFull),
-        New(New),
-        NewMinimal(NewMinimal),
-    }
-
-    fn check(alias: NewFull) -> stem_primitives::Result<SquirrelCageWinding> {
-        return SquirrelCageWinding::from(alias).check();
+impl<'de> Deserialize<'de> for OpenTrapezoidSlot {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(deserialize_untagged_verbose_error::DeserializeUntaggedVerboseError)]
+        enum WindingEnum {
+            SquirrelCageBuilder(SquirrelCageBuilder),
+            SquirrelCageMinimalBuilder(SquirrelCageMinimalBuilder),
+        }
+        let w = WindingEnum::deserialize(deserializer)?;
+        match s {
+            SlotEnum::SquirrelCageBuilder(s) => s.try_into().map_err(serde::de::Error::custom),
+            SlotEnum::SquirrelCageMinimalBuilder(s) => {
+                s.try_into().map_err(serde::de::Error::custom)
+            }
+        }
     }
 }
 
+#[cfg(feature = "stem_core")]
 fn outer_end_ring_radius(
     is_outer_part: bool,
     air_gap_radius: Length,
@@ -557,6 +509,7 @@ fn outer_end_ring_radius(
     };
 }
 
+#[cfg(feature = "stem_core")]
 fn inner_end_ring_radius(
     is_outer_part: bool,
     air_gap_radius: Length,
@@ -570,99 +523,55 @@ fn inner_end_ring_radius(
 }
 
 /// Correction factor according to [Tri36].
+#[cfg(feature = "stem_core")]
 fn end_ring_resistance_coefficient(
     outer_end_ring_radius: Length,
     inner_end_ring_radius: Length,
     winding: &SquirrelCageWinding,
 ) -> f64 {
-    return winding.pole_pairs() as f64
+    return f64::from(u16::from(winding.pole_pairs()))
         * f64::from(
             (2.0 * outer_end_ring_radius) / (outer_end_ring_radius + inner_end_ring_radius),
         )
         * (1.0 - f64::from(inner_end_ring_radius / outer_end_ring_radius))
         * (1.0
             + f64::from(inner_end_ring_radius / outer_end_ring_radius)
-                .powi(2 * winding.pole_pairs() as i32))
+                .powi(2 * i32::from(u16::from(winding.pole_pairs()))))
         / (1.0
             - f64::from(inner_end_ring_radius / outer_end_ring_radius)
-                .powi(2 * winding.pole_pairs() as i32));
+                .powi(2 * i32::from(u16::from(winding.pole_pairs()))));
 }
 
 #[cfg(test)]
+#[cfg(feature = "stem_core")]
 mod tests {
     use std::sync::Arc;
 
-    use magnetic_core::{CarterFactorModel, CoreRot};
-    use material::Material;
-    use slot::SlotTrapezoidSemi;
-    use uom::si::electrical_resistance::ohm;
-    use uom::si::electrical_resistivity::ohm_meter;
-    use uom::si::frequency::hertz;
-    use uom::si::inductance::henry;
-    use uom::si::length::millimeter;
-    use uom::si::thermodynamic_temperature::degree_celsius;
+    use stem_wire::prelude::*;
 
     use super::*;
 
     #[test]
-    fn test_cage_winding_s28_fb_v1() {
+    fn test_end_ring_resistance() {
         let mut material = Material::default();
-        material.set_electrical_resistivity(material::IsQuantityFunction::Constant(
-            ElectricalResistivity::new::<ohm_meter>(1.7857e-8),
-        ));
+        material
+            .set_electrical_resistivity(ElectricalResistivity::new::<ohm_meter>(1.7857e-8).into());
 
-        let rotor_winding = SquirrelCageWinding::new(
-            28,
-            2,
-            0.0,
-            Box::new(SffWire::new(Arc::new(material), 1.0, 1.0).unwrap()),
-            Length::new::<millimeter>(11.0),
-            Length::new::<millimeter>(11.2),
-            true,
-        )
-        .unwrap();
-        let slot = SlotTrapezoidSemi::new(
-            Length::new::<millimeter>(6.76),
-            Length::new::<millimeter>(1.5),
-            Length::new::<millimeter>(1.5),
-            Length::new::<millimeter>(6.79),
-            Length::new::<millimeter>(5.54),
-            Length::new::<millimeter>(0.75),
-            -0.2243994752564138,
-            1.6829960644231035,
-            1.611245917561955,
-            Length::new::<millimeter>(0.0),
-            Length::new::<millimeter>(0.0),
-            Length::new::<millimeter>(0.0),
-            Length::new::<millimeter>(0.0),
-            Length::new::<millimeter>(0.0),
-            true,
-        )
-        .unwrap();
-
-        let core: CoreRot = magnetic_core::CoreRotBuilder {
-            air_gap_radius: Length::new::<millimeter>(54.4),
-            yoke_radius: Length::new::<millimeter>(19.0),
-            axial_length: Length::new::<millimeter>(165.0),
-            axial_coil_overhang: Length::new::<millimeter>(0.0),
-            iron_fill_factor: 0.95,
-            material: Arc::new(Material::default()),
-            pole_pairs: 2,
-            skew_angle: 0.0,
-            air_gap: Box::new(magnetic_core::AirGapSlotted {
-                slots: 28,
-                starts_in_slot_middle: true,
-                carter_factor_model: CarterFactorModel::Bin12,
-                slot: Box::new(slot),
-            }),
-            flux_barrier: None,
+        let winding: SquirrelCageWinding = SquirrelCageBuilder {
+            slots: NonZeroU16::new(28).expect("not zero"),
+            pole_pairs: NonZeroU16::new(2).expect("not zero"),
+            end_winding_leakage_coefficient: 0.0,
+            wire: Box::new(SffWire::new(Arc::new(material), 1.0, 1.0).unwrap()),
+            end_ring_width: Length::new::<millimeter>(11.0),
+            end_ring_height: Length::new::<millimeter>(11.2),
+            consider_current_displacement: true,
         }
         .try_into()
-        .expect("valid magnetic core");
+        .expect("valid winding");
 
         // Check the end ring
         let outer_end_ring_radius_ =
-            outer_end_ring_radius(core.is_outer_part(), core.air_gap_radius(), &rotor_winding);
+            outer_end_ring_radius(false, Length::new::<millimeter>(54.4), &winding);
         approxim::assert_abs_diff_eq!(
             outer_end_ring_radius_.get::<millimeter>(),
             54.4, // Expected resistance in Ohm
@@ -670,7 +579,7 @@ mod tests {
         );
 
         let inner_end_ring_radius_ =
-            inner_end_ring_radius(core.is_outer_part(), core.air_gap_radius(), &rotor_winding);
+            inner_end_ring_radius(false, Length::new::<millimeter>(54.4), &winding);
         approxim::assert_abs_diff_eq!(
             inner_end_ring_radius_.get::<millimeter>(),
             43.2, // Expected resistance in Ohm
@@ -681,42 +590,10 @@ mod tests {
             end_ring_resistance_coefficient(
                 outer_end_ring_radius_,
                 inner_end_ring_radius_,
-                &rotor_winding
+                &winding
             ),
             1.06516, // Expected resistance in Ohm
             epsilon = 0.0001
-        );
-
-        approxim::assert_abs_diff_eq!(
-            rotor_winding
-                .resistance(
-                    1,
-                    core.as_lin_or_rot(),
-                    &[
-                        InfluencingQuantity::Temperature(ThermodynamicTemperature::new::<
-                            degree_celsius,
-                        >(20.0)),
-                        InfluencingQuantity::Frequency(Frequency::new::<hertz>(50.0)),
-                    ],
-                    &Default::default(),
-                )
-                .get::<ohm>(),
-            8.624087e-5, // Expected resistance in Ohm
-            epsilon = 1e-10
-        );
-
-        approxim::assert_abs_diff_eq!(
-            rotor_winding
-                .slot_leakage_inductance(
-                    1,
-                    core.as_lin_or_rot(),
-                    Length::new::<millimeter>(1.0),
-                    &[],
-                    &Default::default(),
-                )
-                .get::<henry>(),
-            2.2416022e-7, // Expected value in H
-            epsilon = 1e-12
         );
     }
 }

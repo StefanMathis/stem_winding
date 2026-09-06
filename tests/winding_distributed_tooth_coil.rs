@@ -3,7 +3,7 @@ use indoc::indoc;
 use nalgebra::DMatrix;
 use test_database::create_dbm;
 use winding::*;
-use wire::{IsWire, RoundWire};
+use wire::{Wire, RoundWire};
 
 #[test]
 fn test_iterator() {
@@ -60,7 +60,7 @@ fn test_deserialize_min_single_layer() {
                 double_zone_span: true
                 "};
 
-    let winding: WindingDistributedToothCoil = create_dbm().from_str(yaml).unwrap();
+    let winding: DistributedToothCoilWinding = create_dbm().from_str(yaml).unwrap();
 
     // Check the winding factor
     approxim::assert_abs_diff_eq!(0.4830, winding.winding_factor(1, -0.5), epsilon = 0.0001);
@@ -85,7 +85,7 @@ fn test_deserialize_min_double_layer() {
                 double_zone_span: false
                 "};
 
-    let winding: WindingDistributedToothCoil = create_dbm().from_str(yaml).unwrap();
+    let winding: DistributedToothCoilWinding = create_dbm().from_str(yaml).unwrap();
 
     // Check the winding factor
     approxim::assert_abs_diff_eq!(0.4830, winding.winding_factor(1, 1.0), epsilon = 0.0001);
@@ -98,16 +98,16 @@ fn test_deserialize_min_double_layer() {
 #[test]
 fn test_wrong_number_of_turns() {
     // Calculate with 1 pole pair as working harmonic (one basic winding)
-    assert!(WindingDistributedToothCoil::new_minimal(12, 2, 3, 1, vec![], 1, true).is_err());
-    assert!(WindingDistributedToothCoil::new_minimal(12, 2, 3, 1, vec![1], 1, true).is_ok());
-    assert!(WindingDistributedToothCoil::new_minimal(12, 2, 3, 1, vec![1, 1], 1, true).is_ok());
+    assert!(DistributedToothCoilWinding::new_minimal(12, 2, 3, 1, vec![], 1, true).is_err());
+    assert!(DistributedToothCoilWinding::new_minimal(12, 2, 3, 1, vec![1], 1, true).is_ok());
+    assert!(DistributedToothCoilWinding::new_minimal(12, 2, 3, 1, vec![1, 1], 1, true).is_ok());
 }
 
 #[test]
 fn test_coil_analysis() {
     {
         let winding =
-            WindingDistributedToothCoil::new_minimal(12, 2, 3, 1, vec![1, 1], 1, true).unwrap();
+            DistributedToothCoilWinding::new_minimal(12, 2, 3, 1, vec![1, 1], 1, true).unwrap();
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
                 let throw = coil.span(winding.slots());
@@ -131,7 +131,7 @@ fn test_three_zones_single_layer() {
     {
         // Calculate with 1 pole pair as working harmonic (one basic winding)
         let winding =
-            WindingDistributedToothCoil::new_minimal(12, 2, 3, 1, vec![1, 1], 1, true).unwrap();
+            DistributedToothCoilWinding::new_minimal(12, 2, 3, 1, vec![1, 1], 1, true).unwrap();
 
         assert_eq!(winding.periodicity(), 1);
 
@@ -150,7 +150,7 @@ fn test_three_zones_single_layer() {
     {
         // Calculate with 2 pole pairs as working harmonic (two basic windings)
         let winding =
-            WindingDistributedToothCoil::new_minimal(24, 4, 3, 1, vec![1, 1], 1, true).unwrap();
+            DistributedToothCoilWinding::new_minimal(24, 4, 3, 1, vec![1, 1], 1, true).unwrap();
 
         assert_eq!(winding.periodicity(), 2);
 
@@ -178,7 +178,7 @@ fn test_three_zones_single_layer() {
     {
         // Calculate with 4 pole pairs as working harmonic (two basic windings)
         let winding =
-            WindingDistributedToothCoil::new_minimal(24, 8, 3, 1, vec![1, 1], 1, true).unwrap();
+            DistributedToothCoilWinding::new_minimal(24, 8, 3, 1, vec![1, 1], 1, true).unwrap();
 
         assert_eq!(winding.periodicity(), 2);
 
@@ -206,11 +206,11 @@ fn test_three_zones_single_layer() {
 
 #[test]
 fn test_three_zones_single_layer_differing_number_of_coils() {
-    let mut wires: Vec<Box<dyn IsWire>> = Vec::with_capacity(2);
+    let mut wires: Vec<Box<dyn Wire>> = Vec::with_capacity(2);
     for _ in 0..2 {
         wires.push(Box::new(RoundWire::default()));
     }
-    let winding = WindingDistributedToothCoil::new(
+    let winding = DistributedToothCoilWinding::new(
         24,
         4,
         3,
@@ -245,7 +245,7 @@ fn test_six_zones_single_layer() {
     {
         // Calculate with 2 pole pairs as working harmonic (two basic windings)
         let winding =
-            WindingDistributedToothCoil::new_minimal(48, 10, 3, 1, vec![1, 1], 1, false).unwrap();
+            DistributedToothCoilWinding::new_minimal(48, 10, 3, 1, vec![1, 1], 1, false).unwrap();
 
         assert_eq!(winding.periodicity(), 2);
 
@@ -274,7 +274,7 @@ fn test_six_zones_single_layer() {
         // Calculate with 7 pole pairs as working harmonic (two basic windings)
 
         let winding =
-            WindingDistributedToothCoil::new_minimal(48, 14, 3, 1, vec![1, 1], 1, false).unwrap();
+            DistributedToothCoilWinding::new_minimal(48, 14, 3, 1, vec![1, 1], 1, false).unwrap();
 
         assert_eq!(winding.periodicity(), 2);
 
@@ -321,9 +321,9 @@ fn test_single_layer_24_1() {
     {
         // Calculate with 1 pole pairs as working harmonic (two basic windings)
         let coil_group_turns =
-            WindingDistributedToothCoil::double_layer_turn_distribution(2, 2, 0).unwrap();
+            DistributedToothCoilWinding::double_layer_turn_distribution(2, 2, 0).unwrap();
         let winding =
-            WindingDistributedToothCoil::new_minimal(24, 1, 3, 1, coil_group_turns, 1, false)
+            DistributedToothCoilWinding::new_minimal(24, 1, 3, 1, coil_group_turns, 1, false)
                 .unwrap();
 
         assert_eq!(winding.layers(), 1);
@@ -331,7 +331,7 @@ fn test_single_layer_24_1() {
     }
     {
         // This fails, since the coil_group_turns vector has not the correct length
-        assert!(WindingDistributedToothCoil::new_minimal(24, 1, 3, 1, vec![1], 1, false).is_err());
+        assert!(DistributedToothCoilWinding::new_minimal(24, 1, 3, 1, vec![1], 1, false).is_err());
     }
 }
 
@@ -339,9 +339,9 @@ fn test_single_layer_24_1() {
 fn test_double_layer_24_2() {
     // Calculate with 1 pole pairs as working harmonic (two basic windings)
     let coil_group_turns =
-        WindingDistributedToothCoil::double_layer_turn_distribution(2, 2, 0).unwrap();
+        DistributedToothCoilWinding::double_layer_turn_distribution(2, 2, 0).unwrap();
     let winding =
-        WindingDistributedToothCoil::new_minimal(24, 2, 3, 2, coil_group_turns, 1, false).unwrap();
+        DistributedToothCoilWinding::new_minimal(24, 2, 3, 2, coil_group_turns, 1, false).unwrap();
 
     assert_eq!(winding.layers(), 2);
     assert_eq!(winding.periodicity(), 2);
@@ -379,9 +379,9 @@ fn test_double_layer_differing_number_of_coils_24_2_dl() {
     {
         // Calculate with 2 pole pairs as working harmonic (one basic winding)
         let coil_group_turns =
-            WindingDistributedToothCoil::double_layer_turn_distribution(2, 200, 15).unwrap();
+            DistributedToothCoilWinding::double_layer_turn_distribution(2, 200, 15).unwrap();
         let winding =
-            WindingDistributedToothCoil::new_minimal(12, 1, 3, 2, coil_group_turns, 1, false)
+            DistributedToothCoilWinding::new_minimal(12, 1, 3, 2, coil_group_turns, 1, false)
                 .unwrap();
 
         assert_eq!(winding.periodicity(), 1);
@@ -397,12 +397,12 @@ fn test_double_layer_differing_number_of_coils_24_2_dl() {
     {
         // Calculate with 2 pole pairs as working harmonic (two basic windings)
         let coil_group_turns =
-            WindingDistributedToothCoil::double_layer_turn_distribution(2, 200, 15).unwrap();
+            DistributedToothCoilWinding::double_layer_turn_distribution(2, 200, 15).unwrap();
 
         assert_eq!(coil_group_turns, vec![85, 115]);
 
         let winding =
-            WindingDistributedToothCoil::new_minimal(24, 2, 3, 2, coil_group_turns, 1, false)
+            DistributedToothCoilWinding::new_minimal(24, 2, 3, 2, coil_group_turns, 1, false)
                 .unwrap();
 
         assert_eq!(winding.periodicity(), 2);
@@ -448,9 +448,9 @@ fn test_double_layer_differing_number_of_coils_24_2_dl() {
     {
         // Calculate with 1 pole pairs as working harmonic (two basic windings)
         let coil_group_turns =
-            WindingDistributedToothCoil::double_layer_turn_distribution(2, 200, 30).unwrap();
+            DistributedToothCoilWinding::double_layer_turn_distribution(2, 200, 30).unwrap();
         let winding =
-            WindingDistributedToothCoil::new_minimal(24, 2, 3, 2, coil_group_turns, 1, false)
+            DistributedToothCoilWinding::new_minimal(24, 2, 3, 2, coil_group_turns, 1, false)
                 .unwrap();
 
         // Check the winding factor
@@ -468,16 +468,16 @@ Tests for an overflow which could occur in the harmonic ordinals iterator
 #[test]
 fn test_overflow_iterator_bug() {
     let coil_group_turns =
-        WindingDistributedToothCoil::double_layer_turn_distribution(2, 100, 15).unwrap();
+        DistributedToothCoilWinding::double_layer_turn_distribution(2, 100, 15).unwrap();
 
     // Pole pair number of 1 is ok
     assert!(
-        WindingDistributedToothCoil::new_minimal(12, 1, 3, 2, coil_group_turns.clone(), 1, false,)
+        DistributedToothCoilWinding::new_minimal(12, 1, 3, 2, coil_group_turns.clone(), 1, false,)
             .is_ok()
     );
 
     // Pole pair number of 2 could lead to overflow due to the bug
     assert!(
-        WindingDistributedToothCoil::new_minimal(12, 2, 3, 2, coil_group_turns, 1, false).is_err()
+        DistributedToothCoilWinding::new_minimal(12, 2, 3, 2, coil_group_turns, 1, false).is_err()
     );
 }

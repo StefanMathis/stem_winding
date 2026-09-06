@@ -30,7 +30,7 @@ fn test_deserialize_failed_to_create_winding_table() {
           winding_table_method: Zone
           "};
 
-    let maybe_winding: std::io::Result<WindingDistributed> = create_dbm().from_str(yaml);
+    let maybe_winding: std::io::Result<DistributedWinding> = create_dbm().from_str(yaml);
     assert!(maybe_winding.is_err());
 }
 
@@ -48,7 +48,7 @@ fn test_deserialize_min() {
             winding_table_method: CoilSide
             "};
 
-    let winding: WindingDistributed = create_dbm().from_str(yaml).unwrap();
+    let winding: DistributedWinding = create_dbm().from_str(yaml).unwrap();
 
     // Compare the zone plan
     let winding_table = winding.winding_table(true);
@@ -86,7 +86,7 @@ fn test_deserialize_double_zone_span() {
     concentric_coils: false
     "};
 
-    let winding: WindingDistributed = create_dbm().from_str(yaml).unwrap();
+    let winding: DistributedWinding = create_dbm().from_str(yaml).unwrap();
 
     // Compare the zone plan
     let winding_table = winding.winding_table(false);
@@ -127,7 +127,7 @@ fn test_deserialize_full() {
             concentric_coils: false
             "};
 
-    let winding: WindingDistributed = create_dbm().from_str(yaml).unwrap();
+    let winding: DistributedWinding = create_dbm().from_str(yaml).unwrap();
 
     assert_eq!(winding.turns_in_slot(0), 62);
     assert_eq!(winding.turns_per_phase(1).numer().clone(), 372);
@@ -136,30 +136,30 @@ fn test_deserialize_full() {
 #[test]
 fn test_winding_6_1_dl_coil_span_reduction() {
     let winding =
-        WindingDistributed::new_minimal(6, 1, 3, 2, 0, 0, WindingTableMethod::Tingley).unwrap();
+        DistributedWinding::new_minimal(6, 1, 3, 2, 0, 0, WindingTableMethod::Tingley).unwrap();
     approxim::assert_abs_diff_eq!(1.0, winding.winding_factor(1, 1.0), epsilon = 0.0001);
 
     let winding =
-        WindingDistributed::new_minimal(6, 1, 3, 2, 1, 0, WindingTableMethod::Tingley).unwrap();
+        DistributedWinding::new_minimal(6, 1, 3, 2, 1, 0, WindingTableMethod::Tingley).unwrap();
     approxim::assert_abs_diff_eq!(0.8660254, winding.winding_factor(1, 1.0), epsilon = 0.0001);
 
     let winding =
-        WindingDistributed::new_minimal(6, 1, 3, 2, 2, 0, WindingTableMethod::Tingley).unwrap();
+        DistributedWinding::new_minimal(6, 1, 3, 2, 2, 0, WindingTableMethod::Tingley).unwrap();
     approxim::assert_abs_diff_eq!(0.5, winding.winding_factor(1, 1.0), epsilon = 0.0001);
 
     let winding =
-        WindingDistributed::new_minimal(6, 1, 3, 2, 3, 0, WindingTableMethod::Tingley).unwrap();
+        DistributedWinding::new_minimal(6, 1, 3, 2, 3, 0, WindingTableMethod::Tingley).unwrap();
     approxim::assert_abs_diff_eq!(0.0, winding.winding_factor(1, 1.0), epsilon = 0.0001);
 
     let winding =
-        WindingDistributed::new_minimal(6, 1, 3, 2, 4, 0, WindingTableMethod::Tingley).unwrap();
+        DistributedWinding::new_minimal(6, 1, 3, 2, 4, 0, WindingTableMethod::Tingley).unwrap();
     approxim::assert_abs_diff_eq!(0.5, winding.winding_factor(1, 1.0), epsilon = 0.0001);
 }
 
 #[test]
 fn test_winding_18_4_sl() {
     let winding =
-        WindingDistributed::new_minimal(18, 4, 3, 1, 0, 0, WindingTableMethod::CoilSide).unwrap();
+        DistributedWinding::new_minimal(18, 4, 3, 1, 0, 0, WindingTableMethod::CoilSide).unwrap();
 
     // Check the number of parallel paths
     assert_eq!(1, winding.coil_groups_per_phase());
@@ -186,7 +186,7 @@ fn test_winding_18_4_sl() {
 
 #[test]
 fn test_set_concentric() {
-    let wdg_1 = WindingDistributed::new(
+    let wdg_1 = DistributedWinding::new(
         18,
         1,
         3,
@@ -203,7 +203,7 @@ fn test_set_concentric() {
     )
     .unwrap();
 
-    let mut wdg_2 = WindingDistributed::new(
+    let mut wdg_2 = DistributedWinding::new(
         18,
         1,
         3,
@@ -234,7 +234,7 @@ fn test_set_concentric() {
 fn test_coil_span() {
     {
         let winding =
-            WindingDistributed::new_minimal(18, 1, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
+            DistributedWinding::new_minimal(18, 1, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
                 assert_eq!(coil.span(winding.slots()), 9); // Coil span is always 9
@@ -244,7 +244,7 @@ fn test_coil_span() {
 
     {
         let winding =
-            WindingDistributed::new_minimal(36, 2, 3, 2, 0, 0, WindingTableMethod::Tingley).unwrap();
+            DistributedWinding::new_minimal(36, 2, 3, 2, 0, 0, WindingTableMethod::Tingley).unwrap();
 
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
@@ -256,7 +256,7 @@ fn test_coil_span() {
 
     {
         let winding =
-            WindingDistributed::new_minimal(24, 5, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
+            DistributedWinding::new_minimal(24, 5, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
 
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
@@ -268,7 +268,7 @@ fn test_coil_span() {
 
     {
         let winding =
-            WindingDistributed::new_minimal(24, 5, 3, 2, 0, 0, WindingTableMethod::Tingley).unwrap();
+            DistributedWinding::new_minimal(24, 5, 3, 2, 0, 0, WindingTableMethod::Tingley).unwrap();
 
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
@@ -281,7 +281,7 @@ fn test_coil_span() {
 
     {
         let winding =
-            WindingDistributed::new_minimal(36, 5, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
+            DistributedWinding::new_minimal(36, 5, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
 
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
@@ -293,7 +293,7 @@ fn test_coil_span() {
 
     {
         let winding =
-            WindingDistributed::new_minimal(36, 5, 3, 2, 0, 0, WindingTableMethod::Tingley).unwrap();
+            DistributedWinding::new_minimal(36, 5, 3, 2, 0, 0, WindingTableMethod::Tingley).unwrap();
 
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
@@ -306,7 +306,7 @@ fn test_coil_span() {
 
     // Concentric winding
     {
-        let winding = WindingDistributed::new(
+        let winding = DistributedWinding::new(
             18,
             1,
             3,
@@ -338,7 +338,7 @@ fn test_coil_span() {
 
     // Concentric winding
     {
-        let winding = WindingDistributed::new(
+        let winding = DistributedWinding::new(
             18,
             1,
             3,
@@ -373,7 +373,7 @@ fn test_coil_span() {
 fn test_winding_36_4() {
     {
         let winding =
-            WindingDistributed::new_minimal(36, 2, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
+            DistributedWinding::new_minimal(36, 2, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
 
         // Compare the zone plan
         let winding_table = winding.winding_table(false);
@@ -424,7 +424,7 @@ fn test_winding_36_4() {
 
     {
         let winding =
-            WindingDistributed::new_minimal(36, 2, 3, 2, 1, 0, WindingTableMethod::Tingley).unwrap();
+            DistributedWinding::new_minimal(36, 2, 3, 2, 1, 0, WindingTableMethod::Tingley).unwrap();
 
         // Each coil must go from the upper to the lower layer and have a span of 8
         for coil in winding.coils() {
@@ -445,13 +445,13 @@ fn test_winding_36_4() {
 
         // ====================================================================================
         let winding =
-            WindingDistributed::new_minimal(36, 4, 3, 2, 0, 0, WindingTableMethod::Tingley).unwrap();
+            DistributedWinding::new_minimal(36, 4, 3, 2, 0, 0, WindingTableMethod::Tingley).unwrap();
         approxim::assert_abs_diff_eq!(0.9452, winding.winding_factor(1, 1.0), epsilon = 0.0001);
     }
 
     {
         // This fails because the number of parallel paths is not possible
-        let failed_winding = WindingDistributed::new(
+        let failed_winding = DistributedWinding::new(
             36,
             2,
             3,
@@ -472,39 +472,39 @@ fn test_winding_36_4() {
 
 #[test]
 fn test_failed_creation() {
-    assert!(WindingDistributed::new_minimal(18, 5, 3, 1, 0, 0, WindingTableMethod::Tingley).is_err());
+    assert!(DistributedWinding::new_minimal(18, 5, 3, 1, 0, 0, WindingTableMethod::Tingley).is_err());
 }
 
 #[test]
 fn test_air_gap_leakage_factor() {
     let winding =
-        WindingDistributed::new_minimal(18, 2, 3, 2, 0, 0, WindingTableMethod::Tingley).unwrap();
+        DistributedWinding::new_minimal(18, 2, 3, 2, 0, 0, WindingTableMethod::Tingley).unwrap();
     approxim::assert_abs_diff_eq!(0.045589, winding.air_gap_leakage_factor(), epsilon = 0.0001);
 
     let winding =
-        WindingDistributed::new_minimal(18, 2, 3, 1, 0, 0, WindingTableMethod::CoilSide).unwrap();
+        DistributedWinding::new_minimal(18, 2, 3, 1, 0, 0, WindingTableMethod::CoilSide).unwrap();
     approxim::assert_abs_diff_eq!(0.181971, winding.air_gap_leakage_factor(), epsilon = 0.0001);
 
     let winding =
-        WindingDistributed::new_minimal(36, 2, 3, 2, 0, 0, WindingTableMethod::Tingley).unwrap();
+        DistributedWinding::new_minimal(36, 2, 3, 2, 0, 0, WindingTableMethod::Tingley).unwrap();
     approxim::assert_abs_diff_eq!(0.014061, winding.air_gap_leakage_factor(), epsilon = 0.0001);
 
     let winding =
-        WindingDistributed::new_minimal(36, 2, 3, 2, 1, 0, WindingTableMethod::Tingley).unwrap();
+        DistributedWinding::new_minimal(36, 2, 3, 2, 1, 0, WindingTableMethod::Tingley).unwrap();
     approxim::assert_abs_diff_eq!(0.011494, winding.air_gap_leakage_factor(), epsilon = 0.0001);
 
     let winding =
-        WindingDistributed::new_minimal(36, 2, 3, 2, 2, 0, WindingTableMethod::Tingley).unwrap();
+        DistributedWinding::new_minimal(36, 2, 3, 2, 2, 0, WindingTableMethod::Tingley).unwrap();
     approxim::assert_abs_diff_eq!(0.011090, winding.air_gap_leakage_factor(), epsilon = 0.0001);
 
     let winding =
-        WindingDistributed::new_minimal(36, 2, 3, 2, 0, 1, WindingTableMethod::Tingley).unwrap();
+        DistributedWinding::new_minimal(36, 2, 3, 2, 0, 1, WindingTableMethod::Tingley).unwrap();
     approxim::assert_abs_diff_eq!(0.011494, winding.air_gap_leakage_factor(), epsilon = 0.0001);
 }
 
 #[test]
 fn test_turns_per_phase() {
-    let winding = WindingDistributed::new(
+    let winding = DistributedWinding::new(
         36,
         2,
         3,
@@ -524,7 +524,7 @@ fn test_turns_per_phase() {
     assert_eq!(winding.turns_in_slot(0), 62);
     assert_eq!(winding.turns_per_phase(1).numer().clone(), 372);
 
-    let winding = WindingDistributed::new(
+    let winding = DistributedWinding::new(
         36,
         2,
         3,
@@ -548,7 +548,7 @@ fn test_turns_per_phase() {
 // Create windings with a doubled zone span
 #[test]
 fn test_doubled_zone_span() {
-    let failed_winding_initialization = WindingDistributed::new_with_doubled_zone_span(
+    let failed_winding_initialization = DistributedWinding::new_with_doubled_zone_span(
         18,
         2,
         3,
@@ -563,7 +563,7 @@ fn test_doubled_zone_span() {
     );
     assert!(failed_winding_initialization.is_err());
 
-    let winding = WindingDistributed::new_with_doubled_zone_span(
+    let winding = DistributedWinding::new_with_doubled_zone_span(
         18,
         1,
         3,
@@ -605,7 +605,7 @@ fn test_doubled_zone_span() {
 #[test]
 fn test_derive_coil_assembly() {
     let winding =
-        WindingDistributed::new_minimal(18, 4, 3, 1, 0, 0, WindingTableMethod::CoilSide).unwrap();
+        DistributedWinding::new_minimal(18, 4, 3, 1, 0, 0, WindingTableMethod::CoilSide).unwrap();
     let mut coil_assembly = CoilAssembly::from(&winding);
 
     assert_eq!(coil_assembly.phases(), winding.phases());
@@ -674,7 +674,7 @@ fn test_derive_coil_assembly() {
 #[test]
 fn test_line_to_phase_voltage() {
     // Star
-    let winding = WindingDistributed::new(
+    let winding = DistributedWinding::new(
         18,
         2,
         3,
@@ -703,7 +703,7 @@ fn test_line_to_phase_voltage() {
     );
 
     // Delta
-    let winding = WindingDistributed::new(
+    let winding = DistributedWinding::new(
         18,
         2,
         3,
@@ -864,7 +864,7 @@ fn test_distributed_winding_364_sl() {
         WireGroup::new(Box::new(wire_2), 3),
     ];
     let wire = StrandedWire::new(strand_list).unwrap();
-    let winding = WindingDistributed::new(
+    let winding = DistributedWinding::new(
         36,
         2,
         3,
@@ -945,7 +945,7 @@ fn test_distributed_winding_364_sl() {
         epsilon = 1e-6
     );
 
-    let winding_identical_to_dl = WindingDistributed::new(
+    let winding_identical_to_dl = DistributedWinding::new(
         36,
         2,
         3,
@@ -980,7 +980,7 @@ fn test_distributed_winding_364_sl() {
 
 #[test]
 fn test_slot_leakage_inductance() {
-    fn create_winding(coil_span_reduction: i32) -> WindingDistributed {
+    fn create_winding(coil_span_reduction: i32) -> DistributedWinding {
         let copper: Material = create_dbm().read("Copper").unwrap();
         let wire = RoundWire::new(
             Arc::new(copper),
@@ -989,7 +989,7 @@ fn test_slot_leakage_inductance() {
             Length::new::<millimeter>(0.0),
         )
         .unwrap();
-        return WindingDistributed::new(
+        return DistributedWinding::new(
             36,
             2,
             3,
@@ -1010,7 +1010,7 @@ fn test_slot_leakage_inductance() {
     fn resulting_leakage_coeff(
         lambda_l: f64,
         lambda_res: f64,
-        winding: &WindingDistributed,
+        winding: &DistributedWinding,
     ) -> f64 {
         let span = winding.pole_pitch() - winding.coil_span_reduction() as f64;
         return (1.0 - 9.0 / 16.0 * (1.0 - span as f64 / winding.pole_pitch())) * lambda_l
@@ -1162,7 +1162,7 @@ fn test_distributed_winding_364_dl() {
         WireGroup::new(Box::new(wire_2), 3),
     ];
     let wire = StrandedWire::new(strand_list).unwrap();
-    let winding = WindingDistributed::new(
+    let winding = DistributedWinding::new(
         36,
         2,
         3,
@@ -1251,7 +1251,7 @@ fn test_distributed_winding_364_sl_skewed() {
         WireGroup::new(Box::new(wire_2), 3),
     ];
     let wire = StrandedWire::new(strand_list).unwrap();
-    let winding = WindingDistributed::new(
+    let winding = DistributedWinding::new(
         36,
         2,
         3,
@@ -1325,7 +1325,7 @@ fn test_distributed_winding_364_dl_short_pitched() {
         WireGroup::new(Box::new(wire_2), 3),
     ];
     let wire = StrandedWire::new(strand_list).unwrap();
-    let winding = WindingDistributed::new(
+    let winding = DistributedWinding::new(
         36,
         2,
         3,
@@ -1373,7 +1373,7 @@ fn test_distributed_winding_364_dl_short_pitched() {
 #[test]
 fn test_harmonic_ordinal_and_amplitude() {
     {
-        let winding = WindingDistributed::new(
+        let winding = DistributedWinding::new(
             18,
             1,
             3,

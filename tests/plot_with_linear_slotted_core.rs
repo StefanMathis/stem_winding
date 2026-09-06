@@ -87,7 +87,7 @@ fn test_slot_positions() {
 #[test]
 fn test_plot_winding_shapes_dl_tooth_coil() {
     let core = create_core();
-    let winding = WindingToothCoil::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
+    let winding = ToothCoilWinding::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
 
     let zone_config = ZoneConfig::new(
         ZoneBackgroundColor::Phase,
@@ -114,7 +114,7 @@ fn test_plot_winding_shapes_dl_tooth_coil() {
 #[test]
 fn test_plot_winding_shapes_sl_tooth_coil() {
     let core = create_core();
-    let winding = WindingToothCoil::new_minimal(12, 5, 3, 1, WindingTableMethod::Tingley).unwrap();
+    let winding = ToothCoilWinding::new_minimal(12, 5, 3, 1, WindingTableMethod::Tingley).unwrap();
 
     let zone_config = ZoneConfig::new(
         ZoneBackgroundColor::Phase,
@@ -142,7 +142,7 @@ fn test_plot_winding_shapes_sl_tooth_coil() {
 fn test_plot_winding_shapes_quadruple_layer() {
     let core = create_core();
     let winding =
-        WindingQuadrupleLayerToothCoil::new_minimal(12, 5, 3, 2, vec![], WindingTableMethod::Tingley)
+        QuadrupleLayerToothCoilWinding::new_minimal(12, 5, 3, 2, vec![], WindingTableMethod::Tingley)
             .unwrap();
 
     let zone_config = ZoneConfig::new(
@@ -171,7 +171,7 @@ fn test_plot_winding_shapes_quadruple_layer() {
 fn test_plot_winding_shapes_quadruple_layer_ampere_turns() {
     let core = create_core();
     let winding =
-        WindingQuadrupleLayerToothCoil::new_minimal(12, 5, 3, 4, vec![3], WindingTableMethod::Tingley)
+        QuadrupleLayerToothCoilWinding::new_minimal(12, 5, 3, 4, vec![3], WindingTableMethod::Tingley)
             .unwrap();
 
     let zone_config = ZoneConfig::new(
@@ -198,7 +198,7 @@ fn test_plot_winding_shapes_quadruple_layer_ampere_turns() {
 fn test_plot_winding_shapes_distributed() {
     let core = create_core();
     let winding =
-        WindingDistributed::new_minimal(12, 1, 3, 2, 1, 0, WindingTableMethod::Tingley).unwrap();
+        DistributedWinding::new_minimal(12, 1, 3, 2, 1, 0, WindingTableMethod::Tingley).unwrap();
 
     let zone_config = ZoneConfig::new(
         ZoneBackgroundColor::Phase,
@@ -225,7 +225,7 @@ fn test_plot_winding_shapes_distributed() {
 #[test]
 fn test_from_winding() {
     let winding =
-        WindingDistributed::new_minimal(6, 1, 3, 1, 0, 0, WindingTableMethod::CoilSide).unwrap();
+        DistributedWinding::new_minimal(6, 1, 3, 1, 0, 0, WindingTableMethod::CoilSide).unwrap();
 
     let core = CoreLin::from_winding(&winding);
 

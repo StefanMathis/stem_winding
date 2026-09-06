@@ -6,7 +6,7 @@ use super::Zone;
 
 use crate::{
     error::WindingTableCreationError,
-    shared::{hole_number, phase_sequence},
+    winding::{hole_number, phase_sequence},
     winding_table::WindingTable,
 };
 
@@ -71,7 +71,7 @@ impl WindingTableMethod {
 
 impl WindingTable {
     pub fn with_method(
-        winding_table_method: WindingTableMethod,
+        winding_table_method: &WindingTableMethod,
         slots: NonZeroU16,
         layers: NonZeroU16,
         pole_pairs: NonZeroU16,
@@ -132,7 +132,7 @@ impl WindingTable {
                     // "Flatten" the tingley pattern, doubling the number of
                     // slots and halfing the number of layers in the process
                     // This compensates the aforementioned halfing of the slots.
-                    winding_table_dl.layers = NonZeroU16::new(1).expect("not zero");
+                    winding_table_dl.layers = NonZeroU16::MIN;
                     return winding_table_dl.check(phases);
                 }
                 Err(msg) => return Err(msg),
@@ -171,14 +171,14 @@ impl WindingTable {
         }
 
         // Create the phase sequence
-        let (phase_sequence, _) = phase_sequence(phases_num);
+        let (phase_sequence, _) = phase_sequence(phases);
 
         // Initialize empty zone plan.
         let mut winding_table = WindingTable::new(slots, layers);
 
         // Calculate the number of winding holes to determine whether the winding in
         // question is a fractional slot or an integer slot winding
-        let flag_frac = *hole_number(slots_num, pole_pairs_num, phases_num).denom() != 1;
+        let flag_frac = *hole_number(slots, pole_pairs, phases).denom() != 1;
 
         // First layer of the zone plan
         // *******************************************************************
@@ -287,7 +287,6 @@ impl WindingTable {
         let slots_num = u16::from(slots);
         let layers_num = u16::from(layers);
         let phases_num = u16::from(phases);
-        let pole_pairs_num = u16::from(pole_pairs);
 
         // Check whether the Coil side pattern is applicable to the given
         // winding configuration or not.
@@ -303,7 +302,7 @@ impl WindingTable {
         }
 
         // Calculate the number of slots per pole and phase
-        let ratio = hole_number(slots_num, pole_pairs_num, phases_num);
+        let ratio = hole_number(slots, pole_pairs, phases);
         let g = ratio.trunc().numer().clone();
         let z = ratio.fract().numer().clone();
         let n = ratio.denom().clone();
@@ -356,7 +355,7 @@ impl WindingTable {
         // Create the whole coil side pattern (step 4 in [Hut20])
 
         // Create the phase sequence vector
-        let (phase_sequence, _) = phase_sequence(phases_num);
+        let (phase_sequence, _) = phase_sequence(phases);
         let mut phase_sequence_vector: Vec<i32> =
             Vec::with_capacity(2 * phases_num as usize * n as usize);
         for _ in 0..n {
@@ -598,7 +597,7 @@ impl WindingTable {
         // (sector borders) to the phasor angle.
         let mut winding_table = WindingTable::new(slots, NonZeroU16::new(2).expect("not zero"));
         let sector_width = std::f64::consts::PI / phases_num as f64;
-        let (ps, _) = phase_sequence(phases_num);
+        let (ps, _) = phase_sequence(phases);
 
         // Get the slot phasors for the pole pair harmonic (ν = 1). They are described
         // by their angle
@@ -630,8 +629,7 @@ impl WindingTable {
         if layers_num == 1 {
             // In case of a single-layer winding, the double-layer zone plan is reduced to
             // a single-layer winding according to [Bia06], section 6.
-            let mut sl_winding_table =
-                WindingTable::new(slots, NonZeroU16::new(1).expect("not zero"));
+            let mut sl_winding_table = WindingTable::new(slots, NonZeroU16::MIN);
             for slot in 0..slots_num {
                 if slot.is_odd() {
                     sl_winding_table[Zone::new(slot, 0)] = winding_table[Zone::new(slot, 1)];

@@ -1,6 +1,6 @@
 // pub mod coil_properties;
 
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU16, NonZeroUsize};
 
 // pub use coil_properties::*;
 use stem_coil_layout::Zone;
@@ -145,9 +145,9 @@ pub trait CoilExt {
 
     fn set_polarity_first_zone(&mut self, positive: bool);
 
-    fn phase(&self) -> NonZeroUsize;
+    fn phase(&self) -> NonZeroU16;
 
-    fn set_phase(&mut self, phase: NonZeroUsize);
+    fn set_phase(&mut self, phase: NonZeroU16);
 
     fn voltage_phasor(&self, phasor_angle: f64, ordinal: f64) -> Complex<f64>;
 
@@ -166,7 +166,7 @@ pub trait CoilExt {
 
     /// Return the coil span in slot pitches. `slots` is the total number of
     /// winding slots.
-    fn span(&self, winding_slots: u16) -> u16;
+    fn span(&self, winding_slots: NonZeroU16) -> u16;
 
     fn axial_overhang(&self) -> Option<Length>;
 
@@ -199,14 +199,14 @@ impl CoilExt for Coil {
         }
     }
 
-    fn phase(&self) -> NonZeroUsize {
+    fn phase(&self) -> NonZeroU16 {
         match self {
             Coil::Full(coil) => coil.phase(),
             Coil::Half(coil) => coil.phase(),
         }
     }
 
-    fn set_phase(&mut self, phase: NonZeroUsize) {
+    fn set_phase(&mut self, phase: NonZeroU16) {
         match self {
             Coil::Full(coil) => coil.set_phase(phase),
             Coil::Half(coil) => coil.set_phase(phase),
@@ -253,7 +253,7 @@ impl CoilExt for Coil {
         }
     }
 
-    fn span(&self, winding_slots: u16) -> u16 {
+    fn span(&self, winding_slots: NonZeroU16) -> u16 {
         match self {
             Coil::Full(coil) => coil.span(winding_slots),
             Coil::Half(coil) => coil.span(winding_slots),
@@ -347,7 +347,9 @@ pub struct CoilFull {
     first_zone_is_positive: bool,
     clockwise: bool,
     turns: NonZeroUsize,
-    phase: NonZeroUsize,
+    // WindingTable represents phases as signed i32 values. Using u16 here
+    // ensures that every phase number, with either polarity, fits in i32.
+    phase: NonZeroU16,
     wire: Box<dyn Wire>,
     #[cfg_attr(feature = "serde", serde(default))]
     axial_overhang: Option<Length>,
@@ -363,7 +365,7 @@ impl CoilFull {
         first_zone_is_positive: bool,
         clockwise: bool,
         turns: NonZeroUsize,
-        phase: NonZeroUsize,
+        phase: NonZeroU16,
         wire: Box<dyn Wire>,
     ) -> Result<Self, Error> {
         return Self::with_coil_end_lengths(
@@ -385,7 +387,7 @@ impl CoilFull {
         negative_zone: Zone,
         clockwise: bool,
         turns: NonZeroUsize,
-        phase: NonZeroUsize,
+        phase: NonZeroU16,
         wire: Box<dyn Wire>,
     ) -> Result<Self, Error> {
         return Self::with_coil_end_lengths(
@@ -425,7 +427,7 @@ impl CoilFull {
         first_zone_is_positive: bool,
         clockwise: bool,
         turns: NonZeroUsize,
-        phase: NonZeroUsize,
+        phase: NonZeroU16,
         wire: Box<dyn Wire>,
         axial_overhang: Option<Length>,
         end_length: Option<Length>,
@@ -519,7 +521,7 @@ impl CoilFull {
     Returns an iterator over the slots "covered" by the end winding of the coil,
     starting at the first zone slot and stopping at the second zone slot.
      */
-    pub fn covered_slots(&self, slots: u16) -> CoveredSlots {
+    pub fn covered_slots(&self, slots: NonZeroU16) -> CoveredSlots {
         let ascending = if self.clockwise() {
             self.first_zone_is_positive
         } else {
@@ -527,7 +529,7 @@ impl CoilFull {
         };
         return CoveredSlots {
             second_slot: self.second_zone.slot,
-            slots,
+            slots: slots.get(),
             slot: self.first_zone.slot,
             ascending,
             exhausted: false,
@@ -596,11 +598,11 @@ impl CoilExt for CoilFull {
         self.turns = turns;
     }
 
-    fn phase(&self) -> NonZeroUsize {
+    fn phase(&self) -> NonZeroU16 {
         return self.phase;
     }
 
-    fn set_phase(&mut self, phase: NonZeroUsize) {
+    fn set_phase(&mut self, phase: NonZeroU16) {
         self.phase = phase;
     }
 
@@ -665,7 +667,9 @@ impl CoilExt for CoilFull {
     is a nonsensical value (e.g. smaller than one of the two coil slots). It will however
     return a nonsensical result.
      */
-    fn span(&self, slots: u16) -> u16 {
+    fn span(&self, slots: NonZeroU16) -> u16 {
+        let slots = slots.get();
+
         let (minuend, subtrahend) = if self.clockwise() {
             (self.negative_zone().slot, self.positive_zone().slot)
         } else {
@@ -735,7 +739,7 @@ pub struct CoilHalf {
     zone: Zone,
     positive: bool,
     turns: NonZeroUsize,
-    phase: NonZeroUsize,
+    phase: NonZeroU16,
     wire: Box<dyn Wire>,
     #[cfg_attr(feature = "serde", serde(default))]
     axial_overhang: Option<Length>,
@@ -749,7 +753,7 @@ impl CoilHalf {
         zone: Zone,
         positive: bool,
         turns: NonZeroUsize,
-        phase: NonZeroUsize,
+        phase: NonZeroU16,
         wire: Box<dyn Wire>,
     ) -> Self {
         Self::with_coil_end_lengths(zone, positive, turns, phase, wire, None, None)
@@ -759,7 +763,7 @@ impl CoilHalf {
         zone: Zone,
         positive: bool,
         turns: NonZeroUsize,
-        phase: NonZeroUsize,
+        phase: NonZeroU16,
         wire: Box<dyn Wire>,
         axial_overhang: Option<Length>,
         end_length: Option<Length>,
@@ -810,11 +814,11 @@ impl CoilExt for CoilHalf {
         self.turns = turns;
     }
 
-    fn phase(&self) -> NonZeroUsize {
+    fn phase(&self) -> NonZeroU16 {
         return self.phase;
     }
 
-    fn set_phase(&mut self, phase: NonZeroUsize) {
+    fn set_phase(&mut self, phase: NonZeroU16) {
         self.phase = phase;
     }
 
@@ -840,7 +844,7 @@ impl CoilExt for CoilHalf {
         return self.wire;
     }
 
-    fn span(&self, _slots: u16) -> u16 {
+    fn span(&self, _slots: NonZeroU16) -> u16 {
         return 0;
     }
 
@@ -979,12 +983,12 @@ mod tests {
             Zone::new(1, 0),
             true,
             true,
-            NonZeroUsize::new(1).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
+            NonZeroU16::MIN,
             Box::new(RoundWire::default()),
         )
         .unwrap();
-        assert_eq!(coil.span(12), 1);
+        assert_eq!(coil.span(NonZeroU16::new(12).expect("not zero")), 1);
 
         // Another tooth coil which wraps around (11 -> 0)
         let coil = CoilFull::new(
@@ -992,12 +996,12 @@ mod tests {
             Zone::new(0, 0),
             true,
             true,
-            NonZeroUsize::new(1).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
+            NonZeroU16::MIN,
             Box::new(RoundWire::default()),
         )
         .unwrap();
-        assert_eq!(coil.span(12), 1);
+        assert_eq!(coil.span(NonZeroU16::new(12).expect("not zero")), 1);
 
         // Extremely long coil
         let coil = CoilFull::new(
@@ -1005,12 +1009,12 @@ mod tests {
             Zone::new(1, 0),
             true,
             false,
-            NonZeroUsize::new(1).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
+            NonZeroU16::MIN,
             Box::new(RoundWire::default()),
         )
         .unwrap();
-        assert_eq!(coil.span(12), 11);
+        assert_eq!(coil.span(NonZeroU16::new(12).expect("not zero")), 11);
 
         // Both coil zones occupy the same slot
         let coil = CoilFull::new(
@@ -1018,12 +1022,12 @@ mod tests {
             Zone::new(0, 1),
             true,
             true,
-            NonZeroUsize::new(1).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
+            NonZeroU16::MIN,
             Box::new(RoundWire::default()),
         )
         .unwrap();
-        assert_eq!(coil.span(12), 0);
+        assert_eq!(coil.span(NonZeroU16::new(12).expect("not zero")), 0);
 
         // Both coil zones occupy the same slot
         let coil = CoilFull::new(
@@ -1031,11 +1035,11 @@ mod tests {
             Zone::new(0, 1),
             true,
             false,
-            NonZeroUsize::new(1).unwrap(),
-            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::MIN,
+            NonZeroU16::MIN,
             Box::new(RoundWire::default()),
         )
         .unwrap();
-        assert_eq!(coil.span(12), 12);
+        assert_eq!(coil.span(NonZeroU16::new(12).expect("not zero")), 12);
     }
 }

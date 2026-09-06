@@ -20,7 +20,7 @@ These windings have lead to crashes in the winding explorer UI
  */
 #[test]
 fn test_turn_creator_regression_test() {
-    let wdg = WindingToothCoil::new_minimal(9, 1, 3, 2, WindingTableMethod::Tingley).unwrap();
+    let wdg = ToothCoilWinding::new_minimal(9, 1, 3, 2, WindingTableMethod::Tingley).unwrap();
     assert_eq!(wdg.coils_per_coil_group(), 3);
 }
 
@@ -46,28 +46,28 @@ fn test_load_wire_with_database_material() {
     winding_table_method: Tingley
     "};
 
-    let winding: WindingToothCoil = create_dbm().from_str(yaml).unwrap();
+    let winding: ToothCoilWinding = create_dbm().from_str(yaml).unwrap();
     assert_eq!(winding.turns_in_slot(1), 100);
 }
 
 #[test]
 fn test_air_gap_leakage_factor() {
-    let winding = WindingToothCoil::new_minimal(12, 4, 3, 2, WindingTableMethod::Tingley).unwrap();
+    let winding = ToothCoilWinding::new_minimal(12, 4, 3, 2, WindingTableMethod::Tingley).unwrap();
     approxim::assert_abs_diff_eq!(0.46216, winding.air_gap_leakage_factor(), epsilon = 0.0001);
 
-    let winding = WindingToothCoil::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
+    let winding = ToothCoilWinding::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
     approxim::assert_abs_diff_eq!(0.96835, winding.air_gap_leakage_factor(), epsilon = 0.0001);
 
-    let winding = WindingToothCoil::new_minimal(12, 5, 3, 1, WindingTableMethod::Tingley).unwrap();
+    let winding = ToothCoilWinding::new_minimal(12, 5, 3, 1, WindingTableMethod::Tingley).unwrap();
     approxim::assert_abs_diff_eq!(2.67299, winding.air_gap_leakage_factor(), epsilon = 0.0001);
 
-    let winding = WindingToothCoil::new_minimal(9, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
+    let winding = ToothCoilWinding::new_minimal(9, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
     approxim::assert_abs_diff_eq!(2.40953, winding.air_gap_leakage_factor(), epsilon = 0.0001);
 
-    let winding = WindingToothCoil::new_minimal(9, 4, 3, 2, WindingTableMethod::Tingley).unwrap();
+    let winding = ToothCoilWinding::new_minimal(9, 4, 3, 2, WindingTableMethod::Tingley).unwrap();
     approxim::assert_abs_diff_eq!(1.18210, winding.air_gap_leakage_factor(), epsilon = 0.0001);
 
-    let winding = WindingToothCoil::new_minimal(18, 10, 3, 2, WindingTableMethod::Tingley).unwrap();
+    let winding = ToothCoilWinding::new_minimal(18, 10, 3, 2, WindingTableMethod::Tingley).unwrap();
     approxim::assert_abs_diff_eq!(2.40953, winding.air_gap_leakage_factor(), epsilon = 0.0001);
 }
 
@@ -75,7 +75,7 @@ fn test_air_gap_leakage_factor() {
 fn test_coil_direction() {
     {
         // 12/10 SL
-        let winding = WindingToothCoil::new_minimal(12, 5, 3, 1, WindingTableMethod::Tingley).unwrap();
+        let winding = ToothCoilWinding::new_minimal(12, 5, 3, 1, WindingTableMethod::Tingley).unwrap();
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
                 assert_eq!(coil.span(winding.slots()), 1); // A tooth coil winding always has a throw of 1
@@ -94,7 +94,7 @@ fn test_coil_direction() {
 
     {
         // 12/10 DL
-        let winding = WindingToothCoil::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
+        let winding = ToothCoilWinding::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
 
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
@@ -115,7 +115,7 @@ fn test_coil_direction() {
 
 #[test]
 fn test_winding_12_8_dl() {
-    let winding = WindingToothCoil::new_minimal(12, 4, 3, 2, WindingTableMethod::Tingley).unwrap();
+    let winding = ToothCoilWinding::new_minimal(12, 4, 3, 2, WindingTableMethod::Tingley).unwrap();
 
     assert_eq!(4, winding.periodicity());
 
@@ -145,7 +145,7 @@ fn test_winding_12_8_dl() {
 
 #[test]
 fn test_winding_12_10_dl() {
-    let winding = WindingToothCoil::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
+    let winding = ToothCoilWinding::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
 
     assert_eq!(1, winding.periodicity());
 
@@ -175,7 +175,7 @@ fn test_winding_12_10_dl() {
 
 #[test]
 fn test_winding_12_10_sl() {
-    let winding = WindingToothCoil::new_minimal(12, 5, 3, 1, WindingTableMethod::Tingley).unwrap();
+    let winding = ToothCoilWinding::new_minimal(12, 5, 3, 1, WindingTableMethod::Tingley).unwrap();
 
     assert_eq!(1, winding.periodicity());
 
@@ -205,7 +205,7 @@ fn test_winding_12_10_sl() {
 
 #[test]
 fn test_default_tooth_coil_assembly() {
-    let winding = WindingToothCoil::default();
+    let winding = ToothCoilWinding::default();
 
     // Compare the zone plan
     let winding_table = winding.winding_table(true);
@@ -216,7 +216,7 @@ fn test_default_tooth_coil_assembly() {
 
 #[test]
 fn test_derive_coil_assembly_12_10_dl() {
-    let winding = WindingToothCoil::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
+    let winding = ToothCoilWinding::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
     let coil_assembly = CoilAssembly::from(&winding);
 
     assert_eq!(coil_assembly.phases(), winding.phases());
@@ -249,7 +249,7 @@ fn test_derive_coil_assembly_12_10_dl() {
 
 #[test]
 fn test_derive_coil_assembly_12_10_sl() {
-    let winding = WindingToothCoil::new_minimal(12, 5, 3, 1, WindingTableMethod::Tingley).unwrap();
+    let winding = ToothCoilWinding::new_minimal(12, 5, 3, 1, WindingTableMethod::Tingley).unwrap();
     let coil_assembly = CoilAssembly::from(&winding);
 
     assert_eq!(coil_assembly.phases(), winding.phases());
@@ -282,7 +282,7 @@ fn test_deserialize_failed_to_create_winding_table() {
           winding_table_method: Tingley
           "};
 
-    let maybe_winding: std::io::Result<WindingToothCoil> = create_dbm().from_str(yaml);
+    let maybe_winding: std::io::Result<ToothCoilWinding> = create_dbm().from_str(yaml);
     assert!(maybe_winding.is_err());
 }
 
@@ -298,7 +298,7 @@ fn test_deserialize_min() {
             winding_table_method: Tingley
             "};
 
-    let winding: WindingToothCoil = create_dbm().from_str(yaml).unwrap();
+    let winding: ToothCoilWinding = create_dbm().from_str(yaml).unwrap();
 
     // Compare the winding factor
     approxim::assert_abs_diff_eq!(winding.winding_factor(1, 1.0), 0.966, epsilon = 1e-3);
@@ -327,7 +327,7 @@ fn test_deserialize_full() {
             winding_table_method: Tingley
             "};
 
-    let winding: WindingToothCoil = create_dbm().from_str(yaml).unwrap();
+    let winding: ToothCoilWinding = create_dbm().from_str(yaml).unwrap();
 
     assert_eq!(winding.turns_in_slot(0), 20);
     assert_eq!(winding.turns_per_phase(1).numer().clone(), 20);
@@ -336,7 +336,7 @@ fn test_deserialize_full() {
 
 #[test]
 fn test_field_excitation_curve() {
-    let winding = WindingToothCoil::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
+    let winding = ToothCoilWinding::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
     let mut buffer = vec![0.0; winding.slots() as usize];
     let currents = [1.0, -0.5, -0.5];
 
@@ -427,11 +427,11 @@ fn create_core_1210_sl() -> CoreRot {
     .expect("valid magnetic core");
 }
 
-fn create_winding_meas_servo() -> WindingToothCoil {
+fn create_winding_meas_servo() -> ToothCoilWinding {
     let copper: Material = create_dbm().read("Copper").unwrap();
     let copper = Arc::new(copper);
     let wire = SffWire::new(copper, 0.375, 0.4).unwrap();
-    return WindingToothCoil::new(
+    return ToothCoilWinding::new(
         12,
         5,
         3,
@@ -446,11 +446,11 @@ fn create_winding_meas_servo() -> WindingToothCoil {
     .unwrap();
 }
 
-fn create_winding_1210_sl() -> WindingToothCoil {
+fn create_winding_1210_sl() -> ToothCoilWinding {
     let copper: Material = create_dbm().read("Copper").unwrap();
     let copper = Arc::new(copper);
     let wire = SffWire::new(copper, 0.375, 0.4).unwrap();
-    return WindingToothCoil::new(
+    return ToothCoilWinding::new(
         12,
         5,
         3,

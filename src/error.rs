@@ -11,12 +11,20 @@ pub enum Error {
     InvalidLength(Comparison<Length>),
     /// A given [`usize`] is not within its allowed value range.
     InvalidUsize(Comparison<usize>),
+    /// A given [`u16`] is not within its allowed value range.
+    InvalidU16(Comparison<u16>),
+    /// A given [`f64`] is not within its allowed value range.
+    InvalidF64(Comparison<f64>),
     CoilInsertionFailed(InsertionError<(Vec<Zone>, Coil)>),
     /// If a [`Coil`] requires specifying multiple [`Zone`]s it occupies in a
     /// [`WindingTable`], those zones must not be equal. This error variant is
     /// returned if they are.
     EqualCoilZones(Zone),
     WindingTableCreationError(WindingTableCreationError),
+    InvalidNumberParallelPaths,
+    InvalidPolePairNumber,
+    OddNumberOfTurnsPerSlot,
+    NeedsIntegerSlot,
 }
 
 impl From<InsertionError<(Vec<Zone>, Coil)>> for Error {
@@ -31,9 +39,21 @@ impl From<Comparison<Length>> for Error {
     }
 }
 
+impl From<Comparison<u16>> for Error {
+    fn from(value: Comparison<u16>) -> Self {
+        return Error::InvalidU16(value);
+    }
+}
+
 impl From<Comparison<usize>> for Error {
     fn from(value: Comparison<usize>) -> Self {
         return Error::InvalidUsize(value);
+    }
+}
+
+impl From<Comparison<f64>> for Error {
+    fn from(value: Comparison<f64>) -> Self {
+        return Error::InvalidF64(value);
     }
 }
 
@@ -51,6 +71,7 @@ impl From<WindingTableCreationError> for Error {
 
 #[derive(Debug)]
 pub enum WindingTableCreationError {
+    NotSymmetric,
     SingleLayerOddSlotNumber,
     EmptyZone(Option<Zone>),
     InequalPositiveNegativeZones(u16),

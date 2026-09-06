@@ -10,7 +10,7 @@ use uom::si::inductance::henry;
 use uom::si::length::{meter, millimeter};
 use uom::si::volume::cubic_millimeter;
 use winding::*;
-use wire::{IsWire, WireGroup, RoundWire, StrandedWire};
+use wire::{Wire, WireGroup, RoundWire, StrandedWire};
 
 fn create_core_trap() -> CoreRot {
     let slot = SlotTrapezoidSemi::new(
@@ -79,7 +79,7 @@ fn test_distributed_winding_364_sl() {
         WireGroup::new(Box::new(wire_2), 3),
     ];
     let wire = StrandedWire::new(strand_list).unwrap();
-    let winding = WindingDistributed::new(
+    let winding = DistributedWinding::new(
         36,
         2,
         3,
@@ -199,11 +199,11 @@ fn test_build_from_scratch() {
 #[test]
 fn test_derive_from_winding() {
     {
-        let mut wires: Vec<Box<dyn IsWire>> = Vec::with_capacity(2);
+        let mut wires: Vec<Box<dyn Wire>> = Vec::with_capacity(2);
         for _ in 0..2 {
             wires.push(Box::new(RoundWire::default()));
         }
-        let winding = WindingDistributedToothCoil::new(
+        let winding = DistributedToothCoilWinding::new(
             24,
             4,
             3,
@@ -238,7 +238,7 @@ fn test_derive_from_winding() {
 
     {
         let winding =
-            WindingDistributedToothCoil::new_minimal(48, 10, 3, 1, vec![1, 1], 1, false).unwrap();
+            DistributedToothCoilWinding::new_minimal(48, 10, 3, 1, vec![1, 1], 1, false).unwrap();
         let coil_assembly = CoilAssembly::from(&winding);
 
         assert_eq!(coil_assembly.phases(), winding.phases());
@@ -261,9 +261,9 @@ fn test_derive_from_winding() {
 
     {
         let turns_per_coil =
-            WindingDistributedToothCoil::double_layer_turn_distribution(2, 100, 15).unwrap();
+            DistributedToothCoilWinding::double_layer_turn_distribution(2, 100, 15).unwrap();
         let winding =
-            WindingDistributedToothCoil::new_minimal(12, 1, 3, 2, turns_per_coil, 1, false)
+            DistributedToothCoilWinding::new_minimal(12, 1, 3, 2, turns_per_coil, 1, false)
                 .unwrap();
         let coil_assembly = CoilAssembly::from(&winding);
 

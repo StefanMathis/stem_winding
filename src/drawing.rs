@@ -187,7 +187,8 @@ pub(crate) fn add_annotation_shape(
     }
 }
 
-/// Create an arrow symbolizing a positive current flow "out of the drawing area".
+/// Create an arrow symbolizing a positive current flow "out of the drawing
+/// area".
 fn positive_current_arrow(diameter_arrow: f64, diameter_arrow_tip: f64) -> [Shape; 2] {
     // Arrow circle
     let arc = ArcSegment::from_center_radius_start_sweep_angle(
@@ -293,7 +294,8 @@ fn negative_current_arrow(diameter_arrow: f64) -> [Shape; 3] {
 Returns [arrow circle diameter, arrow tip diameter]
  */
 pub(crate) fn arrow_diameters(slot_shapes: &[Shape], relative_diameter: f64) -> [f64; 2] {
-    // Get the maximum arrow diameter by identifying the maximum circle which can be fitted in the slot when its center equals the centroid.
+    // Get the maximum arrow diameter by identifying the maximum circle which can be
+    // fitted in the slot when its center equals the centroid.
     let mut dia_arrow = std::f64::INFINITY;
 
     for shape in slot_shapes.iter() {
@@ -416,7 +418,8 @@ mod tests {
     #[test]
     fn test_default_arrow_dimensions() {
         let core = create_core();
-        let winding = WindingToothCoil::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
+        let winding =
+            ToothCoilWinding::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
         let single_slot_shapes = winding.slot_shapes(core.slot().unwrap());
 
         let zone_config = ZoneConfig::new(

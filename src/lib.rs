@@ -3,12 +3,11 @@ pub mod coils;
 pub mod error;
 pub mod iterators;
 // pub mod overrides;
-pub mod shared;
 //
 // pub mod drawing;
 // pub mod fec_spectral_analysis;
+pub mod variants;
 pub mod winding;
-// pub mod winding_variants;
 pub mod winding_table;
 
 pub use stem_coil_layout;
@@ -27,6 +26,9 @@ pub mod prelude {
 
     // Reexporting
     pub use crate::coils::*;
+    pub use crate::variants::*;
+    pub use crate::winding::Winding;
+    pub use crate::winding_table::*;
     // pub use core_integration::*;
     //
     // pub use drawing::*;

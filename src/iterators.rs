@@ -1,6 +1,6 @@
 use approxim;
 use num::rational::Ratio;
-use std::f64::consts::TAU;
+use std::{f64::consts::TAU, num::NonZeroU16};
 use stem_coil_layout::Zone;
 
 use crate::{coils::Coil, winding::Winding};
@@ -9,22 +9,24 @@ use crate::{coils::Coil, winding::Winding};
 /// from 1. It is created by the `parallel_paths()` method of a winding which
 /// implements `is_winding`.
 pub struct ParallelPathIterator {
-    a_max: usize,
-    index: usize,
+    a_max: NonZeroU16,
+    index: u16,
 }
 impl ParallelPathIterator {
-    pub fn new(a_max: usize) -> ParallelPathIterator {
+    pub fn new(a_max: NonZeroU16) -> ParallelPathIterator {
         return ParallelPathIterator { a_max, index: 0 };
     }
 }
 impl Iterator for ParallelPathIterator {
-    type Item = usize;
-    fn next(&mut self) -> Option<usize> {
-        if self.index <= (self.a_max as usize) {
-            for _ in self.index..(self.a_max as usize + 1) {
+    type Item = NonZeroU16;
+    fn next(&mut self) -> Option<NonZeroU16> {
+        if self.index <= self.a_max.get() {
+            for _ in self.index..(self.a_max.get() + 1) {
                 self.index = self.index + 1;
-                if (self.a_max as usize) % self.index == 0 {
-                    return Some(self.index);
+                if (self.a_max.get()) % self.index == 0 {
+                    return Some(
+                        NonZeroU16::new(self.index).expect("has been incremented at least once"),
+                    );
                 }
             }
         }
@@ -44,10 +46,10 @@ show the coupling to the very first ordinal, which can be a sub-ordinal of the p
 
 # Example 1 (integer-slot winding):
 ```
-use winding::{WindingDistributed, Winding};
+use winding::{DistributedWinding, Winding};
 use num::rational::Ratio;
 
-let winding = WindingDistributed::default(); // This is a 6/2 single-layer integer-slot winding
+let winding = DistributedWinding::default(); // This is a 6/2 single-layer integer-slot winding
 let ordinals: Vec<Ratio<i32>> = winding.harmonic_ordinals().take(5).collect();
 assert_eq!(ordinals[0], Ratio::new(1, 1));
 assert_eq!(ordinals[1], Ratio::new(-5, 1));
@@ -58,10 +60,10 @@ assert_eq!(ordinals[4], Ratio::new(13, 1));
 
 # Example 2 (tooth-coil winding):
 ```
-use winding::{WindingToothCoil, Winding, WindingTableMethod};
+use winding::{ToothCoilWinding, Winding, WindingTableMethod};
 use num::rational::Ratio;
 
-let winding = WindingToothCoil::new_minimal(24, 10, 3, 2, WindingTableMethod::Tingley).unwrap();
+let winding = ToothCoilWinding::new_minimal(24, 10, 3, 2, WindingTableMethod::Tingley).unwrap();
 let ordinals: Vec<Ratio<i32>> = winding.harmonic_ordinals().take(5).collect();
 assert_eq!(ordinals[0], Ratio::new(-1, 5));
 assert_eq!(ordinals[1], Ratio::new(5, 5));
@@ -81,7 +83,7 @@ pub struct HarmonicOrdinalsIterator<'a> {
 impl<'a> HarmonicOrdinalsIterator<'a> {
     pub fn new(winding: &'a dyn Winding) -> HarmonicOrdinalsIterator<'a> {
         // Calculate the number of pole pairs in the basic winding
-        let p_bw = winding.pole_pairs() / winding.periodicity();
+        let p_bw = winding.pole_pairs().get() / winding.periodicity();
         let iterator = HarmonicOrdinalsIterator {
             winding,
             p_bw,
@@ -97,6 +99,10 @@ impl<'a> HarmonicOrdinalsIterator<'a> {
             v_star: 0,
             coupling: coupling,
         };
+    }
+
+    pub fn coupling(&self) -> i32 {
+        self.coupling
     }
 
     /**
@@ -125,17 +131,6 @@ impl<'a> HarmonicOrdinalsIterator<'a> {
             }
         }
     }
-
-    pub(crate) fn new_unchecked(winding: &'a dyn Winding) -> HarmonicOrdinalsIterator<'a> {
-        // Calculate the number of pole pairs in the basic winding
-        let p_bw = winding.pole_pairs() / winding.periodicity();
-        return HarmonicOrdinalsIterator {
-            winding,
-            p_bw,
-            v_star: 0,
-            coupling: 1,
-        };
-    }
 }
 
 impl<'a> Iterator for HarmonicOrdinalsIterator<'a> {
@@ -162,7 +157,7 @@ impl<'a> Iterator for HarmonicOrdinalsIterator<'a> {
         current ordinal can be skipped as well.
         */
         let v = self.v_star as f64 / self.p_bw as f64;
-        let k_w = self.winding.winding_factor(1, v); // Any other phase would work as well.
+        let k_w = self.winding.winding_factor(NonZeroU16::MIN, v); // Any other phase would work as well.
         if approxim::abs_diff_eq!(k_w, 0.0, epsilon = 1e-12) {
             return self.next();
         }
@@ -181,8 +176,9 @@ impl<'a> Iterator for HarmonicOrdinalsIterator<'a> {
         */
         let mut sum: f64 = 0.0;
         let phases = self.winding.phases();
-        for phase in 0..phases {
-            sum = sum + (-(phase as f64) * TAU / phases as f64 * (self.v_star as f64 + 1.0)).cos();
+        for phase in 0..phases.get() {
+            sum = sum
+                + (-(phase as f64) * TAU / phases.get() as f64 * (self.v_star as f64 + 1.0)).cos();
         }
 
         // The signs of the ordinals returned by the iterator are all in relation to the
@@ -194,13 +190,13 @@ impl<'a> Iterator for HarmonicOrdinalsIterator<'a> {
         // the sign of the ordinal.
         if approxim::abs_diff_eq!(sum, 0.0, epsilon = 1e-12) {
             return Some(Ratio::new(
-                self.v_star as i32 * self.coupling,
-                self.p_bw as i32,
+                i32::from(self.v_star) * self.coupling,
+                i32::from(self.p_bw),
             ));
         } else {
             return Some(Ratio::new(
-                -(self.v_star as i32) * self.coupling,
-                self.p_bw as i32,
+                -(i32::from(self.v_star)) * self.coupling,
+                i32::from(self.p_bw),
             ));
         }
     }
@@ -225,7 +221,7 @@ impl<'a> Iterator for NormalizedInductionIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let ratio = self.0.next()?;
         let ordinal = *ratio.numer() as f64 / *ratio.denom() as f64;
-        let winding_factor = self.0.winding.winding_factor(1, ordinal);
+        let winding_factor = self.0.winding.winding_factor(NonZeroU16::MIN, ordinal);
         let amp = (winding_factor / ordinal).abs();
         return Some((ratio, amp));
     }
@@ -253,8 +249,8 @@ impl<'a> From<NormalizedInductionIterator<'a>> for HarmonicOrdinalsIterator<'a> 
 /// coil is only returned once.
 pub struct CoilsIterator<'a> {
     winding: &'a dyn Winding,
-    slots: u16,
-    layers: u16,
+    slots: NonZeroU16,
+    layers: NonZeroU16,
     slot_counter: u16,
     layer_counter: u16,
 }
@@ -272,7 +268,7 @@ impl<'a> CoilsIterator<'a> {
     fn increment(&mut self) {
         // If all layers of the current slot have been exhausted, increment the slot.
         // Otherwise, increment the layer.
-        if self.layer_counter + 1 == self.layers {
+        if self.layer_counter + 1 == self.layers.get() {
             // Reset the layer counter
             self.layer_counter = 0;
             self.slot_counter = self.slot_counter + 1;
@@ -286,7 +282,7 @@ impl<'a> Iterator for CoilsIterator<'a> {
     type Item = &'a Coil;
     fn next(&mut self) -> Option<&'a Coil> {
         // Check if the iterator has been exhausted
-        if self.slot_counter == self.slots {
+        if self.slot_counter == self.slots.get() {
             return None;
         }
 
@@ -340,7 +336,16 @@ pub struct CoilsPerCoilGroupIterator {
 }
 
 impl CoilsPerCoilGroupIterator {
-    pub fn new(slots: u16, phases: u16, layers: u16, double_zone_span: bool) -> Self {
+    pub fn new(
+        slots: NonZeroU16,
+        phases: NonZeroU16,
+        layers: NonZeroU16,
+        double_zone_span: bool,
+    ) -> Self {
+        let slots = slots.get();
+        let phases = phases.get();
+        let layers = layers.get();
+
         // Check if the current number of turns per coil would lead to a valid winding
         let multiplier = if double_zone_span { 1 } else { 2 };
 
@@ -446,10 +451,11 @@ pub fn multiphase_system(
     time: stem_wire::prelude::Time,
     frequency: stem_wire::prelude::Frequency,
     offset: f64,
-    phases: u16,
+    phases: NonZeroU16,
 ) -> impl Iterator<Item = f64> + Clone + Send + Sync {
-    return (0..phases).map(move |phase| {
-        (TAU * f64::from(frequency * time) + offset - TAU * phase as f64 / phases as f64).cos()
+    return (0..phases.get()).map(move |phase| {
+        (TAU * f64::from(frequency * time) + offset - TAU * phase as f64 / phases.get() as f64)
+            .cos()
     });
 }
 
@@ -461,8 +467,15 @@ pub struct WindingZoneDrawables {
 }
 
 #[cfg(feature = "cairo")]
+impl WindingZoneDrawables {
+    pub(crate) fn new(winding_zones: WindingZones, zone_config: crate::ZoneConfig) {
+        return WindingZoneDrawables {};
+    }
+}
+
+#[cfg(feature = "cairo")]
 impl Iterator for WindingZoneDrawables {
-    type Item = Drawable;
+    type Item = (Zone, Drawable);
 
     fn next(&mut self) -> Option<Self::Item> {
         let zone = self.winding_zones.next()?;

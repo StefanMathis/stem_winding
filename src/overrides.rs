@@ -1,4 +1,4 @@
-use stem_core::stem_material::prelude::*;
+use stem_wire::stem_material::prelude::*;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

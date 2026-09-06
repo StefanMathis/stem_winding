@@ -1,11 +1,11 @@
 use cairo_viewport::*;
 use magnetic_core::{CoreRot, IsCoreRef};
 use winding::*;
-use winding::{WindingDistributed, WindingQuadrupleLayerToothCoil, WindingTableMethod};
+use winding::{DistributedWinding, QuadrupleLayerToothCoilWinding, WindingTableMethod};
 
 #[test]
 fn test_from_winding() {
-    let winding = WindingDistributed::default();
+    let winding = DistributedWinding::default();
     let core = CoreRot::from_winding(&winding);
 
     // Compare the core area
@@ -20,7 +20,7 @@ fn test_from_winding() {
 
 #[test]
 fn test_winding_shapes_single_layer_arrow() {
-    let wdg = WindingDistributed::new_minimal(6, 1, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
+    let wdg = DistributedWinding::new_minimal(6, 1, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
     let core = CoreRot::from_winding(&wdg);
 
     let zone_config = ZoneConfig::new(
@@ -47,7 +47,7 @@ fn test_winding_shapes_single_layer_arrow() {
 
 #[test]
 fn test_winding_shapes_single_layer_ampere_turns() {
-    let wdg = WindingDistributed::new_minimal(6, 1, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
+    let wdg = DistributedWinding::new_minimal(6, 1, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
     let core = CoreRot::from_winding(&wdg);
 
     let zone_config = ZoneConfig::new(
@@ -74,7 +74,7 @@ fn test_winding_shapes_single_layer_ampere_turns() {
 fn test_winding_shapes_quadruple_layer() {
     // Single shift
     let wdg =
-        WindingQuadrupleLayerToothCoil::new_minimal(9, 4, 3, 3, vec![1], WindingTableMethod::Tingley)
+        QuadrupleLayerToothCoilWinding::new_minimal(9, 4, 3, 3, vec![1], WindingTableMethod::Tingley)
             .unwrap();
     let core = CoreRot::from_winding(&wdg);
 
@@ -100,7 +100,7 @@ fn test_winding_shapes_quadruple_layer() {
     assert!(compare_or_create(path, &callback).is_ok());
 
     // Double shift
-    let wdg = WindingQuadrupleLayerToothCoil::new_minimal(
+    let wdg = QuadrupleLayerToothCoilWinding::new_minimal(
         9,
         4,
         3,
@@ -128,7 +128,7 @@ fn test_winding_shapes_quadruple_layer() {
 #[test]
 fn test_plot_winding_shapes_rot_quadruple_layer_ampere_turns() {
     let winding =
-        WindingQuadrupleLayerToothCoil::new_minimal(12, 5, 3, 4, vec![3], WindingTableMethod::Tingley)
+        QuadrupleLayerToothCoilWinding::new_minimal(12, 5, 3, 4, vec![3], WindingTableMethod::Tingley)
             .unwrap();
     let core = CoreRot::from_winding(&winding);
 

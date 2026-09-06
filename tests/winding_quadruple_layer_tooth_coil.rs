@@ -9,7 +9,7 @@ use winding_quadruple_layer_tooth_coil::{LL, LR, UL, UR};
 fn test_coil_direction() {
     {
         // 9/8 QL
-        let winding = WindingQuadrupleLayerToothCoil::new_minimal(
+        let winding = QuadrupleLayerToothCoilWinding::new_minimal(
             9,
             4,
             3,
@@ -42,7 +42,7 @@ These windings have lead to crashes in the winding explorer UI
 #[test]
 fn test_turn_creator_regression_test() {
     assert!(
-        WindingQuadrupleLayerToothCoil::new_minimal(
+        QuadrupleLayerToothCoilWinding::new_minimal(
             9,
             1,
             3,
@@ -53,7 +53,7 @@ fn test_turn_creator_regression_test() {
         .is_err()
     );
     assert!(
-        WindingQuadrupleLayerToothCoil::new_minimal(9, 1, 3, 2, vec![1], WindingTableMethod::Tingley,)
+        QuadrupleLayerToothCoilWinding::new_minimal(9, 1, 3, 2, vec![1], WindingTableMethod::Tingley,)
             .is_err()
     );
 }
@@ -71,7 +71,7 @@ fn test_deserialize_min() {
                 winding_table_method: Tingley
                 "};
 
-    let winding: WindingQuadrupleLayerToothCoil = create_dbm().from_str(yaml).unwrap();
+    let winding: QuadrupleLayerToothCoilWinding = create_dbm().from_str(yaml).unwrap();
 
     approxim::assert_abs_diff_eq!(0.061, winding.winding_factor(1, 0.25), epsilon = 0.001);
     approxim::assert_abs_diff_eq!(0.139, winding.winding_factor(1, 0.5), epsilon = 0.001);
@@ -93,7 +93,7 @@ fn test_deserialize_min() {
                 winding_table_method: Tingley
                 "};
 
-    let winding: WindingQuadrupleLayerToothCoil = create_dbm().from_str(yaml).unwrap();
+    let winding: QuadrupleLayerToothCoilWinding = create_dbm().from_str(yaml).unwrap();
 
     approxim::assert_abs_diff_eq!(0.061, winding.winding_factor(1, 0.25), epsilon = 0.001);
     approxim::assert_abs_diff_eq!(0.139, winding.winding_factor(1, 0.5), epsilon = 0.001);
@@ -109,7 +109,7 @@ fn test_deserialize_min() {
 fn test_err_when_turns_per_slot_side_smaller_than_two() {
     // 0 Turns per slot side
     assert!(
-        WindingQuadrupleLayerToothCoil::new_minimal(
+        QuadrupleLayerToothCoilWinding::new_minimal(
             9,
             4,
             3,
@@ -122,7 +122,7 @@ fn test_err_when_turns_per_slot_side_smaller_than_two() {
 
     // 1 Turn per slot side
     assert!(
-        WindingQuadrupleLayerToothCoil::new_minimal(
+        QuadrupleLayerToothCoilWinding::new_minimal(
             9,
             4,
             3,
@@ -135,7 +135,7 @@ fn test_err_when_turns_per_slot_side_smaller_than_two() {
 
     // 2 Turns per slot side
     assert!(
-        WindingQuadrupleLayerToothCoil::new_minimal(
+        QuadrupleLayerToothCoilWinding::new_minimal(
             9,
             4,
             3,
@@ -148,7 +148,7 @@ fn test_err_when_turns_per_slot_side_smaller_than_two() {
 
     // 3 Turns per slot side
     assert!(
-        WindingQuadrupleLayerToothCoil::new_minimal(
+        QuadrupleLayerToothCoilWinding::new_minimal(
             9,
             4,
             3,
@@ -166,7 +166,7 @@ fn test_equal_turns_per_coil_9_8_dl() {
         // Check the 9/8 winding from [Alb11]
 
         // No zone shift -> Winding factor should be the same as that of a two-layer winding
-        let winding = WindingQuadrupleLayerToothCoil::new_minimal(
+        let winding = QuadrupleLayerToothCoilWinding::new_minimal(
             9,
             4,
             3,
@@ -213,7 +213,7 @@ fn test_equal_turns_per_coil_9_8_dl() {
 
     {
         // Zone shift by 1 (Fig. 5 in [Alb11])
-        let winding = WindingQuadrupleLayerToothCoil::new_minimal(
+        let winding = QuadrupleLayerToothCoilWinding::new_minimal(
             9,
             4,
             3,
@@ -268,7 +268,7 @@ fn test_equal_turns_per_coil_9_8_dl() {
 
     {
         // Zone shift by 2 (Fig. 4 in [Alb11])
-        let winding = WindingQuadrupleLayerToothCoil::new_minimal(
+        let winding = QuadrupleLayerToothCoilWinding::new_minimal(
             9,
             4,
             3,
@@ -324,7 +324,7 @@ fn test_equal_turns_per_coil_9_8_dl() {
 fn test_varying_turns_per_coil_9_8_dl() {
     {
         // Zone shift by 1 (Fig. 5 in [Alb11])
-        let winding = WindingQuadrupleLayerToothCoil::new_minimal(
+        let winding = QuadrupleLayerToothCoilWinding::new_minimal(
             9,
             4,
             3,
@@ -341,7 +341,7 @@ fn test_varying_turns_per_coil_9_8_dl() {
 
     {
         // Zone shift by 1 (Fig. 5 in [Alb11])
-        let winding = WindingQuadrupleLayerToothCoil::new_minimal(
+        let winding = QuadrupleLayerToothCoilWinding::new_minimal(
             9,
             4,
             3,
@@ -381,7 +381,7 @@ fn test_varying_turns_per_coil_9_8_dl() {
 
     {
         // Zone shift by 1 (Fig. 5 in [Alb11])
-        let winding = WindingQuadrupleLayerToothCoil::new_minimal(
+        let winding = QuadrupleLayerToothCoilWinding::new_minimal(
             9,
             4,
             3,
@@ -398,7 +398,7 @@ fn test_varying_turns_per_coil_9_8_dl() {
 
     {
         // Zone shift by 2 (Fig. 5 in [Alb11])
-        let winding = WindingQuadrupleLayerToothCoil::new_minimal(
+        let winding = QuadrupleLayerToothCoilWinding::new_minimal(
             9,
             4,
             3,
@@ -443,7 +443,7 @@ fn test_varying_turns_per_coil_9_8_dl() {
 
     {
         // Zone shift by 2 (Fig. 5 in [Alb11])
-        let winding = WindingQuadrupleLayerToothCoil::new_minimal(
+        let winding = QuadrupleLayerToothCoilWinding::new_minimal(
             9,
             4,
             3,
@@ -493,7 +493,7 @@ fn test_winding_table_creation_12_10_dl_equal_turns_per_coil() {
         // Check the 12/10 winding from [Wan15]
 
         // No zone shift -> Winding factor should be the same as that of a two-layer winding
-        let winding = WindingQuadrupleLayerToothCoil::new_minimal(
+        let winding = QuadrupleLayerToothCoilWinding::new_minimal(
             12,
             5,
             3,
@@ -510,7 +510,7 @@ fn test_winding_table_creation_12_10_dl_equal_turns_per_coil() {
 
     {
         // Zone shift by 1 (Fig. 1 in [Wan15])
-        let winding = WindingQuadrupleLayerToothCoil::new_minimal(
+        let winding = QuadrupleLayerToothCoilWinding::new_minimal(
             12,
             5,
             3,

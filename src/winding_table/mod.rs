@@ -1,5 +1,4 @@
 use crate::error::WindingTableCreationError;
-use num::traits::Euclid;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -91,7 +90,8 @@ impl WindingTable {
 
         for layer in 0..self.layers() {
             for slot in 0..slots {
-                let new_slot = (slot as i32 + shift).rem_euclid(slots as i32) as u16;
+                let new_slot = (i32::from(u16::from(slot)) + shift)
+                    .rem_euclid(i32::from(u16::from(slots))) as u16;
                 let phase = winding_table_ref[Zone::new(slot, layer)];
 
                 // Expand all positive slots in the upper layer
@@ -107,6 +107,64 @@ impl WindingTable {
         }
     }
 
+    /*
+    The coil arrangement is very sensitive to the starting location. As an example, let's consider a
+    18 slot / 4 pole pairs single layer winding with the following zone plan:
+    ```ignore
+    1 2 -1 3 -2 -3 2 3 -2 1 -3 -1 3 1 -3 2 -1 -2
+    ```
+    Starting the coil builder algorithm at the first slot results in the following coil configuration for phase 2:
+    ```ignore
+    ──┐       ┌────┐    ┌────────────────┐     ┌
+    1 2 -1 3 -2 -3 2 3 -2 1 -3 -1 3 1 -3 2 -1 -2
+    ──┘       └────┘    └────────────────┘     └
+    ```
+    The very long third coil is solely a result of the starting location. IF we instead start at the third positive zone,
+    the coil configuration looks like this:
+      ```ignore
+      ┌───────┐    ┌────┐                ┌─────┐
+    1 2 -1 3 -2 -3 2 3 -2 1 -3 -1 3 1 -3 2 -1 -2
+      └───────┘    └────┘                └─────┘
+    ```
+    The overall end winding length of this configuration is much shorter. To find the optimal configuration with a
+    minimum overall end winding length, a heuristic approach is used: We search for the hypothetical coil
+    with the longest span and start the coil creater algorithm at the positive zone of this coil.
+     */
+    pub fn start_at_largest_possible_span(&self, phase: i32) -> u16 {
+        let mut longest_span = 0;
+        let mut span_start_slot = 0;
+        let mut positive_slot: u16 = 0;
+        let mut last_phase: i32 = 0;
+
+        /*
+        In order to find coils which go from the end to the start of the zone plan,
+        the algorithm scans the zone plan two times.
+         */
+        for slot in 0..(2 * self.slots()) {
+            /*
+            We only need to check layer 0, since in case of a double-layer winding layer 1
+            is merely a shifted and mirrored version of layer 0.
+             */
+            let current_phase = self.get_cyclic(Zone::new(slot, 0)).clone();
+            if current_phase.abs() == phase {
+                if current_phase != last_phase {
+                    let current_span = slot - span_start_slot;
+                    if current_span > longest_span {
+                        longest_span = current_span;
+                        if current_phase > 0 {
+                            positive_slot = slot
+                        } else {
+                            positive_slot = span_start_slot;
+                        }
+                    }
+                    last_phase = current_phase;
+                }
+                span_start_slot = slot;
+            }
+        }
+        return positive_slot;
+    }
+
     /// Shift all layers of the given zone plan by `shift` slots.
     pub(crate) fn shift_layers(&mut self, shift: i32) -> () {
         for layer in 0..self.layers() {
@@ -119,7 +177,7 @@ impl WindingTable {
         // Swap with the Triple reversal algorithm: https://en.wikipedia.org/wiki/Block_swap_algorithms
 
         let slots = self.slots();
-        let shift = shift.rem_euclid(slots as i32) as usize;
+        let shift = shift.rem_euclid(i32::from(u16::from(slots))) as usize;
 
         if shift == 0 {
             return;
@@ -137,7 +195,7 @@ impl WindingTable {
         self.reverse_layer_range(layer, 0, slots as usize);
     }
 
-    fn reverse_layer_range(&mut self, layer: usize, start: usize, end: usize) {
+    pub(crate) fn reverse_layer_range(&mut self, layer: usize, start: usize, end: usize) {
         let layers = usize::from(self.layers());
 
         let mut left = start;
@@ -233,7 +291,7 @@ impl WindingTable {
     }
 
     pub(crate) fn check(self, phases: NonZeroU16) -> Result<Self, WindingTableCreationError> {
-        for phase in 1..(u16::from(phases) as i32 + 1) {
+        for phase in 1..(i32::from(u16::from(phases)) + 1) {
             let mut counter = 0;
             for (zone, zone_phase) in self.iter_slots() {
                 if phase == *zone_phase {
