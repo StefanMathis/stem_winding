@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     coils::{Coil, CoilFull, Coils},
     error::{Error, WindingTableCreationError},
-    winding::{Connection, Winding, hole_number, periodicity},
+    winding::{Connection, Winding, hole_number, base_winding_count_symmetric_winding},
     winding_table::{WindingTable, WindingTableMethod},
 };
 
@@ -333,8 +333,8 @@ impl Winding for QuadrupleLayerToothCoilWinding {
         return NonZeroU16::new(4).expect("not zero");
     }
 
-    fn periodicity(&self) -> NonZeroU16 {
-        periodicity(
+    fn base_winding_count(&self) -> NonZeroU16 {
+        base_winding_count_symmetric_winding(
             self.slots(),
             self.pole_pairs(),
             self.phases(),
@@ -348,7 +348,7 @@ impl Winding for QuadrupleLayerToothCoilWinding {
 
     fn coil_groups_per_phase(&self) -> NonZeroU16 {
         // Antiparallel coil groups are possible
-        let t = self.periodicity();
+        let t = self.base_winding_count();
 
         if (self.slots().get() / (t.get() * self.phases().get())) % 2 == 0 {
             return NonZeroU16::new(2 * t.get()).expect("not zero");
@@ -459,7 +459,7 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
         }
 
         // Calculate the basic winding parameters
-        let t = periodicity(
+        let t = base_winding_count_symmetric_winding(
             builder.slots,
             builder.pole_pairs,
             builder.phases,

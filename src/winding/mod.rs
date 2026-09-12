@@ -3,7 +3,7 @@ use num::{Complex, Integer, integer::gcd};
 use std::{
     any::Any,
     f64::consts::{PI, TAU},
-    num::NonZeroU16,
+    num::{NonZeroU16, NonZeroUsize},
 };
 
 use rayon::prelude::*;
@@ -54,12 +54,6 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// Return the number of pole pairs.
     fn pole_pairs(&self) -> NonZeroU16;
 
-    /// Return the number of winding layers.
-    fn layers(&self) -> NonZeroU16;
-
-    /// Returns the number of basic windings contained in the winding
-    fn periodicity(&self) -> NonZeroU16;
-
     /// Return the number of parallel paths of the winding
     fn parallel_paths(&self) -> NonZeroU16;
 
@@ -81,6 +75,18 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
     // =========================================================================
     // These functions are likely to be overloaded
+
+    /// Return the number of winding layers.
+    fn layers(&self) -> NonZeroU16 {
+        return self.coil_layout().layers();
+    }
+
+    /// Returns the number of basic windings contained in the winding
+    /// TODO: Recommend overloading, default impl is O(n), where n is the number
+    /// of zones (it scans the entire winding table for repetitions)
+    fn base_winding_count(&self) -> NonZeroU16 {
+        todo!();
+    }
 
     /// Return the angle covered by one phase zone
     fn phase_zone_angle(&self) -> f64 {
@@ -225,7 +231,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         let slots = if full {
             self.slots()
         } else {
-            NonZeroU16::new(self.slots().get() / self.periodicity().get()).expect("not zero")
+            NonZeroU16::new(self.slots().get() / self.base_winding_count().get()).expect("not zero")
         };
         let layers = self.layers();
 
@@ -275,7 +281,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// Calculate the number of phasors skipped in the numbering of the voltage
     /// phasor star.
     fn skipped_phasors(&self) -> usize {
-        return usize::from(self.pole_pairs().get() / self.periodicity().get()) - 1;
+        return usize::from(self.pole_pairs().get() / self.base_winding_count().get()) - 1;
     }
 
     /// Vibration mode: The number equals the number of constant, rotating
@@ -342,13 +348,13 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /**
     Returns the number of coil groups per phase. This value is equal to the maximum possible number of parallel paths and can be calculated
     as described in [Seq50], p. 37: First, the number of coils per phase in a basic winding is calculated. Then, it is checked whether this
-    number is even or odd. If it is even, the number of coil groups equals twice the number of basic windings (= the periodicity). If it is odd,
+    number is even or odd. If it is even, the number of coil groups equals twice the number of basic windings (= the base_winding_count). If it is odd,
     the number of coil groups equals the number of basic windings.
 
     At least one coiö group per phase is always possible
     */
     fn coil_groups_per_phase(&self) -> NonZeroU16 {
-        let t = self.periodicity();
+        let t = self.base_winding_count();
         let number_of_coils_in_basic_winding =
             self.slots().get() * self.layers().get() / (t.get() * 2 * self.phases().get());
         if number_of_coils_in_basic_winding % 2 == 0 {
@@ -390,7 +396,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         // sign, the zone plan is used.
 
         // It is sufficient to calculate the phasor star for the basic winding
-        let slots_basic = self.slots().get() / self.periodicity().get();
+        let slots_basic = self.slots().get() / self.base_winding_count().get();
         let layers = self.layers();
         let alpha_u = self.phasor_angle();
 
@@ -444,7 +450,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         let slots = if full {
             self.slots()
         } else {
-            NonZeroU16::new(self.slots().get() / self.periodicity().get()).expect("not zero")
+            NonZeroU16::new(self.slots().get() / self.base_winding_count().get()).expect("not zero")
         };
 
         let mut verts = vec![Complex::new(0.0, 0.0); usize::from(slots.get())];
@@ -547,7 +553,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// p. 97 ff.) A default implementation exists.
     fn air_gap_leakage_factor(&self) -> f64 {
         let verts = self.calculate_goerges_polygon(false);
-        let slots = self.slots().get() / self.periodicity();
+        let slots = self.slots().get() / self.base_winding_count();
         let phase = NonZeroU16::MIN;
         let k_w = self.winding_factor(phase, 1.0);
 
@@ -814,7 +820,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
             // Calculate the total slot leakage inductance by iterating over all slots of a
             // basic winding and calculating the sum of the slot flux leakage inductance.
-            let number_basic_slots = self.slots() / self.periodicity();
+            let number_basic_slots = self.slots() / self.base_winding_count();
             let slots = 0..number_basic_slots;
             let number_layers = self.layers();
             let number_layers_squared = number_layers.pow(2);
@@ -901,9 +907,9 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
                 })
                 .sum();
 
-            // Scale with the winding periodicity and the number of parallel paths
+            // Scale with the winding base_winding_count and the number of parallel paths
             return Inductance::new::<henry>(basic_winding_slot_inductance)
-                * self.periodicity() as f64
+                * self.base_winding_count() as f64
                 / self.parallel_paths() as f64;
         } else {
             return Inductance::new::<henry>(0.0);
@@ -1095,6 +1101,85 @@ pub fn curvature_factor(
     return f64::from(air_gap_width * v_times_p / air_gap_radius * (a + 1.0) / (a - 1.0));
 }
 
+pub fn repeating_pattern_count<C, T>(collection: &C, collection_len: NonZeroUsize) -> NonZeroUsize
+where
+    C: std::ops::Index<usize, Output = T>,
+    T: PartialEq,
+{
+    struct PatternLength {
+        len: NonZeroUsize,
+        divisor: usize,
+    }
+
+    impl PatternLength {
+        fn new(len: NonZeroUsize) -> Self {
+            Self {
+                len,
+                divisor: len.get(),
+            }
+        }
+    }
+
+    impl Iterator for PatternLength {
+        type Item = usize;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            while self.divisor > 0 {
+                if self.len.get() % self.divisor == 0 {
+                    let divisor = self.divisor;
+                    self.divisor -= 1;
+                    return Some(self.len.get() / divisor);
+                }
+                self.divisor -= 1;
+            }
+            return None;
+        }
+    }
+
+    let mut c1 = 0;
+    let mut c2 = 1;
+    let mut pattern_len_iter = PatternLength::new(collection_len);
+
+    // Candidate for the pattern length. We start with the smallest possible pattern
+    // length, which is always 1.
+    let mut pattern_len_cand = match pattern_len_iter.next() {
+        Some(l) => l,
+        None => unreachable!(
+            "collection_len cannot be zero, hence the iterator will always return at least one item"
+        ),
+    };
+    while c2 < collection_len.get() {
+        if collection[c1] == collection[c2] {
+            c1 = (c1 + 1) % pattern_len_cand;
+            c2 += 1;
+        } else {
+            // If the new pattern length is not larger than c2, we must exclude it.
+            // because we already skipped the possibility to validate that pattern
+            // (since c2 already went too far). Furthermore, this pattern length
+            // isn't valid anyway because we just encountered a case invalidating
+            // a pattern length of at least c2, hence pattern_len_cand <= c2 cannot
+            // be a valid pattern.
+            while pattern_len_cand <= c2 {
+                pattern_len_cand = match pattern_len_iter.next() {
+                    Some(l) => l,
+                    None => {
+                        unreachable!(
+                            "the last iterator item is always collection_len, hence the while loop will stop before"
+                        );
+                    }
+                };
+            }
+            // We can jump ahead to the next multiple of the pattern_len_cand
+            c2 = ((c2 + pattern_len_cand - 1) / pattern_len_cand) * pattern_len_cand;
+
+            // We start checking the new pattern length from the beginning again
+            c1 = 0;
+        }
+    }
+
+    return NonZeroUsize::new(c2 / pattern_len_cand).unwrap_or(NonZeroUsize::MIN);
+}
+
 /// Calculate the number of basic windings with the formulae from [Pyr08],
 /// section 2.11 (p. 102 ff)
 ///
@@ -1104,21 +1189,21 @@ pub fn curvature_factor(
 /// repetition of coils.
 ///
 /// ```
-/// use winding::periodicity;
+/// use winding::base_winding_count;
 ///
 /// // 12/4 single-layer integer winding
-/// assert_eq!(2, periodicity(12, 2, 3, 1));
+/// assert_eq!(2, base_winding_count(12, 2, 3, 1));
 ///
 /// // 12/10 double-layer tooth-coil winding
-/// assert_eq!(1, periodicity(12, 5, 3, 2));
+/// assert_eq!(1, base_winding_count(12, 5, 3, 2));
 ///
 /// // 12/8 double-layer tooth-coil winding
-/// assert_eq!(4, periodicity(12, 4, 3, 2));
+/// assert_eq!(4, base_winding_count(12, 4, 3, 2));
 ///
 /// // 36/8 single-layer fractional slot winding
-/// assert_eq!(2, periodicity(36, 4, 3, 1));
+/// assert_eq!(2, base_winding_count(36, 4, 3, 1));
 /// ```
-pub fn periodicity(
+pub fn base_winding_count_symmetric_winding(
     slots: NonZeroU16,
     pole_pairs: NonZeroU16,
     phases: NonZeroU16,

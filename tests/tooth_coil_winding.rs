@@ -160,7 +160,7 @@ fn test_winding_12_8_dl() {
     .try_into()
     .unwrap();
 
-    assert_eq!(4, winding.periodicity().get());
+    assert_eq!(4, winding.base_winding_count().get());
 
     // Check the number of parallel paths
     assert_eq!(4, winding.coil_groups_per_phase().get());
@@ -198,7 +198,7 @@ fn test_winding_12_10_dl() {
     .try_into()
     .unwrap();
 
-    assert_eq!(1, winding.periodicity().get());
+    assert_eq!(1, winding.base_winding_count().get());
 
     // Check the number of parallel paths
     assert_eq!(2, winding.coil_groups_per_phase().get());
@@ -236,7 +236,7 @@ fn test_winding_12_10_sl() {
     .try_into()
     .unwrap();
 
-    assert_eq!(1, winding.periodicity().get());
+    assert_eq!(1, winding.base_winding_count().get());
 
     // Check the number of parallel paths
     assert_eq!(2, winding.coil_groups_per_phase().get());
@@ -274,7 +274,7 @@ fn test_default_tooth_coil_assembly() {
         winding.layers(),
     );
     assert_eq!(winding_table, expected_result);
-    assert_eq!(1, winding.periodicity().get());
+    assert_eq!(1, winding.base_winding_count().get());
 }
 
 #[test]

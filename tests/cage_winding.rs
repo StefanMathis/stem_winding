@@ -11,7 +11,7 @@ fn test_cage_winding_properties() {
         slots: 18.try_into().expect("not zero"),
         pole_pairs: ONE,
     });
-    assert_eq!(cage_winding.periodicity().get(), 1); // Holds true for all cage windings
+    assert_eq!(cage_winding.base_winding_count().get(), 1); // Holds true for all cage windings
     assert_eq!(cage_winding.slots().get(), 18); // Holds true for all cage windings
     assert_eq!(cage_winding.phases().get(), 18); // Holds true for all cage windings
     assert_eq!(
@@ -32,7 +32,7 @@ fn test_air_gap_leakage_factor() {
     })
     .expect("infallible");
     assert_eq!(winding.phases().get(), 14);
-    assert_eq!(winding.periodicity().get(), 1);
+    assert_eq!(winding.base_winding_count().get(), 1);
     assert_eq!(
         winding.turns_per_phase(ONE),
         num::rational::Ratio::new(1, 2)
@@ -44,7 +44,7 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 2.try_into().expect("not zero"),
     });
     assert_eq!(winding.phases().get(), 28);
-    assert_eq!(winding.periodicity().get(), 2);
+    assert_eq!(winding.base_winding_count().get(), 2);
     assert_eq!(
         winding.turns_per_phase(ONE),
         num::rational::Ratio::new(1, 2)
@@ -56,7 +56,7 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 4.try_into().expect("not zero"),
     });
     assert_eq!(winding.phases().get(), 56);
-    assert_eq!(winding.periodicity().get(), 4);
+    assert_eq!(winding.base_winding_count().get(), 4);
     assert_eq!(
         winding.turns_per_phase(ONE),
         num::rational::Ratio::new(1, 2)

@@ -100,7 +100,7 @@ impl Winding for SquirrelCageWinding {
         NonZeroU16::MIN
     }
 
-    fn periodicity(&self) -> NonZeroU16 {
+    fn base_winding_count(&self) -> NonZeroU16 {
         return num::integer::gcd(self.slots().get(), self.pole_pairs().get())
             .try_into()
             .expect("not zero");
@@ -138,7 +138,7 @@ impl Winding for SquirrelCageWinding {
 
     /// Returns the angle between two neighbouring phases.
     fn phase_angle_difference(&self) -> f64 {
-        TAU / f64::from(self.phases().get() / self.periodicity().get())
+        TAU / f64::from(self.phases().get() / self.base_winding_count().get())
     }
 
     /// Returns the number of wound coils per phase (equals winding_holes in

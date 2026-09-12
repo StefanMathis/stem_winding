@@ -155,7 +155,7 @@ fn test_coils_per_coil_group() {
         .try_into()
         .unwrap();
 
-        assert_eq!(wdg.periodicity(), NonZeroU16::new(1).expect("not zero"));
+        assert_eq!(wdg.base_winding_count(), NonZeroU16::new(1).expect("not zero"));
         assert_eq!(
             wdg.coil_groups_per_phase(),
             NonZeroU16::new(1).expect("not zero")
@@ -174,7 +174,7 @@ fn test_coils_per_coil_group() {
         .try_into()
         .unwrap();
 
-        assert_eq!(wdg.periodicity(), NonZeroU16::new(2).expect("not zero"));
+        assert_eq!(wdg.base_winding_count(), NonZeroU16::new(2).expect("not zero"));
         assert_eq!(
             wdg.coil_groups_per_phase(),
             NonZeroU16::new(2).expect("not zero")
@@ -195,7 +195,7 @@ fn test_coils_per_coil_group() {
         .try_into()
         .unwrap();
 
-        assert_eq!(wdg.periodicity(), NonZeroU16::new(1).expect("not zero"));
+        assert_eq!(wdg.base_winding_count(), NonZeroU16::new(1).expect("not zero"));
         assert_eq!(
             wdg.coil_groups_per_phase(),
             NonZeroU16::new(1).expect("not zero")
@@ -216,7 +216,7 @@ fn test_coils_per_coil_group() {
         .try_into()
         .unwrap();
 
-        assert_eq!(wdg.periodicity(), NonZeroU16::new(1).expect("not zero"));
+        assert_eq!(wdg.base_winding_count(), NonZeroU16::new(1).expect("not zero"));
         assert_eq!(
             wdg.coil_groups_per_phase(),
             NonZeroU16::new(2).expect("not zero")
@@ -235,7 +235,7 @@ fn test_coils_per_coil_group() {
         .try_into()
         .unwrap();
 
-        assert_eq!(wdg.periodicity(), NonZeroU16::new(1).expect("not zero"));
+        assert_eq!(wdg.base_winding_count(), NonZeroU16::new(1).expect("not zero"));
         assert_eq!(
             wdg.coil_groups_per_phase(),
             NonZeroU16::new(2).expect("not zero")
@@ -252,7 +252,7 @@ fn test_coils_per_coil_group() {
         .try_into()
         .unwrap();
 
-        assert_eq!(wdg.periodicity(), NonZeroU16::new(1).expect("not zero"));
+        assert_eq!(wdg.base_winding_count(), NonZeroU16::new(1).expect("not zero"));
         assert_eq!(
             wdg.coil_groups_per_phase(),
             NonZeroU16::new(2).expect("not zero")
@@ -269,7 +269,7 @@ fn test_coils_per_coil_group() {
         .try_into()
         .unwrap();
 
-        assert_eq!(wdg.periodicity(), NonZeroU16::new(4).expect("not zero"));
+        assert_eq!(wdg.base_winding_count(), NonZeroU16::new(4).expect("not zero"));
         assert_eq!(
             wdg.coil_groups_per_phase(),
             NonZeroU16::new(4).expect("not zero")

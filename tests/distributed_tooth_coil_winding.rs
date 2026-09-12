@@ -167,7 +167,7 @@ fn test_three_zones_single_layer() {
         })
         .unwrap();
 
-        assert_eq!(winding.periodicity().get(), 1);
+        assert_eq!(winding.base_winding_count().get(), 1);
 
         // Compare the zone plan
         let winding_table = winding.winding_table(false);
@@ -197,7 +197,7 @@ fn test_three_zones_single_layer() {
         })
         .unwrap();
 
-        assert_eq!(winding.periodicity().get(), 2);
+        assert_eq!(winding.base_winding_count().get(), 2);
 
         // Compare the zone plan
         let winding_table = winding.winding_table(false);
@@ -236,7 +236,7 @@ fn test_three_zones_single_layer() {
         })
         .unwrap();
 
-        assert_eq!(winding.periodicity().get(), 2);
+        assert_eq!(winding.base_winding_count().get(), 2);
 
         // Compare the zone plan
         let winding_table = winding.winding_table(false);
@@ -318,7 +318,7 @@ fn test_six_zones_single_layer() {
         })
         .unwrap();
 
-        assert_eq!(winding.periodicity().get(), 2);
+        assert_eq!(winding.base_winding_count().get(), 2);
 
         // Compare the zone plan
         let winding_table = winding.winding_table(false);
@@ -357,7 +357,7 @@ fn test_six_zones_single_layer() {
         })
         .unwrap();
 
-        assert_eq!(winding.periodicity().get(), 2);
+        assert_eq!(winding.base_winding_count().get(), 2);
 
         // Compare the zone plan
         let winding_table = winding.winding_table(false);
@@ -419,7 +419,7 @@ fn test_single_layer_24_1() {
         .unwrap();
 
         assert_eq!(winding.layers().get(), 1);
-        assert_eq!(winding.periodicity().get(), 1);
+        assert_eq!(winding.base_winding_count().get(), 1);
     }
     {
         // This fails, since the coil_group_turns vector has not the correct length
@@ -460,7 +460,7 @@ fn test_double_layer_24_2() {
     .unwrap();
 
     assert_eq!(winding.layers().get(), 2);
-    assert_eq!(winding.periodicity().get(), 2);
+    assert_eq!(winding.base_winding_count().get(), 2);
 
     // Compare the zone plan
     let winding_table = winding.winding_table(false);
@@ -513,7 +513,7 @@ fn test_double_layer_differing_number_of_coils_24_2_dl() {
         })
         .unwrap();
 
-        assert_eq!(winding.periodicity().get(), 1);
+        assert_eq!(winding.base_winding_count().get(), 1);
 
         // Check the winding factor
         approxim::assert_abs_diff_eq!(0.5166, winding.winding_factor(ONE, 1.0), epsilon = 0.0001);
@@ -551,7 +551,7 @@ fn test_double_layer_differing_number_of_coils_24_2_dl() {
         })
         .unwrap();
 
-        assert_eq!(winding.periodicity().get(), 2);
+        assert_eq!(winding.base_winding_count().get(), 2);
 
         assert_eq!(winding.turns_at(Zone::new(0, 0)), 115);
         assert_eq!(winding.turns_at(Zone::new(1, 0)), 85);

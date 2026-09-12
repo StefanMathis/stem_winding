@@ -192,7 +192,7 @@ impl Winding for CoilAssembly {
         self.coil_layout().layers()
     }
 
-    fn periodicity(&self) -> NonZeroU16 {
+    fn base_winding_count(&self) -> NonZeroU16 {
         NonZeroU16::MIN
     }
 

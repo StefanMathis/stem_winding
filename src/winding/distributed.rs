@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     coils::{Coil, CoilFull, Coils},
     error::{Error, WindingTableCreationError},
-    winding::{Connection, Winding, hole_number, periodicity},
+    winding::{Connection, Winding, base_winding_count_symmetric_winding, hole_number},
     winding_table::{WindingTable, WindingTableMethod},
 };
 
@@ -401,8 +401,8 @@ impl Winding for DistributedWinding {
         return self.layers;
     }
 
-    fn periodicity(&self) -> NonZeroU16 {
-        return periodicity(
+    fn base_winding_count(&self) -> NonZeroU16 {
+        return base_winding_count_symmetric_winding(
             self.slots(),
             self.pole_pairs(),
             self.phases(),
@@ -605,7 +605,7 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
         compare_variables!(0.0 <= builder.end_winding_leakage_coefficient)?;
 
         // Calculate the basic winding parameters
-        let t = periodicity(
+        let t = base_winding_count_symmetric_winding(
             builder.slots,
             builder.pole_pairs,
             builder.phases,

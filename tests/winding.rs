@@ -1,13 +1,167 @@
-use std::num::NonZeroU16;
+use std::num::{NonZeroU16, NonZeroUsize};
 
 use stem_winding::stem_material::prelude::*;
 use stem_winding::winding::*;
 
 #[test]
-fn test_periodicity() {
+fn test_repeating_pattern_count() {
+    {
+        let collection = [1, 1, 1, 7, 1, 1, 1, 7];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(2).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [1, 1, 1, 1, 1, 7];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(1).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [1, 1, 1, 1, 1, 1, 1, 7];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(1).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [1, 1, 1, 1, 1, 1, 7];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(1).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [1, 1, 1];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(3).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [1, 2, 1, 2];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(2).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [1, 2, 1, 2, 1, 2];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(3).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [1, 2, 1, 2, 1, 2, 1, 2, 1, 2];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(5).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [1, 2, 1, 2, 1, 2, 3];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(1).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [1, 2, 3, 1, 2, 3];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(2).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [1, 1, 1, 1, 1, 1];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(6).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(1).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(4).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(3).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 7, 4];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(1).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [1, 2, 3, 4, 5, 6, 7, 1, 2, 3, 4, 5, 6, 7];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(2).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [
+            1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4,
+        ];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(6).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [
+            1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3,
+        ];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(8).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [
+            1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1,
+            2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4,
+        ];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(12).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        let collection = [
+            1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2,
+            3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3,
+        ];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(16).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        // Note the stray 5, which completely kills the symmetry.
+        let collection = [
+            1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 5, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2,
+            3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3,
+        ];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(1).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+    {
+        // Here, the two 5 result in two repeating patterns
+        let collection = [
+            1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 5, 2, 3, 1, 2, 3, 1, 2,
+            3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 5, 2, 3,
+        ];
+        let len = NonZeroUsize::new(collection.len()).expect("not zero");
+        let expected = NonZeroUsize::new(2).expect("not zero");
+        assert_eq!(expected, repeating_pattern_count(&collection, len));
+    }
+}
+
+#[test]
+fn test_base_winding_count_symmetric_winding() {
     assert_eq!(
         2,
-        periodicity(
+        base_winding_count_symmetric_winding(
             NonZeroU16::new(12).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
@@ -17,7 +171,7 @@ fn test_periodicity() {
     );
     assert_eq!(
         5,
-        periodicity(
+        base_winding_count_symmetric_winding(
             NonZeroU16::new(15).expect("not zero"),
             NonZeroU16::new(5).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
@@ -27,7 +181,7 @@ fn test_periodicity() {
     );
     assert_eq!(
         2,
-        periodicity(
+        base_winding_count_symmetric_winding(
             NonZeroU16::new(18).expect("not zero"),
             NonZeroU16::new(10).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
@@ -37,7 +191,7 @@ fn test_periodicity() {
     );
     assert_eq!(
         1,
-        periodicity(
+        base_winding_count_symmetric_winding(
             NonZeroU16::new(19).expect("not zero"),
             NonZeroU16::new(4).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),

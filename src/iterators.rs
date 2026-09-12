@@ -83,7 +83,7 @@ pub struct HarmonicOrdinalsIterator<'a> {
 impl<'a> HarmonicOrdinalsIterator<'a> {
     pub fn new(winding: &'a dyn Winding) -> HarmonicOrdinalsIterator<'a> {
         // Calculate the number of pole pairs in the basic winding
-        let p_bw = winding.pole_pairs().get() / winding.periodicity().get();
+        let p_bw = winding.pole_pairs().get() / winding.base_winding_count().get();
         let iterator = HarmonicOrdinalsIterator {
             winding,
             p_bw,

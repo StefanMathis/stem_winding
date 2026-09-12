@@ -9,7 +9,7 @@ use stem_wire::{round::RoundWire, wire::Wire};
 use crate::{
     coils::{Coil, CoilFull, Coils},
     error::{Error, WindingTableCreationError},
-    winding::{Connection, Winding, periodicity},
+    winding::{Connection, Winding, base_winding_count_symmetric_winding},
     winding_table::{WindingTable, WindingTableMethod},
 };
 
@@ -189,8 +189,8 @@ impl Winding for ToothCoilWinding {
         self.layers
     }
 
-    fn periodicity(&self) -> NonZeroU16 {
-        periodicity(
+    fn base_winding_count(&self) -> NonZeroU16 {
+        base_winding_count_symmetric_winding(
             self.slots(),
             self.pole_pairs(),
             self.phases(),
@@ -233,11 +233,11 @@ impl Winding for ToothCoilWinding {
     /**
     Returns the number of coil groups per phase. This value is equal to the maximum possible number of parallel paths and can be calculated
     as described in [Seq50], p. 37: First, the number of coils per phase in a basic winding is calculated. Then, it is checked whether this
-    number is even or odd. If it is even, the number of coil groups equals twice the number of basic windings (= the periodicity). If it is odd,
+    number is even or odd. If it is even, the number of coil groups equals twice the number of basic windings (= the base_winding_count). If it is odd,
     the number of coil groups equals the number of basic windings.
     */
     fn coil_groups_per_phase(&self) -> NonZeroU16 {
-        let t = self.periodicity();
+        let t = self.base_winding_count();
         let number_of_coils_in_basic_winding =
             self.slots().get() * self.layers().get() / (t.get() * 2 * self.phases().get());
         if number_of_coils_in_basic_winding % 2 == 0 {
@@ -392,7 +392,7 @@ impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
         compare_variables::compare_variables!(0.0 <= builder.end_winding_leakage_coefficient)?;
 
         // Calculate the basic winding parameters
-        let t = periodicity(
+        let t = base_winding_count_symmetric_winding(
             builder.slots,
             builder.pole_pairs,
             builder.phases,

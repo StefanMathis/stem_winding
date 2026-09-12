@@ -32,7 +32,7 @@ pub struct DistributedToothCoilWinding {
     #[cfg_attr(feature = "serde", serde(skip))]
     coils: Coils,
     #[cfg_attr(feature = "serde", serde(skip))]
-    periodicity: NonZeroU16,
+    base_winding_count: NonZeroU16,
     double_zone_span: bool,
 }
 
@@ -264,8 +264,8 @@ impl Winding for DistributedToothCoilWinding {
         self.layers
     }
 
-    fn periodicity(&self) -> NonZeroU16 {
-        self.periodicity
+    fn base_winding_count(&self) -> NonZeroU16 {
+        self.base_winding_count
     }
 
     fn coil_layout(&self) -> CoilLayout {
@@ -302,7 +302,7 @@ impl Winding for DistributedToothCoilWinding {
     /// The number of parallel paths of this winding type is alwaystwice the
     /// number of basic windings.
     fn parallel_paths(&self) -> NonZeroU16 {
-        return NonZeroU16::new(self.periodicity().get() * 2).expect("not zero");
+        return NonZeroU16::new(self.base_winding_count().get() * 2).expect("not zero");
     }
 
     fn coil_at(&self, zone: Zone) -> Option<&Coil> {
@@ -312,11 +312,11 @@ impl Winding for DistributedToothCoilWinding {
     /**
     Returns the number of coil groups per phase. This value is equal to the maximum possible number of parallel paths and can be calculated
     as described in [Seq50], p. 37: First, the number of coils per phase in a basic winding is calculated. Then, it is checked whether this
-    number is even or odd. If it is even, the number of coil groups equals twice the number of basic windings (= the periodicity). If it is odd,
+    number is even or odd. If it is even, the number of coil groups equals twice the number of basic windings (= the base_winding_count). If it is odd,
     the number of coil groups equals the number of basic windings.
     */
     fn coil_groups_per_phase(&self) -> NonZeroU16 {
-        let t = self.periodicity();
+        let t = self.base_winding_count();
         let number_of_coils_in_basic_winding =
             self.slots().get() * self.layers().get() / (t.get() * 2 * self.phases().get());
         if number_of_coils_in_basic_winding % 2 == 0 {
@@ -396,8 +396,8 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
             4 * wires_len * builder.phases.get() / builder.layers.get()
         };
 
-        let periodicity = builder.slots.get() / slots_winding_table;
-        if builder.pole_pairs.get() % periodicity != 0 {
+        let base_winding_count = builder.slots.get() / slots_winding_table;
+        if builder.pole_pairs.get() % base_winding_count != 0 {
             return Err(Error::InvalidPolePairNumber);
         }
 
@@ -421,7 +421,7 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
             end_winding_leakage_coefficient: builder.end_winding_leakage_coefficient,
             wires: builder.wires,
             coils: Coils::with_capacity((builder.slots.get() * builder.layers.get() / 2).into()),
-            periodicity: NonZeroU16::new(periodicity).expect("not zero"),
+            base_winding_count: NonZeroU16::new(base_winding_count).expect("not zero"),
             double_zone_span: builder.double_zone_span,
         };
 
