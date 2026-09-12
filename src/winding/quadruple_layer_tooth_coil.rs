@@ -2,13 +2,17 @@ use std::num::{NonZeroU16, NonZeroUsize};
 
 use compare_variables::compare_variables;
 use dyn_clone::clone_box;
+use num::Integer;
 use stem_coil_layout::{CoilLayout, Zone};
 use stem_wire::{round::RoundWire, wire::Wire};
+
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 use crate::{
     coils::{Coil, CoilFull, Coils},
     error::{Error, WindingTableCreationError},
-    winding::{Connection, Winding, periodicity},
+    winding::{Connection, Winding, hole_number, periodicity},
     winding_table::{WindingTable, WindingTableMethod},
 };
 
@@ -90,6 +94,7 @@ Turns per coil
  slot 0 | slot 1 | slot 2 | slot 3
  */
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct QuadrupleLayerToothCoilWinding {
     slots: NonZeroU16,
     pole_pairs: NonZeroU16,
@@ -100,11 +105,20 @@ pub struct QuadrupleLayerToothCoilWinding {
     connection: Connection,
     end_winding_leakage_coefficient: f64,
     wire: Box<dyn Wire>,
+    #[cfg_attr(feature = "serde", serde(skip))]
     coils: Coils,
     winding_table_method: WindingTableMethod,
 }
 
 impl QuadrupleLayerToothCoilWinding {
+    pub fn new<W>(builder: W) -> Result<Self, Error>
+    where
+        W: TryInto<QuadrupleLayerToothCoilWinding>,
+        W::Error: Into<Error>,
+    {
+        builder.try_into().map_err(Into::into)
+    }
+
     pub fn upper_layer_shift(&self) -> usize {
         self.turns_upper_layer_coils.len()
     }
@@ -115,6 +129,14 @@ impl QuadrupleLayerToothCoilWinding {
 
     pub fn turns_upper_layer_coils(&self) -> &[NonZeroUsize] {
         self.turns_upper_layer_coils.as_slice()
+    }
+
+    pub fn wire(&self) -> &dyn Wire {
+        &*self.wire
+    }
+
+    pub fn winding_table_method(&self) -> &WindingTableMethod {
+        &self.winding_table_method
     }
 
     /**
@@ -188,7 +210,9 @@ impl QuadrupleLayerToothCoilWinding {
                     if search_forward {
                         let turns_in_upper_layer_coil = self.turns_upper_layer_coils()
                             [usize::from(upper_layer_shift - idx - 1)];
-                        return self.turns_per_slot_side - turns_in_upper_layer_coil;
+                        let turns =
+                            self.turns_per_slot_side.get() - turns_in_upper_layer_coil.get();
+                        return NonZeroUsize::new(turns).unwrap_or(NonZeroUsize::MIN);
                     } else {
                         let turns_in_upper_layer_coil =
                             self.turns_upper_layer_coils()[usize::from(idx)];
@@ -282,7 +306,7 @@ impl QuadrupleLayerToothCoilWinding {
             true,
             clockwise,
             turns,
-            phase_abs,
+            phase_abs.try_into().unwrap_or(NonZeroU16::MIN),
             clone_box(&*self.wire),
         )
         .ok()
@@ -396,11 +420,9 @@ impl Winding for QuadrupleLayerToothCoilWinding {
     }
 }
 
-// =============================================================================
-// Builder
-
-#[cfg_attr(feature = "serde", deserialize(Deserialize, Serialize))]
-#[cfg_attr(feature = "serde", serde(skip))]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct QuadrupleLayerToothCoilBuilder {
     pub slots: NonZeroU16,
     pub pole_pairs: NonZeroU16,
@@ -417,54 +439,50 @@ pub struct QuadrupleLayerToothCoilBuilder {
 impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding {
     type Error = Error;
 
-    fn try_from(value: QuadrupleLayerToothCoilBuilder) -> Result<Self, Self::Error> {
-        // Sanity checks
-        compare_variables!(1 < turns_per_slot_side)?;
-        compare_variables!(0.0 <= end_winding_leakage_coefficient)?;
+    fn try_from(builder: QuadrupleLayerToothCoilBuilder) -> Result<Self, Self::Error> {
+        compare_variables!(0.0 <= builder.end_winding_leakage_coefficient)?;
 
-        let upper_layer_shift = turns_upper_layer_coils.len();
+        let upper_layer_shift = builder.turns_upper_layer_coils.len();
 
         // Check if the upper layer shift is smaller than the numerator of the number of
         // slots per pole and phase.
-        let hole_number_val = *hole_number(slots, pole_pairs, phases).numer() as usize;
+        let hole_number_val: usize =
+            (*hole_number(builder.slots, builder.pole_pairs, builder.phases).numer()).into();
         if upper_layer_shift >= hole_number_val {
             compare_variables!(upper_layer_shift < hole_number_val as hole_number)?;
         }
 
-        for turn in turns_upper_layer_coils.iter() {
-            if *turn >= turns_per_slot_side {
-                return Err(stem_primitives::ErrorType::Other(
-                    "Inner of turns per coil must be smaller than number of turns per slot side."
-                        .into(),
-                )
-                .into());
-            }
+        for turns_upper_layer_coil in builder.turns_upper_layer_coils.iter() {
+            let turns_upper_layer_coil = turns_upper_layer_coil.get();
+            let turns_per_slot_side = builder.turns_per_slot_side.get();
+            compare_variables!(turns_upper_layer_coil < turns_per_slot_side)?;
         }
 
-        // Calculate with 2 layers
-        let layers = 2;
-
         // Calculate the basic winding parameters
-        let t = periodicity(slots, pole_pairs, phases, layers);
-        let slots_basic = slots / t;
-        let pole_pairs_basic = pole_pairs / t;
+        let t = periodicity(
+            builder.slots,
+            builder.pole_pairs,
+            builder.phases,
+            NonZeroU16::new(2).expect("not zero"),
+        );
+        let slots_basic = builder.slots.get() / t;
+        let pole_pairs_basic = builder.pole_pairs.get() / t;
 
         // Create the zone plan by method
-        let winding_table_dl = zones::create_winding_table_by_method(
-            winding_table_method,
-            slots_basic,
-            pole_pairs_basic,
-            phases,
-            layers,
-            1, // Tooth coil winding => throw is 1
-            true,
+        let winding_table_dl = WindingTable::with_method(
+            &builder.winding_table_method,
+            NonZeroU16::new(slots_basic).unwrap_or(NonZeroU16::MIN),
+            NonZeroU16::new(2).expect("not zero"),
+            NonZeroU16::new(pole_pairs_basic).unwrap_or(NonZeroU16::MIN),
+            builder.phases,
+            1,
         )?;
 
         // Add a new third and fourth layer to the zone plan. The third layer is above
         // the first layer (slot side) in the slot, while the fourth layer is above the
         // second layer (slot side)
         let mut winding_table =
-            WindingTable(DMatrix::repeat(4, winding_table_dl.slots().into(), 0));
+            WindingTable::new(builder.slots, NonZeroU16::new(4).expect("not zero"));
         for slot in 0..winding_table_dl.slots() {
             for layer in 0..4 {
                 winding_table[Zone::new(slot.into(), layer.into())] =
@@ -484,16 +502,17 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
         }
 
         let mut winding = QuadrupleLayerToothCoilWinding {
-            slots,
-            pole_pairs,
-            phases,
-            turns_per_slot_side,
-            turns_upper_layer_coils,
-            parallel_paths,
-            connection,
-            end_winding_leakage_coefficient,
-            wire,
-            coils: Coils::with_capacity((slots * layers / 2).into()),
+            slots: builder.slots,
+            pole_pairs: builder.pole_pairs,
+            phases: builder.phases,
+            turns_per_slot_side: builder.turns_per_slot_side,
+            turns_upper_layer_coils: builder.turns_upper_layer_coils,
+            parallel_paths: builder.parallel_paths,
+            connection: builder.connection,
+            end_winding_leakage_coefficient: builder.end_winding_leakage_coefficient,
+            wire: builder.wire,
+            winding_table_method: builder.winding_table_method,
+            coils: Coils::with_capacity(usize::from(builder.slots.get()) * 2),
         };
 
         /*
@@ -505,7 +524,7 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
         let mut first_coil_group = true;
         for slot in 0..slots_basic {
             // Select the current phase of the first layer, if none is selected
-            let current_phase = winding_table_dl.get_cyclic(Zone::new(slot, 0));
+            let current_phase = *winding_table_dl.get_cyclic(Zone::new(slot, 0));
             if phase_counter == coils_per_coil_group {
                 phase_counter = 1;
             } else {
@@ -521,10 +540,7 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
                         first_coil_group = false;
                         phase_counter = 1;
                     } else {
-                        return Err(stem_primitives::ErrorType::Other(
-                            "All coils of a coil group must be positioned next to each other and have the same polarity inside a slot.".into(),
-                        )
-                        .into());
+                        return Err(Error::CoilsOfCoilGroupNotNextToEachOther);
                     }
                 }
             }
@@ -549,8 +565,9 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
     }
 }
 
-#[cfg_attr(feature = "serde", deserialize(Deserialize, Serialize))]
-#[cfg_attr(feature = "serde", serde(skip))]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct QuadrupleLayerToothCoilMinimalBuilder {
     pub slots: NonZeroU16,
     pub pole_pairs: NonZeroU16,
@@ -577,5 +594,28 @@ impl TryFrom<QuadrupleLayerToothCoilMinimalBuilder> for QuadrupleLayerToothCoilW
             winding_table_method: builder.winding_table_method,
         }
         .try_into()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for QuadrupleLayerToothCoilWinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(deserialize_untagged_verbose_error::DeserializeUntaggedVerboseError)]
+        enum QuadrupleLayerToothCoilEnum {
+            QuadrupleLayerToothCoilBuilder(QuadrupleLayerToothCoilBuilder),
+            QuadrupleLayerToothCoilMinimalBuilder(QuadrupleLayerToothCoilMinimalBuilder),
+        }
+        let w = QuadrupleLayerToothCoilEnum::deserialize(deserializer)?;
+        match w {
+            QuadrupleLayerToothCoilEnum::QuadrupleLayerToothCoilBuilder(w) => {
+                w.try_into().map_err(serde::de::Error::custom)
+            }
+            QuadrupleLayerToothCoilEnum::QuadrupleLayerToothCoilMinimalBuilder(w) => {
+                w.try_into().map_err(serde::de::Error::custom)
+            }
+        }
     }
 }

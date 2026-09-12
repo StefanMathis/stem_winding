@@ -1,15 +1,11 @@
-// pub mod coil_properties;
-
 use std::num::{NonZeroU16, NonZeroUsize};
-
-// pub use coil_properties::*;
-use stem_coil_layout::Zone;
 
 use crate::error::Error;
 use compare_variables::compare_variables;
 use dyn_clone::clone_box;
 use keyring_map::KeyringMap;
 use num::Complex;
+use stem_coil_layout::Zone;
 use stem_wire::prelude::*;
 
 #[cfg(feature = "serde")]
@@ -58,7 +54,7 @@ mod serde_impl {
     impl Serialize for Coils {
         // Serialize the coils as sequence
         fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-            let mut seq = serializer.serialize_seq(Some(self.0.number_values()))?;
+            let mut seq = serializer.serialize_seq(Some(self.0.num_values()))?;
             for value in self.0.values() {
                 seq.serialize_element(&value)?;
             }

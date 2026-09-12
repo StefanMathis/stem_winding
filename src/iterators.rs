@@ -83,16 +83,14 @@ pub struct HarmonicOrdinalsIterator<'a> {
 impl<'a> HarmonicOrdinalsIterator<'a> {
     pub fn new(winding: &'a dyn Winding) -> HarmonicOrdinalsIterator<'a> {
         // Calculate the number of pole pairs in the basic winding
-        let p_bw = winding.pole_pairs().get() / winding.periodicity();
+        let p_bw = winding.pole_pairs().get() / winding.periodicity().get();
         let iterator = HarmonicOrdinalsIterator {
             winding,
             p_bw,
             v_star: 0,
             coupling: 1, // Temporary value
         };
-        let coupling = iterator
-            .coupling_with_pole_pairs()
-            .expect("This is a bug, please report it.");
+        let coupling = iterator.coupling_with_pole_pairs().unwrap_or(1);
         return HarmonicOrdinalsIterator {
             winding,
             p_bw,
@@ -107,7 +105,8 @@ impl<'a> HarmonicOrdinalsIterator<'a> {
 
     /**
     Identify the coupling the given pole pair number.
-    This is done by running a copied iterator which assumes that the coupling is positive. If some ordinal equals 1, this assumption was true.
+    This is done by running a copied iterator which assumes that the coupling is
+    positive. If some ordinal equals 1, this assumption was true.
     If some ordinal equals -1, this assumption was false.
      */
     pub(crate) fn coupling_with_pole_pairs(mut self) -> Option<i32> {

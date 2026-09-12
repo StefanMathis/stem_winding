@@ -1,8 +1,10 @@
 use std::num::NonZeroU16;
 
-use num::Integer;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
-use super::Zone;
+use num::Integer;
+use stem_coil_layout::Zone;
 
 use crate::{
     error::WindingTableCreationError,
@@ -22,7 +24,7 @@ Be aware that this method may result in incorrect configurations, so check the z
  */
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum WindingTableMethod {
     /// Seq50
     Tingley,

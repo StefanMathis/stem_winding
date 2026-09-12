@@ -18,6 +18,7 @@ keyring_map = "0.1"
 num = "0.4.0"
 permutation = "0.4.1"
 rayon = "1.5"
+realfft = "3.5"
 serde = { version = "1", features = ["derive"], optional = true }
 stem_coil_layout = { path = "../stem_coil_layout" }
 serde_mosaic = { version = "0.3", optional = true }
@@ -27,6 +28,21 @@ typetag = { version = "^0.2", optional = true }
 
 [features]
 default = []
-serde = ["dep:serde_mosaic","dep:deserialize_untagged_verbose_error", "dep:serde", "dep:typetag", "stem_core?/serde", "stem_wire/serde"]
+stem_core = ["dep:stem_core"]
+serde = ["dep:serde_mosaic",
+         "dep:deserialize_untagged_verbose_error",
+         "dep:serde",
+         "dep:typetag",
+         "stem_core?/serde",
+         "stem_wire/serde",
+         "stem_coil_layout/serde",
+         "keyring_map/serde"
+        ]
 cairo = ["stem_core?/cairo"]
 doc-images = ["dep:embed-doc-image"]
+
+[dev-dependencies]
+serde_mosaic = { version = "0.3", features = ["serde_yaml"] }
+indoc = "1.0"
+yaml_serde = "0.10.6"
+stem_winding = { path = ".", features = ["serde"] }

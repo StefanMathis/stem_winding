@@ -14,23 +14,31 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct ToothCoilWinding {
-    slots: NonZeroU16,            // Inner of slots
-    pole_pairs: NonZeroU16,       // Inner of pole pairs
-    phases: NonZeroU16,           // Inner of phases
-    layers: NonZeroU16,           // Inner of layers
-    turns_per_coil: NonZeroUsize, // Inner of turns per coil
-    parallel_paths: NonZeroU16,   // Inner of parallel paths
-    connection: Connection,       /* Connection type, e.g. star (Y), delta (D) or
-                                   * combinations like YY (double star) or DY
-                                   * (star-delta) */
-    end_winding_leakage_coefficient: f64, // End winding flux leakage coefficient
-    wire: Box<dyn Wire>,                  // Wire motor
+    slots: NonZeroU16,
+    pole_pairs: NonZeroU16,
+    phases: NonZeroU16,
+    layers: NonZeroU16,
+    turns_per_coil: NonZeroUsize,
+    parallel_paths: NonZeroU16,
+    connection: Connection,
+    end_winding_leakage_coefficient: f64,
+    wire: Box<dyn Wire>,
+    #[cfg_attr(feature = "serde", serde(skip))]
     coils: Coils,
     winding_table_method: WindingTableMethod,
 }
 
 impl ToothCoilWinding {
+    pub fn new<W>(builder: W) -> Result<Self, Error>
+    where
+        W: TryInto<ToothCoilWinding>,
+        W::Error: Into<Error>,
+    {
+        builder.try_into().map_err(Into::into)
+    }
+
     pub fn wire(&self) -> &dyn Wire {
         &*self.wire
     }
@@ -359,9 +367,9 @@ impl Winding for ToothCoilWinding {
     }
 }
 
-// =================================================================================
-// Builders
-
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct ToothCoilBuilder {
     pub slots: NonZeroU16,
     pub pole_pairs: NonZeroU16,
@@ -435,6 +443,7 @@ impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
     }
 }
 
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct ToothCoilMinimalBuilder {
@@ -462,5 +471,26 @@ impl TryFrom<ToothCoilMinimalBuilder> for ToothCoilWinding {
             winding_table_method: builder.winding_table_method,
         }
         .try_into()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for ToothCoilWinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(deserialize_untagged_verbose_error::DeserializeUntaggedVerboseError)]
+        enum ToothCoilEnum {
+            ToothCoilBuilder(ToothCoilBuilder),
+            ToothCoilMinimalBuilder(ToothCoilMinimalBuilder),
+        }
+        let w = ToothCoilEnum::deserialize(deserializer)?;
+        match w {
+            ToothCoilEnum::ToothCoilBuilder(w) => w.try_into().map_err(serde::de::Error::custom),
+            ToothCoilEnum::ToothCoilMinimalBuilder(w) => {
+                w.try_into().map_err(serde::de::Error::custom)
+            }
+        }
     }
 }

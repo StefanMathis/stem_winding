@@ -7,6 +7,9 @@ use num::Integer;
 use stem_coil_layout::{CoilLayout, Zone};
 use stem_wire::{round::RoundWire, wire::Wire};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use crate::{
     coils::{Coil, CoilFull, Coils},
     error::{Error, WindingTableCreationError},
@@ -16,6 +19,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct DistributedToothCoilWinding {
     slots: NonZeroU16,
     pole_pairs: NonZeroU16,
@@ -25,12 +29,22 @@ pub struct DistributedToothCoilWinding {
     connection: Connection,
     end_winding_leakage_coefficient: f64,
     wires: Vec<(NonZeroUsize, Box<dyn Wire>)>,
+    #[cfg_attr(feature = "serde", serde(skip))]
     coils: Coils,
+    #[cfg_attr(feature = "serde", serde(skip))]
     periodicity: NonZeroU16,
     double_zone_span: bool,
 }
 
 impl DistributedToothCoilWinding {
+    pub fn new<W>(builder: W) -> Result<Self, Error>
+    where
+        W: TryInto<DistributedToothCoilWinding>,
+        W::Error: Into<Error>,
+    {
+        builder.try_into().map_err(Into::into)
+    }
+
     pub fn coils_per_coil_group(&self) -> u16 {
         return self.wires.len() as u16;
     }
@@ -132,30 +146,20 @@ impl DistributedToothCoilWinding {
         self.wires[idx].0
     }
 
-    fn create_coils(
-        &mut self,
-        winding_table: &WindingTable,
-        all_zones_must_be_used: bool,
-    ) -> Result<(), Error> {
-        for (zone, _) in winding_table.iter_slots() {
-            // Check if the zone is already occupied
-            if self.coils.0.contains_key(&zone) {
-                continue;
-            }
+    fn create_coils(&mut self, winding_table: &WindingTable) -> Result<(), Error> {
+        for slot in 0..self.slots.get() {
+            for layer in 0..self.layers.get() {
+                let zone = Zone { slot, layer };
 
-            // Insert the coil
-            if let Some(coil) = self.create_single_coil(zone, winding_table) {
-                let zones: Vec<Zone> = coil.zones().collect();
-                self.coils.0.insert_many(zones, coil).map_err(Error::from)?;
-            }
-        }
-
-        // Check if all zones are occupied
-        if all_zones_must_be_used {
-            for (zone, _) in winding_table.iter_slots() {
                 // Check if the zone is already occupied
-                if !self.coils.0.contains_key(&zone) {
-                    return Err(WindingTableCreationError::EmptyZone(Some(zone)).into());
+                if self.coils.0.contains_key(&zone) {
+                    continue;
+                }
+
+                // Insert the coil
+                if let Some(coil) = self.create_single_coil(zone, winding_table) {
+                    let zones: Vec<Zone> = coil.zones().collect();
+                    self.coils.0.insert_many(zones, coil).map_err(Error::from)?;
                 }
             }
         }
@@ -208,7 +212,7 @@ impl DistributedToothCoilWinding {
             Some(return_slot) => {
                 let clockwise = clockwise.unwrap();
                 let index = index.unwrap();
-                let phase_abs = NonZeroU16::new(phase as u16)
+                let phase_abs = NonZeroU16::new(phase.abs() as u16)
                     .expect("phase cannot be zero for this winding type");
                 let wire = clone_box(&*self.wires[index as usize].1);
                 if phase > 0 {
@@ -362,9 +366,9 @@ impl Winding for DistributedToothCoilWinding {
     }
 }
 
-// =================================================================================
-// Builder
-
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct DistributedToothCoilBuilder {
     pub slots: NonZeroU16,
     pub pole_pairs: NonZeroU16,
@@ -422,7 +426,7 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
         };
 
         // Create the coils from the zone plan
-        winding.create_coils(&winding_table, true)?;
+        winding.create_coils(&winding_table)?;
 
         // Invert the zone plan if the first harmonic ordinal is negative. The reasoning
         // for this is: The distributed tooth-coil windings are created from
@@ -449,7 +453,7 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
         }
 
         // Recreate the coils from the adjusted zone plan
-        winding.create_coils(&winding_table, true)?;
+        winding.create_coils(&winding_table)?;
 
         // Check if the number of parallel paths is valid
         if winding
@@ -467,16 +471,17 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
     }
 }
 
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
-struct DistributedToothCoilMinimalBuilder {
-    slots: NonZeroU16,
-    pole_pairs: NonZeroU16,
-    phases: NonZeroU16,
-    layers: NonZeroU16,
-    coil_group_turns: Vec<NonZeroUsize>,
-    parallel_paths: NonZeroU16,
-    double_zone_span: bool,
+pub struct DistributedToothCoilMinimalBuilder {
+    pub slots: NonZeroU16,
+    pub pole_pairs: NonZeroU16,
+    pub phases: NonZeroU16,
+    pub layers: NonZeroU16,
+    pub coil_group_turns: Vec<NonZeroUsize>,
+    pub parallel_paths: NonZeroU16,
+    pub double_zone_span: bool,
 }
 
 impl TryFrom<DistributedToothCoilMinimalBuilder> for DistributedToothCoilWinding {
@@ -504,6 +509,7 @@ impl TryFrom<DistributedToothCoilMinimalBuilder> for DistributedToothCoilWinding
     }
 }
 
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct DistributedToothCoilMinimalBuilderDoubleLayerTurnDifference {
@@ -624,6 +630,35 @@ fn distributed_tooth_coil_assembly(
         winding_table
     };
     return Ok(winding_table);
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for DistributedToothCoilWinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(deserialize_untagged_verbose_error::DeserializeUntaggedVerboseError)]
+        enum DistributedToothCoilEnum {
+            DistributedToothCoilBuilder(DistributedToothCoilBuilder),
+            DistributedToothCoilMinimalBuilder(DistributedToothCoilMinimalBuilder),
+            DistributedToothCoilMinimalBuilderDoubleLayerTurnDifference(
+                DistributedToothCoilMinimalBuilderDoubleLayerTurnDifference,
+            ),
+        }
+        let w = DistributedToothCoilEnum::deserialize(deserializer)?;
+        match w {
+            DistributedToothCoilEnum::DistributedToothCoilBuilder(w) => {
+                w.try_into().map_err(serde::de::Error::custom)
+            }
+            DistributedToothCoilEnum::DistributedToothCoilMinimalBuilder(w) => {
+                w.try_into().map_err(serde::de::Error::custom)
+            }
+            DistributedToothCoilEnum::DistributedToothCoilMinimalBuilderDoubleLayerTurnDifference(w) => {
+                w.try_into().map_err(serde::de::Error::custom)
+            }
+        }
+    }
 }
 
 #[cfg(test)]

@@ -24,9 +24,9 @@ pub struct SquirrelCageWinding {
     pole_pairs: NonZeroU16,
     end_winding_leakage_coefficient: f64,
     wire: Box<dyn Wire>,
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_quantity"))]
+    #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_quantity"))]
     end_ring_width: Length,
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_quantity"))]
+    #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_quantity"))]
     end_ring_height: Length,
     consider_current_displacement: bool,
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -34,6 +34,18 @@ pub struct SquirrelCageWinding {
 }
 
 impl SquirrelCageWinding {
+    pub fn new<W>(builder: W) -> Result<Self, Error>
+    where
+        W: TryInto<SquirrelCageWinding>,
+        W::Error: Into<Error>,
+    {
+        builder.try_into().map_err(Into::into)
+    }
+
+    pub fn new_minimal(slots: NonZeroU16, pole_pairs: NonZeroU16) -> Self {
+        SquirrelCageMinimalBuilder { slots, pole_pairs }.into()
+    }
+
     pub fn end_ring_width(&self) -> Length {
         return self.end_ring_width;
     }
@@ -404,8 +416,9 @@ impl Winding for SquirrelCageWinding {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct SquirrelCageBuilder {
     pub slots: NonZeroU16,
     pub pole_pairs: NonZeroU16,
@@ -451,18 +464,31 @@ impl TryFrom<SquirrelCageBuilder> for SquirrelCageWinding {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct SquirrelCageMinimalBuilder {
     pub slots: NonZeroU16,
     pub pole_pairs: NonZeroU16,
 }
 
-impl TryFrom<SquirrelCageMinimalBuilder> for SquirrelCageWinding {
-    type Error = Error;
+impl From<SquirrelCageMinimalBuilder> for SquirrelCageWinding {
+    fn from(builder: SquirrelCageMinimalBuilder) -> Self {
+        let mut coils = Coils::with_capacity(u16::from(builder.slots).into());
+        for slot in 0..u16::from(builder.slots) {
+            let zone = Zone::new(slot, 0);
+            let coil: Coil = CoilHalf::new(
+                zone,
+                true,
+                NonZeroUsize::MIN,
+                NonZeroU16::new(slot + 1).expect("is non-zero"),
+                Box::new(SffWire::default()),
+            )
+            .into();
+            coils.0.insert(zone, coil);
+        }
 
-    fn try_from(builder: SquirrelCageMinimalBuilder) -> Result<Self, Self::Error> {
-        return SquirrelCageBuilder {
+        SquirrelCageWinding {
             slots: builder.slots,
             pole_pairs: builder.pole_pairs,
             end_winding_leakage_coefficient: 0.0,
@@ -470,28 +496,28 @@ impl TryFrom<SquirrelCageMinimalBuilder> for SquirrelCageWinding {
             end_ring_width: Length::new::<meter>(0.0),
             end_ring_height: Length::new::<meter>(0.0),
             consider_current_displacement: true,
+            coils,
         }
-        .try_into();
     }
 }
 
 #[cfg(feature = "serde")]
-impl<'de> Deserialize<'de> for OpenTrapezoidSlot {
+impl<'de> Deserialize<'de> for SquirrelCageWinding {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         #[derive(deserialize_untagged_verbose_error::DeserializeUntaggedVerboseError)]
-        enum WindingEnum {
+        enum SquirrelCageEnum {
             SquirrelCageBuilder(SquirrelCageBuilder),
             SquirrelCageMinimalBuilder(SquirrelCageMinimalBuilder),
         }
-        let w = WindingEnum::deserialize(deserializer)?;
-        match s {
-            SlotEnum::SquirrelCageBuilder(s) => s.try_into().map_err(serde::de::Error::custom),
-            SlotEnum::SquirrelCageMinimalBuilder(s) => {
-                s.try_into().map_err(serde::de::Error::custom)
+        let w = SquirrelCageEnum::deserialize(deserializer)?;
+        match w {
+            SquirrelCageEnum::SquirrelCageBuilder(w) => {
+                w.try_into().map_err(serde::de::Error::custom)
             }
+            SquirrelCageEnum::SquirrelCageMinimalBuilder(w) => Ok(w.into()),
         }
     }
 }

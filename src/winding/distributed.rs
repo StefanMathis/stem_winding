@@ -43,6 +43,7 @@ Example coils with same span:
 ```
  */
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct DistributedWinding {
     slots: NonZeroU16,
     pole_pairs: NonZeroU16,
@@ -62,6 +63,13 @@ pub struct DistributedWinding {
 }
 
 impl DistributedWinding {
+    pub fn new<W>(builder: W) -> Result<Self, Error>
+    where
+        W: TryInto<DistributedWinding>,
+        W::Error: Into<Error>,
+    {
+        builder.try_into().map_err(Into::into)
+    }
     /**
     Return the distribution and the pitch factor as `[distribution, pitch]`.
     The product of those two values equals the winding factor calculated from `self.winding_factor()`
@@ -566,8 +574,9 @@ impl Winding for DistributedWinding {
 // =============================================================================
 // Builders
 
-#[cfg_attr(feature = "serde", deserialize(Deserialize, Serialize))]
-#[cfg_attr(feature = "serde", serde(skip))]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct DistributedBuilder {
     pub slots: NonZeroU16,
     pub pole_pairs: NonZeroU16,
@@ -657,6 +666,7 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
     }
 }
 
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct DistributedDoubleZoneSpanBuilder {
@@ -706,6 +716,7 @@ impl TryFrom<DistributedDoubleZoneSpanBuilder> for DistributedWinding {
     }
 }
 
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct DistributedMinimalBuilder {
@@ -740,6 +751,33 @@ impl TryFrom<DistributedMinimalBuilder> for DistributedWinding {
             concentric_coils: false,
         }
         .try_into();
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for DistributedWinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(deserialize_untagged_verbose_error::DeserializeUntaggedVerboseError)]
+        enum DistributedEnum {
+            DistributedBuilder(DistributedBuilder),
+            DistributedDoubleZoneSpanBuilder(DistributedDoubleZoneSpanBuilder),
+            DistributedMinimalBuilder(DistributedMinimalBuilder),
+        }
+        let w = DistributedEnum::deserialize(deserializer)?;
+        match w {
+            DistributedEnum::DistributedBuilder(w) => {
+                w.try_into().map_err(serde::de::Error::custom)
+            }
+            DistributedEnum::DistributedDoubleZoneSpanBuilder(w) => {
+                w.try_into().map_err(serde::de::Error::custom)
+            }
+            DistributedEnum::DistributedMinimalBuilder(w) => {
+                w.try_into().map_err(serde::de::Error::custom)
+            }
+        }
     }
 }
 

@@ -1,0 +1,13 @@
+Material:
+  name: Copper 
+  relative_permeability: 0.9999904
+  remanence: 0.0 T
+  mass_density: 8920.0 kg / m^3
+  electrical_resistivity:
+    FirstOrderTaylor:
+      base_value: 1 / 56 m/MS 
+      expansion_point: 20.0 °C
+      slope: 0.393 % / K # Resistance increases by approx. 0.4 % per Kelvin (or by 40% per 100 K)
+  intrinsic_coercivity: 0.0 A/m
+  heat_capacity: 385.0 J / kg / K # https://www.engineeringtoolbox.com/air-specific-heat-capacity-d_705.html
+  thermal_conductivity: 400.0 W / m / K # https://www.engineeringtoolbox.com/air-properties-viscosity-conductivity-heat-capacity-d_1509.html

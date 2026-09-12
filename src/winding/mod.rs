@@ -14,6 +14,9 @@ use stem_core::prelude::*;
 #[cfg(feature = "stem_core")]
 use crate::overrides::Overrides;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use stem_coil_layout::{CoilLayout, Zone};
 use stem_wire::{stem_material::si::Length, wire::Wire};
 
@@ -22,6 +25,23 @@ use crate::{
     iterators::*,
     winding_table::WindingTable,
 };
+
+pub mod coil_assembly;
+pub mod distributed;
+pub mod distributed_tooth_coil;
+pub mod quadruple_layer_tooth_coil;
+pub mod squirrel_cage;
+pub mod tooth_coil;
+
+pub use coil_assembly::*;
+pub use distributed::*;
+pub use distributed_tooth_coil::*;
+pub use quadruple_layer_tooth_coil::{
+    QuadrupleLayerToothCoilBuilder, QuadrupleLayerToothCoilMinimalBuilder,
+    QuadrupleLayerToothCoilWinding,
+};
+pub use squirrel_cage::*;
+pub use tooth_coil::*;
 
 #[cfg_attr(feature = "serde", typetag::serde)]
 pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
@@ -968,7 +988,6 @@ dyn_clone::clone_trait_object!(Winding);
 pub enum Connection {
     Star,
     Delta,
-    // TODO: Implement star-delta and double delta and double star
 }
 
 /// Calculate the electrical angle between two slots (2.66 in [1]). In [1] this
@@ -1174,37 +1193,3 @@ pub fn segment_angle(segment: usize, skew_angle: f64, num_segments: usize) -> f6
     let beta = skew_angle / num_segments as f64;
     return (0.5 + segment as f64) * beta - 0.5 * skew_angle;
 }
-
-// fn create_coils(
-//     &mut self,
-//     winding_table: &WindingTable,
-//     all_zones_must_be_used: bool,
-// ) -> Result<(), Error> {
-//     for (zone, _) in winding_table.iter_slots() {
-//         // Check if the zone is already occupied
-//         if self.coils_mut().0.contains_key(&zone) {
-//             continue;
-//         }
-
-//         // Insert the coil
-//         if let Some(coil) = self.create_single_coil(zone, winding_table) {
-//             let zones: Vec<Zone> = coil.zones().collect();
-//             self.coils_mut()
-//                 .0
-//                 .insert_many(zones, coil)
-//                 .map_err(Error::from)?;
-//         }
-//     }
-
-//     // Check if all zones are occupied
-//     if all_zones_must_be_used {
-//         for (zone, _) in winding_table.iter_slots() {
-//             // Check if the zone is already occupied
-//             if !self.coils_mut().0.contains_key(&zone) {
-//                 return
-// Err(WindingTableCreationError::EmptyZone(Some(zone)).into());             }
-//         }
-//     }
-
-//     return Ok(());
-// }

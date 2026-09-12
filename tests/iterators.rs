@@ -2,8 +2,8 @@ use std::num::NonZeroU16;
 
 use stem_winding::iterators::ParallelPathIterator;
 use stem_winding::prelude::*;
-use stem_winding::variants::distributed::DistributedMinimalBuilder;
-use stem_winding::variants::tooth_coil::ToothCoilMinimalBuilder;
+use stem_winding::winding::distributed::DistributedMinimalBuilder;
+use stem_winding::winding::tooth_coil::ToothCoilMinimalBuilder;
 
 #[test]
 fn test_parallel_paths() {

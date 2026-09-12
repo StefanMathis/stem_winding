@@ -2,6 +2,7 @@ use std::num::NonZeroU16;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+
 use stem_coil_layout::{CoilLayout, Zone};
 
 use crate::{
@@ -46,8 +47,8 @@ struct CoilAssemblyBuilder {
 }
 
 #[cfg(feature = "serde")]
-fn parallel_paths_default() -> u16 {
-    1
+fn parallel_paths_default() -> NonZeroU16 {
+    NonZeroU16::MIN
 }
 #[cfg(feature = "serde")]
 fn connection_default() -> Connection {

@@ -1,10 +1,59 @@
 use std::sync::Arc;
-use utilities::functions::sample_as_equidistant_step_function;
 
-use nalgebra::Complex;
+use num::Complex;
 use realfft::{RealFftPlanner, RealToComplex};
 
-use super::is_winding::Winding;
+use crate::{error::Error, winding::Winding};
+
+/**
+Interprets the input iterator as an equidistant step function and sample it into the output vector.
+
+# Panic
+Panics if the given number of steps is larger than the number of iterator elements.
+
+# Examples
+```
+use stem_winding::fec_spectral_analysis::sample_as_equidistant_step_function;
+
+let iterator = [1.0, 2.0, 3.0, 1.0].iter().cloned();
+let number_steps = 4;
+
+let mut sampling_buffer = vec![0.0; 5];
+sample_as_equidistant_step_function(iterator, number_steps, &mut sampling_buffer);
+assert_eq!(
+    sampling_buffer.as_slice(),
+    &[1.0, 1.0, 2.0, 3.0, 1.0]
+);
+```
+*/
+pub fn sample_as_equidistant_step_function<I: Iterator<Item = f64>>(
+    mut step_function: I,
+    number_steps: usize,
+    buffer_samples: &mut [f64],
+) {
+    let mut step = 0.0;
+    let mut stored_value = step_function.next().unwrap();
+    let delta_sample_position = number_steps as f64 / buffer_samples.len() as f64;
+
+    for (idx, sample_value) in buffer_samples.iter_mut().enumerate() {
+        let sample_position = delta_sample_position * idx as f64;
+
+        /*
+        Find the intervall where the current sample position is located.
+        */
+        loop {
+            // If the sample position is within the current bounds, assign the stored value
+            // to the sampling element
+            if sample_position >= step && sample_position < step + 1.0 {
+                *sample_value = stored_value;
+                break;
+            } else {
+                step += 1.0;
+                stored_value = step_function.next().unwrap();
+            }
+        }
+    }
+}
 
 pub struct FecSpectralAnalysis {
     step_function: Vec<f64>,
@@ -90,10 +139,10 @@ impl FecSpectralAnalysis {
         &mut self,
         winding: &W,
         currents: &[f64],
-    ) -> stem_primitives::Result<&[Complex<f64>]> {
+    ) -> Result<&[Complex<f64>], Error> {
         // Prepare the step function
         self.step_function.clear();
-        for _ in 0..winding.slots() {
+        for _ in 0..winding.slots().get() {
             self.step_function.push(0.0); // Dummy value, will be overwritten in winding.field_excitation_curve anyway.
         }
 
@@ -104,7 +153,7 @@ impl FecSpectralAnalysis {
         return self.analyze_priv();
     }
 
-    fn analyze_priv(&mut self) -> stem_primitives::Result<&[Complex<f64>]> {
+    fn analyze_priv(&mut self) -> Result<&[Complex<f64>], Error> {
         // Upsample the FEC
         sample_as_equidistant_step_function(
             self.step_function.iter().cloned(),
@@ -139,16 +188,32 @@ impl FecSpectralAnalysis {
 #[cfg(test)]
 mod tests {
 
+    use crate::{
+        winding::{
+            ToothCoilWinding,
+            distributed::{DistributedMinimalBuilder, DistributedWinding},
+            tooth_coil::ToothCoilMinimalBuilder,
+        },
+        winding_table::WindingTableMethod,
+    };
+
     use super::*;
-    use crate::{DistributedWinding, ToothCoilWinding, WindingTableMethod};
     use approxim::assert_abs_diff_eq;
 
     #[test]
     fn test_fec_integer_slot_winding() {
         {
-            let winding =
-                DistributedWinding::new_minimal(12, 1, 3, 2, 0, 0, WindingTableMethod::Tingley)
-                    .unwrap();
+            let winding: DistributedWinding = DistributedMinimalBuilder {
+                slots: 12.try_into().expect("not zero"),
+                pole_pairs: 1.try_into().expect("not zero"),
+                phases: 3.try_into().expect("not zero"),
+                layers: 2.try_into().expect("not zero"),
+                coil_span_reduction: 0,
+                zone_span_variation: 0,
+                winding_table_method: WindingTableMethod::Tingley,
+            }
+            .try_into()
+            .unwrap();
             let mut fec = FecSpectralAnalysis::new(1024);
             let output = fec.analyze(&winding, &[0.5, -0.25, -0.25]).unwrap();
 
@@ -176,9 +241,17 @@ mod tests {
             assert_abs_diff_eq!(val, 0.0967, epsilon = 1e-3);
         }
         {
-            let winding =
-                DistributedWinding::new_minimal(24, 2, 3, 2, 0, 0, WindingTableMethod::Tingley)
-                    .unwrap();
+            let winding: DistributedWinding = DistributedMinimalBuilder {
+                slots: 24.try_into().expect("not zero"),
+                pole_pairs: 2.try_into().expect("not zero"),
+                phases: 3.try_into().expect("not zero"),
+                layers: 2.try_into().expect("not zero"),
+                coil_span_reduction: 0,
+                zone_span_variation: 0,
+                winding_table_method: WindingTableMethod::Tingley,
+            }
+            .try_into()
+            .unwrap();
             let mut fec = FecSpectralAnalysis::new(1024);
             let output = fec.analyze(&winding, &[0.5, -0.25, -0.25]).unwrap();
 
@@ -203,9 +276,17 @@ mod tests {
 
     #[test]
     fn test_fec_trait_object() {
-        let winding =
-            DistributedWinding::new_minimal(12, 1, 3, 2, 0, 0, WindingTableMethod::Tingley)
-                .unwrap();
+        let winding: DistributedWinding = DistributedMinimalBuilder {
+            slots: 12.try_into().expect("not zero"),
+            pole_pairs: 1.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            layers: 2.try_into().expect("not zero"),
+            coil_span_reduction: 0,
+            zone_span_variation: 0,
+            winding_table_method: WindingTableMethod::Tingley,
+        }
+        .try_into()
+        .unwrap();
         let trait_object: &dyn Winding = &winding;
         let mut fec = FecSpectralAnalysis::new(1024);
         let output = fec.analyze(trait_object, &[0.5, -0.25, -0.25]).unwrap();
@@ -236,9 +317,17 @@ mod tests {
 
     #[test]
     fn test_fec_short_pitched_integer_slot_winding() {
-        let winding =
-            DistributedWinding::new_minimal(12, 1, 3, 2, 1, 0, WindingTableMethod::Tingley)
-                .unwrap();
+        let winding: DistributedWinding = DistributedMinimalBuilder {
+            slots: 12.try_into().expect("not zero"),
+            pole_pairs: 1.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            layers: 2.try_into().expect("not zero"),
+            coil_span_reduction: 1,
+            zone_span_variation: 0,
+            winding_table_method: WindingTableMethod::Tingley,
+        }
+        .try_into()
+        .unwrap();
         let mut fec = FecSpectralAnalysis::new(1024);
         let output = fec.analyze(&winding, &[0.5, -0.25, -0.25]).unwrap();
 
@@ -268,8 +357,16 @@ mod tests {
 
     #[test]
     fn test_fec_tooth_coil_assembly() {
-        let winding =
-            ToothCoilWinding::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
+        let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
+            slots: 12.try_into().expect("not zero"),
+            pole_pairs: 5.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            layers: 2.try_into().expect("not zero"),
+            winding_table_method: WindingTableMethod::Tingley,
+        }
+        .try_into()
+        .unwrap();
+
         let mut fec = FecSpectralAnalysis::new(1024);
         let output = fec.analyze(&winding, &[1.0, -0.5, -0.5]).unwrap();
 

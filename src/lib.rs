@@ -1,12 +1,12 @@
 pub mod coils;
-// pub mod core_integration;
 pub mod error;
 pub mod iterators;
-// pub mod overrides;
-//
+
+#[cfg(feature = "stem_core")]
+pub mod core_support;
+
 // pub mod drawing;
-// pub mod fec_spectral_analysis;
-pub mod variants;
+pub mod fec_spectral_analysis;
 pub mod winding;
 pub mod winding_table;
 
@@ -26,8 +26,8 @@ pub mod prelude {
 
     // Reexporting
     pub use crate::coils::*;
-    pub use crate::variants::*;
     pub use crate::winding::Winding;
+    pub use crate::winding::*;
     pub use crate::winding_table::*;
     // pub use core_integration::*;
     //

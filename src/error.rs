@@ -1,5 +1,6 @@
 use compare_variables::Comparison;
 use keyring_map::InsertionError;
+use realfft::FftError;
 use stem_coil_layout::Zone;
 use stem_wire::prelude::stem_material::si::Length;
 
@@ -24,7 +25,17 @@ pub enum Error {
     InvalidNumberParallelPaths,
     InvalidPolePairNumber,
     OddNumberOfTurnsPerSlot,
+    /// All coils of a coil group must be positioned next to each other and have
+    /// the same polarity inside a slot.
+    CoilsOfCoilGroupNotNextToEachOther,
+    FftError(FftError),
     NeedsIntegerSlot,
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "placeholder")
+    }
 }
 
 impl From<InsertionError<(Vec<Zone>, Coil)>> for Error {
@@ -63,11 +74,17 @@ impl From<WindingTableCreationError> for Error {
     }
 }
 
-// impl From<Comparison<usize>> for Error {
-//     fn from(value: Comparison<usize>) -> Self {
-//         return Error::InvalidUsize(value);
-//     }
-// }
+impl From<FftError> for Error {
+    fn from(value: FftError) -> Self {
+        return Error::FftError(value);
+    }
+}
+
+impl From<std::convert::Infallible> for Error {
+    fn from(value: std::convert::Infallible) -> Self {
+        match value {}
+    }
+}
 
 #[derive(Debug)]
 pub enum WindingTableCreationError {
@@ -89,4 +106,10 @@ pub enum WindingTableCreationError {
     StarOfSlotsInvalidNumberLayers,
     /// Only single or double layer
     DistributionTableInvalidNumberLayers,
+}
+
+impl std::fmt::Display for WindingTableCreationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "placeholder")
+    }
 }
