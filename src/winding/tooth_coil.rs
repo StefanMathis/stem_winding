@@ -9,7 +9,7 @@ use stem_wire::{round::RoundWire, wire::Wire};
 use crate::{
     coils::{Coil, CoilFull, Coils},
     error::{Error, WindingTableCreationError},
-    winding::{Connection, Winding, base_winding_count_symmetric_winding},
+    winding::{Connection, Winding, base_winding_count_repeating_coil_groups},
     winding_table::{WindingTable, WindingTableMethod},
 };
 
@@ -190,7 +190,7 @@ impl Winding for ToothCoilWinding {
     }
 
     fn base_winding_count(&self) -> NonZeroU16 {
-        base_winding_count_symmetric_winding(
+        base_winding_count_repeating_coil_groups(
             self.slots(),
             self.pole_pairs(),
             self.phases(),
@@ -392,7 +392,7 @@ impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
         compare_variables::compare_variables!(0.0 <= builder.end_winding_leakage_coefficient)?;
 
         // Calculate the basic winding parameters
-        let t = base_winding_count_symmetric_winding(
+        let t = base_winding_count_repeating_coil_groups(
             builder.slots,
             builder.pole_pairs,
             builder.phases,

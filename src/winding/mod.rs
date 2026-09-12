@@ -84,8 +84,37 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// Returns the number of basic windings contained in the winding
     /// TODO: Recommend overloading, default impl is O(n), where n is the number
     /// of zones (it scans the entire winding table for repetitions)
-    fn base_winding_count(&self) -> NonZeroU16 {
-        todo!();
+    fn base_winding_count<'a>(&'a self) -> NonZeroU16 {
+        // Wrapper structure which makes the winding indexable by an usize (slot-major)
+        struct IndexWrapper<'a, W: ?Sized>(&'a W);
+
+        impl<'a, W: Winding + ?Sized> RandomAccess for IndexWrapper<'a, W> {
+            type Item = i32;
+
+            fn get(&self, index: usize) -> Self::Item {
+                let layers = usize::from(self.0.layers().get());
+
+                let slot = index / layers;
+                let layer = index % layers;
+
+                self.0
+                    .phase_at(Zone {
+                        slot: slot as u16,
+                        layer: layer as u16,
+                    })
+                    .unwrap_or(0)
+            }
+        }
+
+        let num_zones = usize::from(self.layers().get()) * usize::from(self.slots().get());
+        let value = repeating_pattern_count(
+            &IndexWrapper(self),
+            NonZeroUsize::new(num_zones).expect("cannot be zero"),
+        )
+        .get();
+        // We don't need to worry about the as-cast, because values can at most be
+        // "num_zones".
+        return NonZeroU16::new(value as u16).unwrap_or(NonZeroU16::MIN);
     }
 
     /// Return the angle covered by one phase zone
@@ -1101,10 +1130,78 @@ pub fn curvature_factor(
     return f64::from(air_gap_width * v_times_p / air_gap_radius * (a + 1.0) / (a - 1.0));
 }
 
-pub fn repeating_pattern_count<C, T>(collection: &C, collection_len: NonZeroUsize) -> NonZeroUsize
+/// Provides random access to the values of a collection.
+///
+/// Unlike [`std::ops::Index`], `RandomAccess` does not require the value to be
+/// stored in the collection or to have an addressable location. Implementations
+/// may calculate the value on demand.
+///
+/// The index is expected to be valid for the collection, and implementations
+/// should provide constant-time access.
+///
+/// A blanket implementation is provided for all types implementing
+/// [`std::ops::Index<usize>`] whose [`std::ops::Index::Output`] is [`Copy`].
+/// This allows ordinary indexable collections to be used as `RandomAccess`
+/// collections without any additional implementation.
+///
+/// # Examples
+///
+/// A collection may calculate its values on demand rather than storing them.
+/// This would not work with the `Index` trait, because that trait requires
+/// returning a reference to a stored item, which simply won't exist.
+///
+/// ```
+/// use stem_winding::winding::RandomAccess;
+///
+/// struct Calculated;
+/// impl Calculated {
+///     fn value_at(&self, index: usize) -> i32 {
+///         index as i32 * 2
+///     }
+/// }
+///
+/// impl RandomAccess for Calculated {
+///     type Item = i32;
+///
+///     fn get(&self, index: usize) -> Self::Item {
+///         self.value_at(index)
+///     }
+/// }
+///
+/// assert_eq!(Calculated {}.get(2), 4);
+/// ```
+///
+/// [`Copy`]: std::marker::Copy
+pub trait RandomAccess<I = usize> {
+    type Item;
+
+    /// Returns the value at `index`.
+    ///
+    /// The value may be retrieved from stored data or calculated on demand.
+    /// Implementations should provide constant-time access.
+    ///
+    /// The behavior for an out-of-bounds `index` is implementation-defined.
+    /// Implementations should document whether such an index panics, returns a
+    /// sentinel value, or is otherwise handled.
+    fn get(&self, index: I) -> Self::Item;
+}
+
+impl<C> RandomAccess for C
 where
-    C: std::ops::Index<usize, Output = T>,
-    T: PartialEq,
+    C: std::ops::Index<usize>,
+    C::Output: Copy,
+{
+    type Item = C::Output;
+
+    fn get(&self, index: usize) -> Self::Item {
+        self[index]
+    }
+}
+
+pub fn repeating_pattern_count<C>(collection: &C, collection_len: NonZeroUsize) -> NonZeroUsize
+where
+    C: RandomAccess,
+    C::Item: PartialEq,
 {
     struct PatternLength {
         len: NonZeroUsize,
@@ -1149,7 +1246,7 @@ where
         ),
     };
     while c2 < collection_len.get() {
-        if collection[c1] == collection[c2] {
+        if collection.get(c1) == collection.get(c2) {
             c1 = (c1 + 1) % pattern_len_cand;
             c2 += 1;
         } else {
@@ -1159,16 +1256,17 @@ where
             // isn't valid anyway because we just encountered a case invalidating
             // a pattern length of at least c2, hence pattern_len_cand <= c2 cannot
             // be a valid pattern.
-            while pattern_len_cand <= c2 {
+            loop {
                 pattern_len_cand = match pattern_len_iter.next() {
                     Some(l) => l,
-                    None => {
-                        unreachable!(
-                            "the last iterator item is always collection_len, hence the while loop will stop before"
-                        );
-                    }
+                    None => unreachable!("the last iterator item is always collection_len"),
                 };
+
+                if pattern_len_cand >= c2 {
+                    break;
+                }
             }
+
             // We can jump ahead to the next multiple of the pattern_len_cand
             c2 = ((c2 + pattern_len_cand - 1) / pattern_len_cand) * pattern_len_cand;
 
@@ -1186,7 +1284,13 @@ where
 /// TODO: every winding contains at least one base winding
 ///
 /// What is a base winding: Repeating winding. This formula assumes symmetric
-/// repetition of coils.
+/// repetition of coils (like DistributedWinding or ToothCoilWinding) Will
+/// return wrong values for arbitrary winding such as e.g. a CoilAssembly,
+/// consider using repeating_pattern_count via the
+/// [`Winding::base_winding_count`] wrapper instead, which can deal with
+/// arbitrary windings. Default impl of [`Winding::base_winding_count`] wraps
+/// repeating_pattern_count, which can deal with arbitrary windings. So this
+/// method is just an optimization for particular windings.
 ///
 /// ```
 /// use winding::base_winding_count;
@@ -1203,7 +1307,7 @@ where
 /// // 36/8 single-layer fractional slot winding
 /// assert_eq!(2, base_winding_count(36, 4, 3, 1));
 /// ```
-pub fn base_winding_count_symmetric_winding(
+pub fn base_winding_count_repeating_coil_groups(
     slots: NonZeroU16,
     pole_pairs: NonZeroU16,
     phases: NonZeroU16,

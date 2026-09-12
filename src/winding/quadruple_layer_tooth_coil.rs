@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     coils::{Coil, CoilFull, Coils},
     error::{Error, WindingTableCreationError},
-    winding::{Connection, Winding, hole_number, base_winding_count_symmetric_winding},
+    winding::{Connection, Winding, base_winding_count_repeating_coil_groups, hole_number},
     winding_table::{WindingTable, WindingTableMethod},
 };
 
@@ -334,7 +334,7 @@ impl Winding for QuadrupleLayerToothCoilWinding {
     }
 
     fn base_winding_count(&self) -> NonZeroU16 {
-        base_winding_count_symmetric_winding(
+        base_winding_count_repeating_coil_groups(
             self.slots(),
             self.pole_pairs(),
             self.phases(),
@@ -459,7 +459,7 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
         }
 
         // Calculate the basic winding parameters
-        let t = base_winding_count_symmetric_winding(
+        let t = base_winding_count_repeating_coil_groups(
             builder.slots,
             builder.pole_pairs,
             builder.phases,

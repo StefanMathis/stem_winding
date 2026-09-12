@@ -192,10 +192,6 @@ impl Winding for CoilAssembly {
         self.coil_layout().layers()
     }
 
-    fn base_winding_count(&self) -> NonZeroU16 {
-        NonZeroU16::MIN
-    }
-
     fn coil_at(&self, zone: Zone) -> Option<&Coil> {
         return self.coils.0.get(&zone);
     }

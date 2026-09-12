@@ -181,6 +181,61 @@ fn test_derive_from_winding() {
 }
 
 #[test]
+fn test_base_winding_count() {
+    {
+        let winding: DistributedWinding = DistributedMinimalBuilder {
+            slots: 18.try_into().expect("not zero"),
+            pole_pairs: 3.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            layers: 2.try_into().expect("not zero"),
+            coil_span_reduction: 1,
+            zone_span_variation: 0,
+            winding_table_method: WindingTableMethod::Tingley,
+        }
+        .try_into()
+        .unwrap();
+
+        let coil_assembly = CoilAssembly::from(&winding);
+        assert_eq!(
+            winding.base_winding_count(),
+            coil_assembly.base_winding_count()
+        );
+        assert_eq!(
+            coil_assembly.base_winding_count(),
+            NonZeroU16::new(3).expect("not zero")
+        );
+
+        // As trait object
+        let trait_obj = &coil_assembly as &dyn Winding;
+        assert_eq!(
+            trait_obj.base_winding_count(),
+            NonZeroU16::new(3).expect("not zero")
+        );
+    }
+    {
+        let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
+            slots: 24.try_into().expect("not zero"),
+            pole_pairs: 10.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            layers: 1.try_into().expect("not zero"),
+            winding_table_method: WindingTableMethod::Tingley,
+        }
+        .try_into()
+        .unwrap();
+
+        let coil_assembly = CoilAssembly::from(&winding);
+        assert_eq!(
+            winding.base_winding_count(),
+            coil_assembly.base_winding_count()
+        );
+        assert_eq!(
+            coil_assembly.base_winding_count(),
+            NonZeroU16::new(2).expect("not zero")
+        );
+    }
+}
+
+#[test]
 fn test_harmonic_ordinal_and_amplitude() {
     {
         let coil_assembly = {
