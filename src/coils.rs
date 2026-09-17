@@ -2,7 +2,6 @@ use std::num::{NonZeroU16, NonZeroUsize};
 
 use crate::error::Error;
 use compare_variables::compare_variables;
-use dyn_clone::clone_box;
 use keyring_map::KeyringMap;
 use num::Complex;
 use stem_coil_layout::Zone;
@@ -108,8 +107,8 @@ mod serde_impl {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Coil {
-    Full(CoilFull),
-    Half(CoilHalf),
+    Full(FullCoil),
+    Half(HalfCoil),
 }
 
 impl Coil {
@@ -133,13 +132,7 @@ pub trait CoilExt {
 
     fn set_turns(&mut self, turns: NonZeroUsize);
 
-    fn first_zone(&self) -> Zone;
-
-    fn first_zone_is_positive(&self) -> bool;
-
-    fn first_zone_and_polarity(&self) -> ZoneAndPolarity;
-
-    fn set_polarity_first_zone(&mut self, positive: bool);
+    fn invert(&mut self);
 
     fn phase(&self) -> NonZeroU16;
 
@@ -160,9 +153,12 @@ pub trait CoilExt {
 
     fn into_wire(self) -> Box<dyn Wire>;
 
-    /// Return the coil span in slot pitches. `slots` is the total number of
-    /// winding slots.
-    fn span(&self, winding_slots: NonZeroU16) -> u16;
+    /// Returns the coil throw in slot pitches.
+    ///
+    /// slots specifies the number of slots for a cyclic winding structure. If
+    /// None, a linear winding structure is assumed and no wrapping around the
+    /// slot sequence is possible.
+    fn throw(&self, slots: Option<NonZeroU16>) -> u16;
 
     fn axial_overhang(&self) -> Option<Length>;
 
@@ -249,38 +245,10 @@ impl CoilExt for Coil {
         }
     }
 
-    fn span(&self, winding_slots: NonZeroU16) -> u16 {
+    fn throw(&self, slots: Option<NonZeroU16>) -> u16 {
         match self {
-            Coil::Full(coil) => coil.span(winding_slots),
-            Coil::Half(coil) => coil.span(winding_slots),
-        }
-    }
-
-    fn first_zone(&self) -> Zone {
-        match self {
-            Coil::Full(coil) => coil.first_zone(),
-            Coil::Half(coil) => coil.first_zone(),
-        }
-    }
-
-    fn first_zone_is_positive(&self) -> bool {
-        match self {
-            Coil::Full(coil) => coil.first_zone_is_positive(),
-            Coil::Half(coil) => coil.first_zone_is_positive(),
-        }
-    }
-
-    fn first_zone_and_polarity(&self) -> ZoneAndPolarity {
-        match self {
-            Coil::Full(coil) => coil.first_zone_and_polarity(),
-            Coil::Half(coil) => coil.first_zone_and_polarity(),
-        }
-    }
-
-    fn set_polarity_first_zone(&mut self, positive: bool) {
-        match self {
-            Coil::Full(coil) => coil.set_polarity_first_zone(positive),
-            Coil::Half(coil) => coil.set_polarity_first_zone(positive),
+            Coil::Full(coil) => coil.throw(slots),
+            Coil::Half(coil) => coil.throw(slots),
         }
     }
 
@@ -297,16 +265,23 @@ impl CoilExt for Coil {
             Coil::Half(coil) => coil.end_length(),
         }
     }
+
+    fn invert(&mut self) {
+        match self {
+            Coil::Full(coil) => coil.invert(),
+            Coil::Half(coil) => coil.invert(),
+        }
+    }
 }
 
-impl From<CoilFull> for Coil {
-    fn from(value: CoilFull) -> Self {
+impl From<FullCoil> for Coil {
+    fn from(value: FullCoil) -> Self {
         return Self::Full(value);
     }
 }
 
-impl From<CoilHalf> for Coil {
-    fn from(value: CoilHalf) -> Self {
+impl From<HalfCoil> for Coil {
+    fn from(value: HalfCoil) -> Self {
         return Self::Half(value);
     }
 }
@@ -316,32 +291,51 @@ impl From<CoilHalf> for Coil {
 /**
 # End winding geometry / coil orientation
 
-The property `clockwise` defines the geometry of the end winding. If it is set to true, the end winding coil starts at `positive_zone`,
-then the slot index increases until `negative_zone` is reached (possibly crossing zero and wrapping around). If it is set to false,
-the end winding coil starts at `positive_zone`, then the slot index decreases until `negative_zone` is reached (possibly crossing zero and wrapping around).
-In geometrical terms, this means that the tooth between the first and the last slot has been crossed (for a round, closed core).
-When looking at the coil motor from the air gap, the "true" direction results in a clockwise coil, hence the name of this property.
+The property positive_slot_direction defines the direction of the end winding
+between first_zone and second_zone for a round, closed core. Such a core
+provides two possible paths around the circumference, one following increasing
+slot indices and one following decreasing slot indices.
 
-The following example illustrates this:
+If positive_slot_direction is true, the end winding proceeds from
+first_zone to second_zone with increasing slot indices. If it is false,
+it proceeds with decreasing slot indices. In either case, the slot indices wrap
+around when crossing the end of the slot sequence.
+
+positive_slot_direction = starting at positive_zone, does the end winding proceed in the direction of increasing slot indices?
+
+For a linear core, there is only one possible path between two zones, so
+positive_slot_direction has no geometrical significance.
+
+For a round, closed core, the two directions correspond to the two possible
+ways of routing the end winding around the core. For example, connecting slots
+0 and 1 can either take the short path directly from 0 to 1 or the long path
+wrapping around the other side of the core:
+
+Arrow going up: Positive in this diagram
+
 ```text
-slot | 0 | 1 | 2 | 3 |
+slot | 0 | 1 | 2 | 3 | 4 | 5
 
-        ---     ---
-       |   |   |   |
-coil   ^   v   v   ^
-       |   |   |   |
-        ---     ---
-        (a)     (b)
+     ──┐   ┌───┐   ┌───┐   ┌──
+       │   │   │   │   │   │
+coil   ▲   ▲   ▼   ▼   ▲   ▼
+       │   │   │   │   |   │
+     ──┘   └───┘   └───┘   └──
+     (a)    (b)     (c)    (a)
 ```
-In this example, coil (a) is clockwise (`clockwise = true`), while coil (b) is counterclockwise (hence `clockwise = false`)
+
+(a): positive_slot_direction = false
+(b): positive_slot_direction = true
+(c): positive_slot_direction = false
+
+In the example, coil (a) connects slots 0 and 1 in the positive slot direction. Coil (b) connects slots 2 and 1 in the negative slot direction. Coil (c) connects slots 4 and 0 by wrapping around the end of the slot sequence.
  */
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct CoilFull {
-    first_zone: Zone,
-    second_zone: Zone,
-    first_zone_is_positive: bool,
-    clockwise: bool,
+pub struct FullCoil {
+    positive_zone: Zone,
+    negative_zone: Zone,
+    positive_slot_direction: bool,
     turns: NonZeroUsize,
     // WindingTable represents phases as signed i32 values. Using u16 here
     // ensures that every phase number, with either polarity, fits in i32.
@@ -353,35 +347,12 @@ pub struct CoilFull {
     end_length: Option<Length>,
 }
 
-impl CoilFull {
+impl FullCoil {
     /// Returns an instance of `Coil`
     pub fn new(
-        first_zone: Zone,
-        second_zone: Zone,
-        first_zone_is_positive: bool,
-        clockwise: bool,
-        turns: NonZeroUsize,
-        phase: NonZeroU16,
-        wire: Box<dyn Wire>,
-    ) -> Result<Self, Error> {
-        return Self::with_coil_end_lengths(
-            first_zone,
-            second_zone,
-            first_zone_is_positive,
-            clockwise,
-            turns,
-            phase,
-            wire,
-            None,
-            None,
-        );
-    }
-
-    /// Returns an instance of `Coil`
-    pub fn with_positive_and_negative_zones(
         positive_zone: Zone,
         negative_zone: Zone,
-        clockwise: bool,
+        positive_slot_direction: bool,
         turns: NonZeroUsize,
         phase: NonZeroU16,
         wire: Box<dyn Wire>,
@@ -389,8 +360,7 @@ impl CoilFull {
         return Self::with_coil_end_lengths(
             positive_zone,
             negative_zone,
-            true,
-            clockwise,
+            positive_slot_direction,
             turns,
             phase,
             wire,
@@ -402,7 +372,7 @@ impl CoilFull {
     /**
     Build a coil with a specified axial overhang and end winding length.
     Both values are specified for a half-turn (see drawing below)
-    If those values are set to None, this function is equivalent to `CoilFull::new`.
+    If those values are set to None, this function is equivalent to `FullCoil::new`.
 
     The ASCII art below visualizes the axial coil overhang with equal signs (=)
     and the end winding length with box drawing characters (─).
@@ -418,18 +388,17 @@ impl CoilFull {
     ```
      */
     pub fn with_coil_end_lengths(
-        first_zone: Zone,
-        second_zone: Zone,
-        first_zone_is_positive: bool,
-        clockwise: bool,
+        positive_zone: Zone,
+        negative_zone: Zone,
+        positive_slot_direction: bool,
         turns: NonZeroUsize,
         phase: NonZeroU16,
         wire: Box<dyn Wire>,
         axial_overhang: Option<Length>,
         end_length: Option<Length>,
     ) -> Result<Self, Error> {
-        if first_zone == second_zone {
-            return Err(Error::EqualCoilZones(first_zone));
+        if positive_zone == negative_zone {
+            return Err(Error::EqualCoilZones(positive_zone));
         }
 
         let zero = Length::new::<meter>(0.0);
@@ -439,11 +408,10 @@ impl CoilFull {
         if let Some(value) = end_length {
             compare_variables!(val zero <= value)?;
         }
-        return Ok(CoilFull {
-            first_zone,
-            second_zone,
-            first_zone_is_positive,
-            clockwise,
+        return Ok(FullCoil {
+            positive_zone,
+            negative_zone,
+            positive_slot_direction,
             turns,
             phase,
             wire,
@@ -452,32 +420,16 @@ impl CoilFull {
         });
     }
 
-    /// Returns the side of the coil where a positive current creates a
-    /// clockwise rotating field ("goes into the drawing area")
+    pub fn positive_slot_direction(&self) -> bool {
+        self.positive_slot_direction
+    }
+
     pub fn positive_zone(&self) -> Zone {
-        if self.first_zone_is_positive {
-            return self.first_zone;
-        } else {
-            return self.second_zone;
-        }
+        self.positive_zone
     }
 
-    /// Returns the side of the coil where a positive current creates a
-    /// counterclockwise rotating field ("goes out of the drawing area").
     pub fn negative_zone(&self) -> Zone {
-        if self.first_zone_is_positive {
-            return self.second_zone;
-        } else {
-            return self.first_zone;
-        }
-    }
-
-    pub fn clockwise(&self) -> bool {
-        return self.clockwise;
-    }
-
-    pub fn set_clockwise(&mut self, clockwise: bool) {
-        self.clockwise = clockwise;
+        self.negative_zone
     }
 
     /**
@@ -509,25 +461,16 @@ impl CoilFull {
         return usize::from(self.turns()) as f64 * (Complex::new(0.0, slot_angle)).exp();
     }
 
-    pub fn second_zone(&self) -> Zone {
-        return self.second_zone;
-    }
-
     /**
     Returns an iterator over the slots "covered" by the end winding of the coil,
     starting at the first zone slot and stopping at the second zone slot.
      */
-    pub fn covered_slots(&self, slots: NonZeroU16) -> CoveredSlots {
-        let ascending = if self.clockwise() {
-            self.first_zone_is_positive
-        } else {
-            !self.first_zone_is_positive
-        };
+    pub fn covered_slots(&self, slots: Option<NonZeroU16>) -> CoveredSlots {
         return CoveredSlots {
-            second_slot: self.second_zone.slot,
-            slots: slots.get(),
-            slot: self.first_zone.slot,
-            ascending,
+            second_slot: self.negative_zone.slot,
+            slots,
+            slot: self.positive_zone.slot,
+            positive_slot_direction: self.positive_slot_direction,
             exhausted: false,
         };
     }
@@ -535,9 +478,9 @@ impl CoilFull {
 
 pub struct CoveredSlots {
     second_slot: u16,
-    slots: u16,
+    slots: Option<NonZeroU16>,
     slot: u16,
-    ascending: bool,
+    positive_slot_direction: bool,
     exhausted: bool,
 }
 
@@ -552,40 +495,38 @@ impl Iterator for CoveredSlots {
             self.exhausted = true;
             return Some(self.slot);
         } else {
-            let returned_slot = self.slot;
-            if self.ascending {
-                self.slot += 1;
-                if self.slot == self.slots {
-                    self.slot = 0;
+            // Linear or rotary core?
+            match self.slots {
+                Some(slots) => {
+                    let returned_slot = self.slot;
+                    if self.positive_slot_direction {
+                        self.slot += 1;
+                        if self.slot == slots.get() {
+                            self.slot = 0;
+                        }
+                    } else {
+                        match self.slot.checked_sub(1) {
+                            Some(val) => self.slot = val,
+                            None => self.slot = slots.get() - 1,
+                        }
+                    }
+                    return Some(returned_slot);
                 }
-            } else {
-                match self.slot.checked_sub(1) {
-                    Some(val) => self.slot = val,
-                    None => self.slot = self.slots - 1,
+                None => {
+                    let slot = self.slot;
+                    if self.second_slot > self.slot {
+                        self.slot += 1;
+                    } else {
+                        self.slot -= 1;
+                    }
+                    return Some(slot);
                 }
             }
-            return Some(returned_slot);
         }
     }
 }
 
-impl Clone for CoilFull {
-    fn clone(&self) -> Self {
-        Self {
-            first_zone: self.first_zone.clone(),
-            second_zone: self.second_zone.clone(),
-            clockwise: self.clockwise.clone(),
-            turns: self.turns.clone(),
-            phase: self.phase.clone(),
-            wire: clone_box(&*self.wire),
-            first_zone_is_positive: self.first_zone_is_positive.clone(),
-            axial_overhang: self.axial_overhang.clone(),
-            end_length: self.end_length.clone(),
-        }
-    }
-}
-
-impl CoilExt for CoilFull {
+impl CoilExt for FullCoil {
     fn turns(&self) -> NonZeroUsize {
         return self.turns;
     }
@@ -610,13 +551,13 @@ impl CoilExt for CoilFull {
     The term "normalized phasor voltage" means that the induced voltage is assumed to have an amplitude of 1 V per turn.
 
     ```
-    use winding::{CoilFull, CoilExt, Zone, phasor_angle};
+    use winding::{FullCoil, CoilExt, Zone, phasor_angle};
     use wire::RoundWire;
     use approxim;
 
     let outward_side = Zone {slot: 1, layer: 0};
     let return_side = Zone {slot: 7, layer: 0};
-    let coil = CoilFull::new(outward_side, return_side, true, true, 10, 1, Box::new(RoundWire::default())).unwrap();
+    let coil = FullCoil::new(outward_side, return_side, true, true, 10, 1, Box::new(RoundWire::default())).unwrap();
 
     // Calculate the electrical phasor angle between two slots for a 6-slot winding with one pole pair.
     let angle = phasor_angle(6, 1);
@@ -657,31 +598,40 @@ impl CoilExt for CoilFull {
         return self.wire;
     }
 
-    /**
-    Return the coil throw. `slots` is the total number of winding slots.
-    This function performs wrapping subtraction, meaning it won't panic if `slots`
-    is a nonsensical value (e.g. smaller than one of the two coil slots). It will however
-    return a nonsensical result.
-     */
-    fn span(&self, slots: NonZeroU16) -> u16 {
+    fn throw(&self, slots: Option<NonZeroU16>) -> u16 {
+        let positive = self.positive_zone().slot;
+        let negative = self.negative_zone().slot;
+
+        let Some(slots) = slots else {
+            return self
+                .positive_zone()
+                .slot
+                .abs_diff(self.negative_zone().slot);
+        };
         let slots = slots.get();
 
-        let (minuend, subtrahend) = if self.clockwise() {
-            (self.negative_zone().slot, self.positive_zone().slot)
+        // Treat the special case of the slots being equal
+        if positive == negative {
+            if self.positive_zone() > self.negative_zone() {
+                if self.positive_slot_direction() {
+                    return slots;
+                }
+                return 0;
+            } else {
+                if self.positive_slot_direction() {
+                    return 0;
+                }
+                return slots;
+            }
+        }
+
+        let (minuend, subtrahend) = if self.positive_slot_direction() {
+            (negative, positive)
         } else {
-            (self.positive_zone().slot, self.negative_zone().slot)
+            (positive, negative)
         };
 
-        // Cover special case
-        if minuend == subtrahend {
-            return (!self.clockwise()) as u16 * slots;
-        }
-        let result = (slots + minuend).wrapping_sub(subtrahend);
-        if result > slots {
-            return result.wrapping_sub(slots);
-        } else {
-            return result;
-        }
+        (slots + minuend).wrapping_sub(subtrahend) % slots
     }
 
     fn voltage_phasor_at(
@@ -699,25 +649,6 @@ impl CoilExt for CoilFull {
         }
     }
 
-    fn first_zone(&self) -> Zone {
-        return self.first_zone;
-    }
-
-    fn first_zone_is_positive(&self) -> bool {
-        return self.first_zone_is_positive;
-    }
-
-    fn first_zone_and_polarity(&self) -> ZoneAndPolarity {
-        return ZoneAndPolarity {
-            zone: self.first_zone,
-            positive: self.first_zone_is_positive,
-        };
-    }
-
-    fn set_polarity_first_zone(&mut self, positive: bool) {
-        self.first_zone_is_positive = positive;
-    }
-
     fn axial_overhang(&self) -> Option<Length> {
         return self.axial_overhang;
     }
@@ -725,15 +656,28 @@ impl CoilExt for CoilFull {
     fn end_length(&self) -> Option<Length> {
         return self.end_length;
     }
+
+    fn invert(&mut self) {
+        self.positive_slot_direction = !self.positive_slot_direction;
+        let tmp = self.positive_zone;
+        self.positive_zone = self.negative_zone;
+        self.negative_zone = tmp;
+    }
+}
+
+impl From<FullCoil> for Box<dyn Wire> {
+    fn from(value: FullCoil) -> Self {
+        value.wire
+    }
 }
 
 // ================================================================
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct CoilHalf {
+pub struct HalfCoil {
     zone: Zone,
-    positive: bool,
+    is_positive: bool,
     turns: NonZeroUsize,
     phase: NonZeroU16,
     wire: Box<dyn Wire>,
@@ -743,21 +687,21 @@ pub struct CoilHalf {
     end_length: Option<Length>,
 }
 
-impl CoilHalf {
+impl HalfCoil {
     /// Returns an instance of `Coil`
     pub fn new(
         zone: Zone,
-        positive: bool,
+        is_positive: bool,
         turns: NonZeroUsize,
         phase: NonZeroU16,
         wire: Box<dyn Wire>,
     ) -> Self {
-        Self::with_coil_end_lengths(zone, positive, turns, phase, wire, None, None)
+        Self::with_coil_end_lengths(zone, is_positive, turns, phase, wire, None, None)
     }
 
     pub fn with_coil_end_lengths(
         zone: Zone,
-        positive: bool,
+        is_positive: bool,
         turns: NonZeroUsize,
         phase: NonZeroU16,
         wire: Box<dyn Wire>,
@@ -771,9 +715,9 @@ impl CoilHalf {
         if let Some(value) = end_length {
             compare_variables!(zero_length <= value).unwrap();
         }
-        return CoilHalf {
+        return HalfCoil {
             zone,
-            positive,
+            is_positive,
             turns,
             phase,
             wire,
@@ -785,23 +729,13 @@ impl CoilHalf {
     pub fn zone(&self) -> Zone {
         return self.zone;
     }
-}
 
-impl Clone for CoilHalf {
-    fn clone(&self) -> Self {
-        Self {
-            zone: self.zone.clone(),
-            positive: self.positive.clone(),
-            turns: self.turns.clone(),
-            phase: self.phase.clone(),
-            wire: clone_box(&*self.wire),
-            axial_overhang: self.axial_overhang.clone(),
-            end_length: self.end_length.clone(),
-        }
+    pub fn is_positive(&self) -> bool {
+        self.is_positive
     }
 }
 
-impl CoilExt for CoilHalf {
+impl CoilExt for HalfCoil {
     fn turns(&self) -> NonZeroUsize {
         return self.turns;
     }
@@ -820,7 +754,7 @@ impl CoilExt for CoilHalf {
 
     fn voltage_phasor(&self, phasor_angle: f64, ordinal: f64) -> Complex<f64> {
         let slot_angle = self.zone().slot as f64 * phasor_angle * ordinal;
-        let slot_angle = if self.first_zone_is_positive() {
+        let slot_angle = if self.is_positive {
             slot_angle
         } else {
             -slot_angle
@@ -840,7 +774,7 @@ impl CoilExt for CoilHalf {
         return self.wire;
     }
 
-    fn span(&self, _slots: NonZeroU16) -> u16 {
+    fn throw(&self, _slots: Option<NonZeroU16>) -> u16 {
         return 0;
     }
 
@@ -857,31 +791,22 @@ impl CoilExt for CoilHalf {
         }
     }
 
-    fn first_zone(&self) -> Zone {
-        return self.zone;
-    }
-
-    fn first_zone_is_positive(&self) -> bool {
-        return self.positive;
-    }
-
-    fn first_zone_and_polarity(&self) -> ZoneAndPolarity {
-        return ZoneAndPolarity {
-            zone: self.zone,
-            positive: self.positive,
-        };
-    }
-
-    fn set_polarity_first_zone(&mut self, positive: bool) {
-        self.positive = positive;
-    }
-
     fn axial_overhang(&self) -> Option<Length> {
         return self.axial_overhang;
     }
 
     fn end_length(&self) -> Option<Length> {
         return self.end_length;
+    }
+
+    fn invert(&mut self) {
+        self.is_positive = !self.is_positive;
+    }
+}
+
+impl From<HalfCoil> for Box<dyn Wire> {
+    fn from(value: HalfCoil) -> Self {
+        value.wire
     }
 }
 
@@ -890,7 +815,7 @@ impl CoilExt for CoilHalf {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ZoneAndPolarity {
     pub zone: Zone,
-    pub positive: bool,
+    pub is_positive: bool,
 }
 
 pub struct ZoneAndPolarityIterator<'a> {
@@ -909,30 +834,16 @@ impl<'a> Iterator for ZoneAndPolarityIterator<'a> {
         match self.coil {
             Coil::Full(coil) => match self.counter {
                 1 => {
-                    if coil.first_zone() < coil.second_zone() {
-                        return Some(ZoneAndPolarity {
-                            zone: coil.first_zone(),
-                            positive: coil.first_zone_is_positive(),
-                        });
-                    } else {
-                        return Some(ZoneAndPolarity {
-                            zone: coil.second_zone(),
-                            positive: !coil.first_zone_is_positive(),
-                        });
-                    }
+                    return Some(ZoneAndPolarity {
+                        zone: coil.positive_zone(),
+                        is_positive: true,
+                    });
                 }
                 2 => {
-                    if coil.first_zone() < coil.second_zone() {
-                        return Some(ZoneAndPolarity {
-                            zone: coil.second_zone(),
-                            positive: !coil.first_zone_is_positive(),
-                        });
-                    } else {
-                        return Some(ZoneAndPolarity {
-                            zone: coil.first_zone(),
-                            positive: coil.first_zone_is_positive(),
-                        });
-                    }
+                    return Some(ZoneAndPolarity {
+                        zone: coil.negative_zone(),
+                        is_positive: false,
+                    });
                 }
                 _ => return None,
             },
@@ -940,7 +851,7 @@ impl<'a> Iterator for ZoneAndPolarityIterator<'a> {
                 1 => {
                     return Some(ZoneAndPolarity {
                         zone: coil.zone(),
-                        positive: coil.first_zone_is_positive(),
+                        is_positive: coil.is_positive(),
                     });
                 }
                 _ => return None,
@@ -963,79 +874,5 @@ impl<'a> Iterator for ZoneIterator<'a> {
     fn next(&mut self) -> Option<Zone> {
         let zone_and_polarity = self.0.next()?;
         return Some(zone_and_polarity.zone);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use stem_wire::round::RoundWire;
-
-    #[test]
-    fn test_coil_orientation() {
-        // Tooth coil
-        let coil = CoilFull::new(
-            Zone::new(0, 0),
-            Zone::new(1, 0),
-            true,
-            true,
-            NonZeroUsize::MIN,
-            NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
-        )
-        .unwrap();
-        assert_eq!(coil.span(NonZeroU16::new(12).expect("not zero")), 1);
-
-        // Another tooth coil which wraps around (11 -> 0)
-        let coil = CoilFull::new(
-            Zone::new(11, 0),
-            Zone::new(0, 0),
-            true,
-            true,
-            NonZeroUsize::MIN,
-            NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
-        )
-        .unwrap();
-        assert_eq!(coil.span(NonZeroU16::new(12).expect("not zero")), 1);
-
-        // Extremely long coil
-        let coil = CoilFull::new(
-            Zone::new(0, 0),
-            Zone::new(1, 0),
-            true,
-            false,
-            NonZeroUsize::MIN,
-            NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
-        )
-        .unwrap();
-        assert_eq!(coil.span(NonZeroU16::new(12).expect("not zero")), 11);
-
-        // Both coil zones occupy the same slot
-        let coil = CoilFull::new(
-            Zone::new(0, 0),
-            Zone::new(0, 1),
-            true,
-            true,
-            NonZeroUsize::MIN,
-            NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
-        )
-        .unwrap();
-        assert_eq!(coil.span(NonZeroU16::new(12).expect("not zero")), 0);
-
-        // Both coil zones occupy the same slot
-        let coil = CoilFull::new(
-            Zone::new(0, 0),
-            Zone::new(0, 1),
-            true,
-            false,
-            NonZeroUsize::MIN,
-            NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
-        )
-        .unwrap();
-        assert_eq!(coil.span(NonZeroU16::new(12).expect("not zero")), 12);
     }
 }

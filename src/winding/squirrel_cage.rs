@@ -9,13 +9,19 @@ use stem_coil_layout::{CoilLayout, Zone};
 use stem_wire::prelude::*;
 
 use crate::{
-    coils::{Coil, CoilHalf, Coils},
+    coils::{Coil, Coils, HalfCoil},
     error::Error,
     winding::{Connection, Winding},
 };
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "stem_core")]
+use stem_core::prelude::*;
+
+#[cfg(feature = "stem_core")]
+use crate::core_support::*;
 
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
@@ -167,10 +173,10 @@ impl Winding for SquirrelCageWinding {
     #[cfg(feature = "stem_core")]
     fn slot_leakage_inductance(
         &self,
-        _: u16,
+        _phase: NonZeroU16,
         core: CoreRef<'_>,
         effective_air_gap: Length,
-        conditions: &[InfluencingQuantity],
+        conditions: &[DynQuantity<f64>],
         overrides: &Overrides,
     ) -> Inductance {
         use uom::si::frequency::hertz;
@@ -190,39 +196,25 @@ impl Winding for SquirrelCageWinding {
 
             // AC current displacement factor
             let k_x = if self.consider_current_displacement() {
-                let wire_material = self
-                    .wire_at(Zone::new(0, 0))
-                    .unwrap()
-                    .material_conductor()
-                    .clone();
+                let wire_material = self.wire().material().clone();
 
                 let el_conductivity = 1.0 / wire_material.electrical_resistivity().get(conditions);
 
                 let rel_permeability = wire_material.relative_permeability().get(conditions);
 
-                let frequency = Frequency::new::<hertz>(
-                    conditions
-                        .into_iter()
-                        .find(|value| {
-                            InfluencingQuantityType::from(*value)
-                                == InfluencingQuantityType::Frequency
-                        })
-                        .unwrap_or(&InfluencingQuantity::Frequency(Frequency::new::<hertz>(
-                            0.0,
-                        )))
-                        .value(),
-                );
-                slot.current_displacement_coefficients(frequency, el_conductivity, rel_permeability)
-                    .inductance_coefficient
+                let frequency = conditions
+                    .into_iter()
+                    .find_map(|value| Frequency::try_from(*value).ok())
+                    .unwrap_or(Frequency::new::<hertz>(0.0));
+                core.current_displacement_coefficients()
+                    .eval(frequency, el_conductivity, rel_permeability)
+                    .resistance
             } else {
                 1.0
             };
 
             // Formulae (3.66) from [Mat19]
-            return *material::VACUUM_PERMEABILITY
-                * core.axial_coil_length()
-                * leakage_factor
-                * k_x;
+            return *VACUUM_PERMEABILITY * core.axial_coil_length() * leakage_factor * k_x;
         } else {
             return Inductance::new::<uom::si::inductance::henry>(0.0);
         }
@@ -238,9 +230,9 @@ impl Winding for SquirrelCageWinding {
         use std::f64::consts::FRAC_PI_2;
         use uom::typenum::P2;
 
-        match core.as_lin_or_rot() {
+        match core {
             CoreRef::Rot(core_rot) => {
-                let is_outer_part = core_rot.is_outer_part();
+                let is_outer_part = core_rot.is_outer();
                 let dia_ring_outer =
                     2.0 * outer_end_ring_radius(is_outer_part, core_rot.air_gap_radius(), self);
                 let dia_ring_inner =
@@ -257,7 +249,7 @@ impl Winding for SquirrelCageWinding {
                     self.end_ring_height()
                         * self.end_ring_width()
                         * core.slot_pitch()
-                        * self.slots() as f64,
+                        * f64::from(self.slots().get()),
                 );
             }
         }
@@ -266,9 +258,9 @@ impl Winding for SquirrelCageWinding {
     #[cfg(feature = "stem_core")]
     fn resistance(
         &self,
-        _phase: NonZeroU16,
+        phase: NonZeroU16,
         core: CoreRef<'_>,
-        conditions: &[InfluencingQuantity],
+        conditions: &[DynQuantity<f64>],
         overrides: &Overrides,
     ) -> ElectricalResistance {
         use std::f64::consts::PI;
@@ -276,7 +268,7 @@ impl Winding for SquirrelCageWinding {
 
         let electrical_resistivity = self
             .wire()
-            .material_conductor()
+            .material()
             .electrical_resistivity()
             .get(conditions);
 
@@ -290,13 +282,13 @@ impl Winding for SquirrelCageWinding {
         let end_winding_area = self.end_ring_width() * self.end_ring_height();
         let resistivity = self
             .wire()
-            .material_conductor()
+            .material()
             .electrical_resistivity()
             .get(conditions);
 
-        let resistance_ring_segment = match core.as_lin_or_rot() {
+        let resistance_ring_segment = match core {
             CoreRef::Rot(core_rot) => {
-                let is_outer_part = core_rot.is_outer_part();
+                let is_outer_part = core_rot.is_outer();
                 let outer_end_ring_rad =
                     outer_end_ring_radius(is_outer_part, core_rot.air_gap_radius(), self);
                 let inner_end_ring_rad =
@@ -308,7 +300,7 @@ impl Winding for SquirrelCageWinding {
                 // 1/conductivity with electrical resistivity
                 ring_coefficient * resistivity * (PI * (outer_end_ring_rad + inner_end_ring_rad))
                     / end_winding_area
-                    / self.slots() as f64
+                    / f64::from(self.slots().get())
             }
             CoreRef::Lin(_) => resistivity * core.slot_pitch() / end_winding_area,
         };
@@ -316,41 +308,53 @@ impl Winding for SquirrelCageWinding {
         // Formula (3.55) in [Mat19]
         let end_ring_resistance = resistance_ring_segment
             / (2.0
-                * (PI * self.pole_pairs() as f64 / self.slots() as f64)
+                * (PI * f64::from(self.pole_pairs().get()) / f64::from(self.slots().get()))
                     .sin()
                     .powi(2));
 
         // AC current displacement factor
         let k_r = if self.consider_current_displacement() {
-            let wire_material = self.wire().material_conductor().clone();
+            let wire_material = self.wire().material_arc().clone();
 
             let el_conductivity = 1.0 / wire_material.electrical_resistivity().get(conditions);
 
             let rel_permeability = wire_material.relative_permeability().get(conditions);
 
-            let frequency = Frequency::new::<hertz>(
-                conditions
-                    .into_iter()
-                    .find(|value| {
-                        InfluencingQuantityType::from(*value) == InfluencingQuantityType::Frequency
-                    })
-                    .unwrap_or(&InfluencingQuantity::Frequency(Frequency::new::<hertz>(
-                        0.0,
-                    )))
-                    .value(),
-            );
-            core.current_displacement_coefficients(frequency, el_conductivity, rel_permeability)
-                .resistance_coefficient
+            let frequency = conditions
+                .into_iter()
+                .find_map(|value| Frequency::try_from(*value).ok())
+                .unwrap_or(Frequency::new::<hertz>(0.0));
+            core.current_displacement_coefficients()
+                .eval(frequency, el_conductivity, rel_permeability)
+                .resistance
         } else {
             1.0
         };
 
-        let bar_resistance =
-            self.wire()
-                .resistance(core.zone_area(), core.axial_coil_length(), conditions);
-        let bar_overhang_resistance =
-            self.wire()
-                .resistance(core.zone_area(), core.axial_coil_overhang(), conditions);
+        let zone_area = Area::new::<square_meter>(
+            core.winding_zone_at(
+                &self.coil_layout(),
+                Zone {
+                    slot: phase.get(),
+                    layer: 0,
+                },
+            )
+            .map(|c| c.area())
+            .unwrap_or(0.0),
+        );
+
+        let bar_resistance = self.wire().resistance(
+            core.axial_coil_length(),
+            zone_area,
+            NonZeroUsize::MIN,
+            conditions,
+        );
+        let bar_overhang_resistance = self.wire().resistance(
+            core.axial_coil_overhang(),
+            zone_area,
+            NonZeroUsize::MIN,
+            conditions,
+        );
 
         return end_ring_resistance + bar_overhang_resistance + bar_resistance * k_r;
     }
@@ -360,22 +364,14 @@ impl Winding for SquirrelCageWinding {
     #[cfg(feature = "stem_core")]
     fn end_winding_leakage_inductance(
         &self,
-        _: u16,
         core: CoreRef<'_>,
+        _phase: NonZeroU16,
         overrides: &Overrides,
     ) -> Inductance {
-        use std::f64::consts::PI;
-
-        let end_winding_half_turn_length = self
-            .end_winding_half_turn_length(core, Zone::new(0, 0), overrides)
-            .expect("cannot fail");
-        let ring_segment_inductance = *material::VACUUM_PERMEABILITY
-            * self.end_winding_leakage_coefficient()
-            * end_winding_half_turn_length
-            / self.pole_pairs() as f64;
-
-        let poles_per_slot = self.pole_pairs() as f64 / self.slots() as f64;
-        return ring_segment_inductance / (2.0 * (PI * poles_per_slot).sin());
+        if let Some(end_winding_leakage_inductance) = overrides.end_winding_leakage_inductance {
+            return end_winding_leakage_inductance;
+        }
+        end_winding_leakage_inductance_cage(self, core, overrides)
     }
 
     #[cfg(feature = "stem_core")]
@@ -390,29 +386,21 @@ impl Winding for SquirrelCageWinding {
             return Some(end_winding_half_turn_length);
         }
 
-        match core.as_lin_or_rot() {
+        match core {
             CoreRef::Rot(core_rot) => {
-                let is_outer_part = core_rot.is_outer_part();
+                let is_outer_part = core_rot.is_outer();
                 let outer_end_ring_rad =
                     outer_end_ring_radius(is_outer_part, core_rot.air_gap_radius(), self);
                 let inner_end_ring_rad =
                     inner_end_ring_radius(is_outer_part, core_rot.air_gap_radius(), self);
-                return Some(PI * (outer_end_ring_rad + inner_end_ring_rad) / self.slots() as f64);
+                return Some(
+                    PI * (outer_end_ring_rad + inner_end_ring_rad) / f64::from(self.slots().get()),
+                );
             }
-            CoreRef::Lin(core_lin) => return Some(core_lin.width() / self.slots() as f64),
+            CoreRef::Lin(core_lin) => {
+                return Some(core_lin.width() / f64::from(self.slots().get()));
+            }
         }
-    }
-
-    #[cfg(feature = "stem_core")]
-    fn slot_shapes(&self, slot: &dyn slot::IsSlot) -> Vec<Shape> {
-        // Check if the slot opening is filled. This is the case for cage windings with
-        // a bar wire.
-        return slot.shapes(
-            self.coil_layout(),
-            (&self.wire as &dyn std::any::Any)
-                .downcast_ref::<wire::BarWire>()
-                .is_some(),
-        );
     }
 }
 
@@ -440,7 +428,7 @@ impl TryFrom<SquirrelCageBuilder> for SquirrelCageWinding {
         let mut coils = Coils::with_capacity(u16::from(builder.slots).into());
         for slot in 0..u16::from(builder.slots) {
             let zone = Zone::new(slot, 0);
-            let coil: Coil = CoilHalf::new(
+            let coil: Coil = HalfCoil::new(
                 zone,
                 true,
                 NonZeroUsize::MIN,
@@ -477,7 +465,7 @@ impl From<SquirrelCageMinimalBuilder> for SquirrelCageWinding {
         let mut coils = Coils::with_capacity(u16::from(builder.slots).into());
         for slot in 0..u16::from(builder.slots) {
             let zone = Zone::new(slot, 0);
-            let coil: Coil = CoilHalf::new(
+            let coil: Coil = HalfCoil::new(
                 zone,
                 true,
                 NonZeroUsize::MIN,

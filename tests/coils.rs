@@ -6,34 +6,10 @@ use std::{
 use stem_winding::prelude::*;
 
 #[test]
-fn test_zone_ordering() {
-    {
-        let zone_1 = Zone::new(0, 0);
-        let zone_2 = Zone::new(1, 0);
-        assert!(zone_1 < zone_2)
-    }
-    {
-        let zone_1 = Zone::new(0, 0);
-        let zone_2 = Zone::new(0, 1);
-        assert!(zone_1 < zone_2)
-    }
-    {
-        let zone_1 = Zone::new(0, 1);
-        let zone_2 = Zone::new(0, 1);
-        assert!(zone_1 == zone_2)
-    }
-    {
-        let zone_1 = Zone::new(2, 0);
-        let zone_2 = Zone::new(0, 1);
-        assert!(zone_1 > zone_2)
-    }
-}
-
-#[test]
 fn test_coil_zones_iterator() {
     {
         // Half coil
-        let coil: Coil = CoilHalf::new(
+        let coil: Coil = HalfCoil::new(
             Zone::new(0, 1),
             true,
             NonZeroUsize::MIN,
@@ -46,14 +22,14 @@ fn test_coil_zones_iterator() {
             iter.next(),
             Some(ZoneAndPolarity {
                 zone: Zone::new(0, 1),
-                positive: true
+                is_positive: true
             })
         );
         assert_eq!(iter.next(), None);
     }
     {
         // Half coil
-        let coil: Coil = CoilHalf::new(
+        let coil: Coil = HalfCoil::new(
             Zone::new(2, 1),
             false,
             NonZeroUsize::MIN,
@@ -66,17 +42,16 @@ fn test_coil_zones_iterator() {
             iter.next(),
             Some(ZoneAndPolarity {
                 zone: Zone::new(2, 1),
-                positive: false
+                is_positive: false
             })
         );
         assert_eq!(iter.next(), None);
     }
     {
         // Full coil
-        let coil: Coil = CoilFull::new(
+        let coil: Coil = FullCoil::new(
             Zone::new(2, 1),
             Zone::new(1, 1),
-            true,
             false,
             NonZeroUsize::MIN,
             NonZeroU16::MIN,
@@ -88,25 +63,24 @@ fn test_coil_zones_iterator() {
         assert_eq!(
             iter.next(),
             Some(ZoneAndPolarity {
-                zone: Zone::new(1, 1),
-                positive: false
+                zone: Zone::new(2, 1),
+                is_positive: true
             })
         );
         assert_eq!(
             iter.next(),
             Some(ZoneAndPolarity {
-                zone: Zone::new(2, 1),
-                positive: true
+                zone: Zone::new(1, 1),
+                is_positive: false
             })
         );
         assert_eq!(iter.next(), None);
     }
     {
         // Full coil
-        let coil: Coil = CoilFull::new(
+        let coil: Coil = FullCoil::new(
             Zone::new(3, 2),
             Zone::new(4, 1),
-            true,
             false,
             NonZeroUsize::MIN,
             NonZeroU16::MIN,
@@ -119,24 +93,23 @@ fn test_coil_zones_iterator() {
             iter.next(),
             Some(ZoneAndPolarity {
                 zone: Zone::new(3, 2),
-                positive: true
+                is_positive: true
             })
         );
         assert_eq!(
             iter.next(),
             Some(ZoneAndPolarity {
                 zone: Zone::new(4, 1),
-                positive: false
+                is_positive: false
             })
         );
         assert_eq!(iter.next(), None);
     }
     {
         // Full coil
-        let coil: Coil = CoilFull::new(
+        let coil: Coil = FullCoil::new(
             Zone::new(3, 2),
             Zone::new(3, 1),
-            true,
             false,
             NonZeroUsize::MIN,
             NonZeroU16::MIN,
@@ -148,15 +121,15 @@ fn test_coil_zones_iterator() {
         assert_eq!(
             iter.next(),
             Some(ZoneAndPolarity {
-                zone: Zone::new(3, 1),
-                positive: false
+                zone: Zone::new(3, 2),
+                is_positive: true
             })
         );
         assert_eq!(
             iter.next(),
             Some(ZoneAndPolarity {
-                zone: Zone::new(3, 2),
-                positive: true
+                zone: Zone::new(3, 1),
+                is_positive: false
             })
         );
         assert_eq!(iter.next(), None);
@@ -167,10 +140,9 @@ fn test_coil_zones_iterator() {
 fn full_coil_same_zones() {
     // The two sides of a full coil cannot occupy the same zones_and_polarities!
     assert!(
-        CoilFull::new(
+        FullCoil::new(
             Zone::new(0, 0),
             Zone::new(0, 0),
-            true,
             false,
             NonZeroUsize::MIN,
             NonZeroU16::MIN,
@@ -205,10 +177,9 @@ fn test_coil_resistance() {
     );
 
     {
-        let coil = CoilFull::new(
+        let coil = FullCoil::new(
             Zone::new(0, 0),
             Zone::new(1, 0),
-            true,
             true,
             NonZeroUsize::new(2).unwrap(),
             NonZeroU16::MIN,
@@ -222,10 +193,9 @@ fn test_coil_resistance() {
         );
     }
     {
-        let coil = CoilFull::new(
+        let coil = FullCoil::new(
             Zone::new(0, 0),
             Zone::new(1, 0),
-            true,
             true,
             NonZeroUsize::new(10).unwrap(),
             NonZeroU16::MIN,
@@ -253,10 +223,9 @@ fn test_coil_resistance() {
         )
         .unwrap();
 
-        let coil_sff = CoilFull::new(
+        let coil_sff = FullCoil::new(
             Zone::new(0, 0),
             Zone::new(1, 0),
-            true,
             true,
             NonZeroUsize::new(10).unwrap(),
             NonZeroU16::MIN,
@@ -276,33 +245,31 @@ fn test_coil_resistance() {
 #[test]
 fn test_covered_slots() {
     {
-        let coil = CoilFull::new(
+        let coil = FullCoil::new(
             Zone::new(0, 0),
             Zone::new(1, 0),
-            true,
             true,
             NonZeroUsize::new(2).unwrap(),
             NonZeroU16::MIN,
             Box::new(RoundWire::default()),
         )
         .unwrap();
-        let mut covered = coil.covered_slots(NonZeroU16::new(6).unwrap());
+        let mut covered = coil.covered_slots(Some(NonZeroU16::new(6).unwrap()));
         assert_eq!(covered.next(), Some(0));
         assert_eq!(covered.next(), Some(1));
         assert_eq!(covered.next(), None);
     }
     {
-        let coil = CoilFull::new(
+        let coil = FullCoil::new(
             Zone::new(0, 0),
             Zone::new(1, 0),
             false,
-            true,
             NonZeroUsize::new(2).unwrap(),
             NonZeroU16::MIN,
             Box::new(RoundWire::default()),
         )
         .unwrap();
-        let mut covered = coil.covered_slots(NonZeroU16::new(6).unwrap());
+        let mut covered = coil.covered_slots(Some(NonZeroU16::new(6).unwrap()));
         assert_eq!(covered.next(), Some(0));
         assert_eq!(covered.next(), Some(5));
         assert_eq!(covered.next(), Some(4));
@@ -312,17 +279,31 @@ fn test_covered_slots() {
         assert_eq!(covered.next(), None);
     }
     {
-        let coil = CoilFull::new(
+        let coil = FullCoil::new(
             Zone::new(0, 0),
             Zone::new(1, 0),
             true,
+            NonZeroUsize::new(2).unwrap(),
+            NonZeroU16::MIN,
+            Box::new(RoundWire::default()),
+        )
+        .unwrap();
+        let mut covered = coil.covered_slots(Some(NonZeroU16::new(6).unwrap()));
+        assert_eq!(covered.next(), Some(0));
+        assert_eq!(covered.next(), Some(1));
+        assert_eq!(covered.next(), None);
+    }
+    {
+        let coil = FullCoil::new(
+            Zone::new(0, 0),
+            Zone::new(1, 0),
             false,
             NonZeroUsize::new(2).unwrap(),
             NonZeroU16::MIN,
             Box::new(RoundWire::default()),
         )
         .unwrap();
-        let mut covered = coil.covered_slots(NonZeroU16::new(6).unwrap());
+        let mut covered = coil.covered_slots(Some(NonZeroU16::new(6).unwrap()));
         assert_eq!(covered.next(), Some(0));
         assert_eq!(covered.next(), Some(5));
         assert_eq!(covered.next(), Some(4));
@@ -332,19 +313,245 @@ fn test_covered_slots() {
         assert_eq!(covered.next(), None);
     }
     {
-        let coil = CoilFull::new(
+        let coil = FullCoil::new(
             Zone::new(0, 0),
             Zone::new(1, 0),
-            false,
+            true,
+            NonZeroUsize::new(2).unwrap(),
+            NonZeroU16::MIN,
+            Box::new(RoundWire::default()),
+        )
+        .unwrap();
+        let mut covered = coil.covered_slots(None);
+        assert_eq!(covered.next(), Some(0));
+        assert_eq!(covered.next(), Some(1));
+        assert_eq!(covered.next(), None);
+    }
+    {
+        let coil = FullCoil::new(
+            Zone::new(0, 0),
+            Zone::new(1, 0),
             false,
             NonZeroUsize::new(2).unwrap(),
             NonZeroU16::MIN,
             Box::new(RoundWire::default()),
         )
         .unwrap();
-        let mut covered = coil.covered_slots(NonZeroU16::new(6).unwrap());
+        let mut covered = coil.covered_slots(None);
         assert_eq!(covered.next(), Some(0));
         assert_eq!(covered.next(), Some(1));
         assert_eq!(covered.next(), None);
     }
+    {
+        let coil = FullCoil::new(
+            Zone::new(1, 0),
+            Zone::new(0, 0),
+            true,
+            NonZeroUsize::new(2).unwrap(),
+            NonZeroU16::MIN,
+            Box::new(RoundWire::default()),
+        )
+        .unwrap();
+        let mut covered = coil.covered_slots(None);
+        assert_eq!(covered.next(), Some(1));
+        assert_eq!(covered.next(), Some(0));
+        assert_eq!(covered.next(), None);
+    }
+    {
+        let coil = FullCoil::new(
+            Zone::new(1, 0),
+            Zone::new(0, 0),
+            false,
+            NonZeroUsize::new(2).unwrap(),
+            NonZeroU16::MIN,
+            Box::new(RoundWire::default()),
+        )
+        .unwrap();
+        let mut covered = coil.covered_slots(None);
+        assert_eq!(covered.next(), Some(1));
+        assert_eq!(covered.next(), Some(0));
+        assert_eq!(covered.next(), None);
+    }
+}
+
+#[test]
+fn test_coil_orientation_cyclic() {
+    // Tooth coil
+    let coil = FullCoil::new(
+        Zone::new(0, 0),
+        Zone::new(1, 0),
+        true,
+        NonZeroUsize::MIN,
+        NonZeroU16::MIN,
+        Box::new(RoundWire::default()),
+    )
+    .unwrap();
+    assert_eq!(coil.throw(Some(NonZeroU16::new(12).expect("not zero"))), 1);
+    let coil = FullCoil::new(
+        Zone::new(1, 0),
+        Zone::new(0, 0),
+        false,
+        NonZeroUsize::MIN,
+        NonZeroU16::MIN,
+        Box::new(RoundWire::default()),
+    )
+    .unwrap();
+    assert_eq!(coil.throw(Some(NonZeroU16::new(12).expect("not zero"))), 1);
+
+    // Another tooth coil which wraps around (11 -> 0)
+    let coil = FullCoil::new(
+        Zone::new(11, 0),
+        Zone::new(0, 0),
+        true,
+        NonZeroUsize::MIN,
+        NonZeroU16::MIN,
+        Box::new(RoundWire::default()),
+    )
+    .unwrap();
+    assert_eq!(coil.throw(Some(NonZeroU16::new(12).expect("not zero"))), 1);
+    let coil = FullCoil::new(
+        Zone::new(11, 0),
+        Zone::new(0, 0),
+        false,
+        NonZeroUsize::MIN,
+        NonZeroU16::MIN,
+        Box::new(RoundWire::default()),
+    )
+    .unwrap();
+    assert_eq!(coil.throw(Some(NonZeroU16::new(12).expect("not zero"))), 11);
+    let coil = FullCoil::new(
+        Zone::new(0, 0),
+        Zone::new(11, 0),
+        true,
+        NonZeroUsize::MIN,
+        NonZeroU16::MIN,
+        Box::new(RoundWire::default()),
+    )
+    .unwrap();
+    assert_eq!(coil.throw(Some(NonZeroU16::new(12).expect("not zero"))), 11);
+    let coil = FullCoil::new(
+        Zone::new(0, 0),
+        Zone::new(11, 0),
+        false,
+        NonZeroUsize::MIN,
+        NonZeroU16::MIN,
+        Box::new(RoundWire::default()),
+    )
+    .unwrap();
+    assert_eq!(coil.throw(Some(NonZeroU16::new(12).expect("not zero"))), 1);
+
+    // Both coil zones occupy the same slot
+    let coil = FullCoil::new(
+        Zone::new(0, 0),
+        Zone::new(0, 1),
+        true,
+        NonZeroUsize::MIN,
+        NonZeroU16::MIN,
+        Box::new(RoundWire::default()),
+    )
+    .unwrap();
+    assert_eq!(coil.throw(Some(NonZeroU16::new(12).expect("not zero"))), 0);
+
+    // Both coil zones occupy the same slot
+    let coil = FullCoil::new(
+        Zone::new(0, 0),
+        Zone::new(0, 1),
+        false,
+        NonZeroUsize::MIN,
+        NonZeroU16::MIN,
+        Box::new(RoundWire::default()),
+    )
+    .unwrap();
+    assert_eq!(coil.throw(Some(NonZeroU16::new(12).expect("not zero"))), 12);
+}
+
+#[test]
+fn test_coil_orientation_linear() {
+    // Tooth coil
+    let coil = FullCoil::new(
+        Zone::new(0, 0),
+        Zone::new(1, 0),
+        true,
+        NonZeroUsize::MIN,
+        NonZeroU16::MIN,
+        Box::new(RoundWire::default()),
+    )
+    .unwrap();
+    assert_eq!(coil.throw(None), 1);
+    let coil = FullCoil::new(
+        Zone::new(1, 0),
+        Zone::new(0, 0),
+        false,
+        NonZeroUsize::MIN,
+        NonZeroU16::MIN,
+        Box::new(RoundWire::default()),
+    )
+    .unwrap();
+    assert_eq!(coil.throw(None), 1);
+
+    // Another tooth coil which wraps around (11 -> 0)
+    let coil = FullCoil::new(
+        Zone::new(11, 0),
+        Zone::new(0, 0),
+        true,
+        NonZeroUsize::MIN,
+        NonZeroU16::MIN,
+        Box::new(RoundWire::default()),
+    )
+    .unwrap();
+    assert_eq!(coil.throw(None), 11);
+    let coil = FullCoil::new(
+        Zone::new(11, 0),
+        Zone::new(0, 0),
+        false,
+        NonZeroUsize::MIN,
+        NonZeroU16::MIN,
+        Box::new(RoundWire::default()),
+    )
+    .unwrap();
+    assert_eq!(coil.throw(None), 11);
+    let coil = FullCoil::new(
+        Zone::new(0, 0),
+        Zone::new(11, 0),
+        true,
+        NonZeroUsize::MIN,
+        NonZeroU16::MIN,
+        Box::new(RoundWire::default()),
+    )
+    .unwrap();
+    assert_eq!(coil.throw(None), 11);
+    let coil = FullCoil::new(
+        Zone::new(0, 0),
+        Zone::new(11, 0),
+        false,
+        NonZeroUsize::MIN,
+        NonZeroU16::MIN,
+        Box::new(RoundWire::default()),
+    )
+    .unwrap();
+    assert_eq!(coil.throw(None), 11);
+
+    // Both coil zones occupy the same slot
+    let coil = FullCoil::new(
+        Zone::new(0, 0),
+        Zone::new(0, 1),
+        true,
+        NonZeroUsize::MIN,
+        NonZeroU16::MIN,
+        Box::new(RoundWire::default()),
+    )
+    .unwrap();
+    assert_eq!(coil.throw(None), 0);
+
+    // Both coil zones occupy the same slot
+    let coil = FullCoil::new(
+        Zone::new(0, 0),
+        Zone::new(0, 1),
+        false,
+        NonZeroUsize::MIN,
+        NonZeroU16::MIN,
+        Box::new(RoundWire::default()),
+    )
+    .unwrap();
+    assert_eq!(coil.throw(None), 0);
 }

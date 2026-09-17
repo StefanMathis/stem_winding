@@ -141,9 +141,15 @@ fn test_plot_winding_shapes_sl_tooth_coil() {
 #[test]
 fn test_plot_winding_shapes_quadruple_layer() {
     let core = create_core();
-    let winding =
-        QuadrupleLayerToothCoilWinding::new_minimal(12, 5, 3, 2, vec![], WindingTableMethod::Tingley)
-            .unwrap();
+    let winding = QuadrupleLayerToothCoilWinding::new_minimal(
+        12,
+        5,
+        3,
+        2,
+        vec![],
+        WindingTableMethod::Tingley,
+    )
+    .unwrap();
 
     let zone_config = ZoneConfig::new(
         ZoneBackgroundColor::Phase,
@@ -170,9 +176,15 @@ fn test_plot_winding_shapes_quadruple_layer() {
 #[test]
 fn test_plot_winding_shapes_quadruple_layer_ampere_turns() {
     let core = create_core();
-    let winding =
-        QuadrupleLayerToothCoilWinding::new_minimal(12, 5, 3, 4, vec![3], WindingTableMethod::Tingley)
-            .unwrap();
+    let winding = QuadrupleLayerToothCoilWinding::new_minimal(
+        12,
+        5,
+        3,
+        4,
+        vec![3],
+        WindingTableMethod::Tingley,
+    )
+    .unwrap();
 
     let zone_config = ZoneConfig::new(
         ZoneBackgroundColor::Phase,
@@ -251,11 +263,11 @@ fn test_double_layer_multi_vs_double_vertical() {
     // First slot
     coils.0.insert(
         Zone::new(0, 0),
-        CoilHalf::new(Zone::new(0, 0), true, 3, 2, wire.clone()).into(),
+        HalfCoil::new(Zone::new(0, 0), true, 3, 2, wire.clone()).into(),
     );
     coils.0.insert(
         Zone::new(0, 1),
-        CoilHalf::new(Zone::new(0, 1), true, 1, 1, wire.clone()).into(),
+        HalfCoil::new(Zone::new(0, 1), true, 1, 1, wire.clone()).into(),
     );
 
     {
@@ -331,15 +343,15 @@ fn test_four_layer_multi_vertical() {
     // First slot
     coils.0.insert(
         Zone::new(0, 0),
-        CoilHalf::new(Zone::new(0, 0), true, 1, 1, wire.clone()).into(),
+        HalfCoil::new(Zone::new(0, 0), true, 1, 1, wire.clone()).into(),
     );
     coils.0.insert(
         Zone::new(0, 1),
-        CoilHalf::new(Zone::new(0, 1), true, 1, 2, wire.clone()).into(),
+        HalfCoil::new(Zone::new(0, 1), true, 1, 2, wire.clone()).into(),
     );
     coils.0.insert(
         Zone::new(0, 3),
-        CoilHalf::new(Zone::new(0, 3), true, 1, 3, wire.clone()).into(),
+        HalfCoil::new(Zone::new(0, 3), true, 1, 3, wire.clone()).into(),
     );
 
     let coil_assembly =

@@ -22,7 +22,7 @@ realfft = "3.5"
 serde = { version = "1", features = ["derive"], optional = true }
 stem_coil_layout = { path = "../stem_coil_layout" }
 serde_mosaic = { version = "0.3", optional = true }
-stem_core = { version = "0.1.0", optional = true}
+stem_core = { path = "../stem_core", optional = true } #{ version = "0.1.0", optional = true}
 stem_wire = { path = "../stem_wire" } #version = "0.3.0"
 typetag = { version = "^0.2", optional = true }
 

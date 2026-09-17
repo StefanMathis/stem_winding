@@ -12,7 +12,7 @@ use rayon::prelude::*;
 use stem_core::prelude::*;
 
 #[cfg(feature = "stem_core")]
-use crate::overrides::Overrides;
+use crate::core_support::{Overrides, ResistanceComponents};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -170,9 +170,9 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     #[cfg(feature = "stem_core")]
     fn end_winding_leakage_inductance(
         &self,
-        phase: NonZeroU16,
-        core: CoreRef<'_>,
-        overrides: &Overrides,
+        _core: CoreRef<'_>,
+        _phase: NonZeroU16,
+        _overrides: &Overrides,
     ) -> Inductance {
         return Default::default();
     }
@@ -195,9 +195,9 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     #[cfg(feature = "stem_core")]
     fn end_winding_half_turn_length(
         &self,
-        core: CoreRef<'_>,
-        zone: Zone,
-        overrides: &Overrides,
+        _core: CoreRef<'_>,
+        _zone: Zone,
+        _overrides: &Overrides,
     ) -> Option<Length> {
         return Default::default();
     }
@@ -221,7 +221,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         let coil = self.coil_at(zone)?;
         let is_positive = match coil {
             Coil::Full(coil) => zone == coil.positive_zone(),
-            Coil::Half(coil) => coil.first_zone_is_positive(),
+            Coil::Half(coil) => coil.is_positive(),
         };
         let phase = i32::from(u16::from(coil.phase()));
         if is_positive {
@@ -651,7 +651,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
                     // Get the direction of the coil
                     let is_positive = match coil {
                         Coil::Full(coil) => coil.positive_zone() == Zone { slot, layer },
-                        Coil::Half(coil) => coil.first_zone_is_positive(),
+                        Coil::Half(coil) => coil.is_positive(),
                     };
 
                     let current = currents
@@ -743,8 +743,11 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         overrides: &Overrides,
     ) -> Option<Volume> {
         let coil = self.coil_at(zone)?;
-        let zone_area = core.zone_area();
-        let cross_section = coil.wire().cross_section(zone_area, coil.turns());
+        let zone_area =
+            Area::new::<square_meter>(core.winding_zone_at(&self.coil_layout(), zone)?.area());
+        let cross_section = coil
+            .wire()
+            .effective_conductor_area(zone_area, coil.turns());
         let length = self.end_winding_half_turn_length(core, zone, overrides)?;
         return Some(cross_section * length);
     }
@@ -777,6 +780,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     ///   all ordinals individually).
     /// * The phase resistance of all phases is identical
     /// * The number of turns per phase is identical for all phases.
+    /// * All wires have the same material
     #[cfg(feature = "stem_core")]
     fn is_symmetric(&self, core: CoreRef<'_>, overrides: &Overrides) -> bool {
         use uom::si::electrical_resistance::ohm;
@@ -787,10 +791,18 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         }
 
         // Condition 2: Calculate the phase resistance for some assumed conditions
-        let resistance_1 = self.resistance(1, core, &[], overrides).get::<ohm>();
-        for phase in 2..(self.phases() + 1) {
+        let resistance_1 = self
+            .resistance(NonZeroU16::MIN, core, &[], overrides)
+            .get::<ohm>();
+        for phase in 2..(self.phases().get() + 1) {
             if approxim::abs_diff_ne!(
-                self.resistance(phase, core, &[], overrides).get::<ohm>(),
+                self.resistance(
+                    NonZeroU16::new(phase).unwrap_or(NonZeroU16::MIN),
+                    core,
+                    &[],
+                    overrides
+                )
+                .get::<ohm>(),
                 resistance_1,
                 epsilon = 1e-10
             ) {
@@ -800,9 +812,11 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
         // Condition 3: Add the number of turns of phase 1 and compare it to the number
         // of turns of all phases
-        let turns_phase_1 = self.turns_per_phase(1);
-        for phase in 2..(self.phases() + 1) {
-            if self.turns_per_phase(phase) != turns_phase_1 {
+        let turns_phase_1 = self.turns_per_phase(NonZeroU16::MIN);
+        for phase in 2..(self.phases().get() + 1) {
+            if self.turns_per_phase(NonZeroU16::new(phase).unwrap_or(NonZeroU16::MIN))
+                != turns_phase_1
+            {
                 return false;
             }
         }
@@ -817,10 +831,27 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     #[cfg(feature = "stem_core")]
     fn resistance_components(
         &self,
-        _core: CoreRef<'_>,
-        _overrides: &Overrides,
-    ) -> Option<crate::core_integration::ResistanceComponents> {
-        return None;
+        core: CoreRef<'_>,
+        overrides: &Overrides,
+    ) -> Option<ResistanceComponents> {
+        if !self.is_symmetric(core, overrides) {
+            return None;
+        }
+
+        let material = self.coils().next()?.wire().material_arc().clone();
+        if let Some(resistance_constant) = overrides.resistance_constant {
+            return Some(ResistanceComponents {
+                resistance_constant,
+                material,
+            });
+        }
+
+        let resistance = self.resistance(NonZeroU16::MIN, core, &[], overrides);
+        let electrical_resistivity = material.electrical_resistivity().get(&[]);
+        return Some(ResistanceComponents {
+            resistance_constant: resistance / electrical_resistivity,
+            material,
+        });
     }
 
     /**
@@ -849,9 +880,9 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
             // Calculate the total slot leakage inductance by iterating over all slots of a
             // basic winding and calculating the sum of the slot flux leakage inductance.
-            let number_basic_slots = self.slots() / self.base_winding_count();
+            let number_basic_slots = self.slots().get() / self.base_winding_count();
             let slots = 0..number_basic_slots;
-            let number_layers = self.layers();
+            let number_layers = self.layers().get();
             let number_layers_squared = number_layers.pow(2);
 
             // Calculate the normalized current of all phases
@@ -868,7 +899,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
             // Precalculate the product of axial length and vacuum permeability
             let single_turn_inductance =
-                (*VACUUM_PERMEABILITY * core.axial_coil_length()).get::<henry>();
+                (*VACUUM_PERMEABILITY * core.axial_coil_length()).get::<si::inductance::henry>();
 
             // Calculate the total slot inductance for the selected phase
             let basic_winding_slot_inductance: f64 = slots
@@ -913,14 +944,14 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
                                     // Get the normalized excitation current and modify its
                                     // direction according to the coupling calculated above
-                                    let excitation_current = normalized_current
-                                        [excitation_coil.phase() as usize - 1]
-                                        * coupling as f64;
+                                    let idx = excitation_coil.phase().get() as usize - 1;
+                                    let excitation_current =
+                                        normalized_current[idx] * coupling as f64;
 
                                     // Calculate the inductance
                                     return single_turn_inductance
-                                        * linked_coil.turns() as f64
-                                        * excitation_coil.turns() as f64
+                                        * linked_coil.turns().get() as f64
+                                        * excitation_coil.turns().get() as f64
                                         * excitation_current
                                         * (lambda_slot
                                             [(linked_layer as usize, excitation_layer as usize)]
@@ -937,11 +968,11 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
                 .sum();
 
             // Scale with the winding base_winding_count and the number of parallel paths
-            return Inductance::new::<henry>(basic_winding_slot_inductance)
-                * self.base_winding_count() as f64
-                / self.parallel_paths() as f64;
+            return Inductance::new::<si::inductance::henry>(basic_winding_slot_inductance)
+                * self.base_winding_count().get() as f64
+                / self.parallel_paths().get() as f64;
         } else {
-            return Inductance::new::<henry>(0.0);
+            return Inductance::new::<si::inductance::henry>(0.0);
         }
     }
 
@@ -951,8 +982,8 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         &'a self,
         core: CoreRef<'a>,
         overrides: &'a Overrides,
-    ) -> crate::coils::CoilPropertyIterator<'a> {
-        return crate::coils::CoilPropertyIterator {
+    ) -> crate::core_support::CoilPropertyIterator<'a> {
+        return crate::core_support::CoilPropertyIterator {
             coils: self.coils(),
             winding: self.as_dyn(),
             core,
@@ -966,9 +997,9 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         core: CoreRef<'a>,
         zone: Zone,
         overrides: &'a Overrides,
-    ) -> Option<crate::coils::CoilProperties<'a>> {
+    ) -> Option<crate::core_support::CoilProperties<'a>> {
         let coil = self.coil_at(zone)?;
-        return Some(crate::coils::CoilProperties {
+        return Some(crate::core_support::CoilProperties {
             coil,
             winding: self.as_dyn(),
             core,
@@ -987,26 +1018,27 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         // Calculate the phase resistance by calculating the phase resistance of each
         // individual coil and then summing them up
         let mut resistance = ElectricalResistance::new::<ohm>(0.0);
-        let zone_area = core.zone_area() / self.layers() as f64;
 
         for coil in self.coils() {
-            let multiplier = match coil {
-                Coil::Full(_) => 2.0,
-                Coil::Half(_) => 1.0,
-            };
             if coil.phase() == phase {
-                let length = multiplier
-                    * (core.axial_coil_length()
-                        + self
-                            .axial_coil_overhang(core, coil.first_zone())
-                            .expect("must contain a coil")
-                        + self
-                            .end_winding_half_turn_length(core, coil.first_zone(), overrides)
-                            .expect("at this zone, there must be a coil"));
-                resistance += coil.resistance(zone_area, length, conditions);
+                for zone in coil.zones() {
+                    if let Some(zone_contour) = core.winding_zone_at(&self.coil_layout(), zone) {
+                        let zone_area = Area::new::<square_meter>(zone_contour.area());
+
+                        let length = core.axial_coil_length()
+                            + self
+                                .axial_coil_overhang(core, zone)
+                                .expect("must contain a coil")
+                            + self
+                                .end_winding_half_turn_length(core, zone, overrides)
+                                .expect("at this zone, there must be a coil");
+                        resistance += coil.resistance(zone_area, length, conditions);
+                    }
+                }
             }
         }
-        return resistance;
+        let parallel_paths = f64::from(self.parallel_paths().get());
+        return resistance / parallel_paths.powi(2);
     }
 
     #[cfg(all(feature = "cairo", feature = "stem_core"))]
@@ -1316,8 +1348,8 @@ pub fn base_winding_count_repeating_coil_groups(
     // Inner of basic windings
     let t = NonZeroU16::new(gcd(slots.get(), pole_pairs.get()))
         .expect("cannot be zero, because gcd inputs are not zero");
-    let ratio = hole_number(slots, pole_pairs, phases);
-    let n = ratio.denom().clone();
+    let r = hole_number(slots, pole_pairs, phases);
+    let n = r.denom().clone();
 
     // Check if the winding is an integer slot winding
     if n == 1 {

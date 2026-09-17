@@ -8,11 +8,17 @@ use num::rational::Ratio;
 use stem_coil_layout::{CoilLayout, Zone};
 use stem_wire::prelude::*;
 
+#[cfg(feature = "stem_core")]
+use stem_core::prelude::*;
+
+#[cfg(feature = "stem_core")]
+use crate::core_support::*;
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    coils::{Coil, CoilFull, Coils},
+    coils::{Coil, Coils, FullCoil},
     error::{Error, WindingTableCreationError},
     winding::{Connection, Winding, base_winding_count_repeating_coil_groups, hole_number},
     winding_table::{WindingTable, WindingTableMethod},
@@ -195,7 +201,7 @@ impl DistributedWinding {
                     if let Some((partner_group, found_partner_while_ascending)) = seed_group
                         .find_partner(winding_table, &self.coils, self.slots().get(), return_layer)
                     {
-                        let (pos, neg, clockwise) = if seed_group.phase > 0 {
+                        let (pos, neg, positive_slot_direction) = if seed_group.phase > 0 {
                             (seed_group, partner_group, found_partner_while_ascending)
                         } else {
                             (partner_group, seed_group, !found_partner_while_ascending)
@@ -210,11 +216,10 @@ impl DistributedWinding {
                                     Zone::new(pos_slot.rem_euclid(self.slots().get()), pos.layer);
                                 let negative_zone =
                                     Zone::new(neg_slot.rem_euclid(self.slots().get()), neg.layer);
-                                let coil = CoilFull::new(
+                                let coil = FullCoil::new(
                                     positive_zone,
                                     negative_zone,
-                                    true,
-                                    clockwise,
+                                    positive_slot_direction,
                                     self.turns_per_coil,
                                     NonZeroU16::new(pos.phase as u16).expect("cannot be zero"),
                                     clone_box(&*self.wire),
@@ -234,11 +239,10 @@ impl DistributedWinding {
                                     Zone::new(pos_slot.rem_euclid(self.slots().get()), pos.layer);
                                 let negative_zone =
                                     Zone::new(neg_slot.rem_euclid(self.slots().get()), neg.layer);
-                                let coil = CoilFull::new(
+                                let coil = FullCoil::new(
                                     positive_zone,
                                     negative_zone,
-                                    true,
-                                    clockwise,
+                                    positive_slot_direction,
                                     self.turns_per_coil,
                                     NonZeroU16::new(pos.phase as u16).expect("cannot be zero"),
                                     clone_box(&*self.wire),
@@ -455,118 +459,34 @@ impl Winding for DistributedWinding {
         return true;
     }
 
-    /// Phase resistance calculation of a distributed winding according to
-    /// [Mat19], eq. (3.48).
-    #[cfg(feature = "stem_core")]
-    fn resistance_components(
-        &self,
-        core: CoreRef<'_>,
-        overrides: &Overrides,
-    ) -> Option<crate::ResistanceComponents> {
-        let material = self.wire().material_conductor().clone();
-        if let Some(resistance_constant) = overrides.resistance_constant {
-            return Some(crate::ResistanceComponents {
-                resistance_constant,
-                material,
-            });
-        }
-
-        let resistance = self.resistance(1, core, &[], overrides);
-        let electrical_resistivity = material.electrical_resistivity().get(&[]);
-        return Some(crate::ResistanceComponents {
-            resistance_constant: resistance / electrical_resistivity,
-            material,
-        });
-    }
-
-    #[cfg(feature = "stem_core")]
-    fn resistance(
-        &self,
-        phase: u16,
-        core: CoreRef<'_>,
-        conditions: &[InfluencingQuantity],
-        overrides: &Overrides,
-    ) -> ElectricalResistance {
-        let electrical_resistivity = self
-            .wire()
-            .material_conductor()
-            .electrical_resistivity()
-            .get(conditions);
-
-        if let Some(resistance_constant) = overrides.resistance_constant {
-            return resistance_constant * electrical_resistivity;
-        }
-
-        let mean_coil_turn_length = 2.0
-            * (core.axial_coil_length()
-                + core.axial_coil_overhang()
-                + self
-                    .end_winding_half_turn_length(core, Zone::new(0, 0), overrides)
-                    .expect("must contain a coil"));
-
-        return self.wire().resistance(
-            core.zone_area() / self.turns_in_slot(0) as f64,
-            mean_coil_turn_length,
-            conditions,
-        ) * self.turns_per_phase(phase).to_integer() as f64
-            / self.parallel_paths() as f64;
-    }
-
     #[cfg(feature = "stem_core")]
     fn end_winding_leakage_inductance(
         &self,
-        phase: u16,
         core: CoreRef<'_>,
+        _phase: NonZeroU16,
         overrides: &Overrides,
     ) -> Inductance {
         if let Some(end_winding_leakage_inductance) = overrides.end_winding_leakage_inductance {
             return end_winding_leakage_inductance;
         }
-
-        return 2.0
-            * self.end_winding_leakage_coefficient()
-            * *material::VACUUM_PERMEABILITY
-            * self.turns_per_phase(phase).to_integer().pow(2) as f64
-            * (self
-                .end_winding_half_turn_length(core, Zone::new(0, 0), overrides)
-                .expect("must contain a coil")
-                + core.axial_coil_overhang())
-            / self.pole_pairs() as f64;
+        end_winding_leakage_inductance_distributed(self, core, overrides)
     }
 
     #[cfg(feature = "stem_core")]
     fn end_winding_half_turn_length(
         &self,
         core: CoreRef<'_>,
-        _zone: Zone,
+        zone: Zone,
         overrides: &Overrides,
     ) -> Option<Length> {
-        use crate::CoilExt;
-        use std::f64::consts::PI;
-
         if let Some(end_winding_half_turn_length) = overrides.end_winding_half_turn_length {
             return Some(end_winding_half_turn_length);
         }
-
-        // This is an approximation of the end winding calculation based on heuristic
-        // values
-        let mut span = None;
-        for coil in self.coils() {
-            span = Some(coil.span(self.slots()));
-            break;
-        }
-        match span {
-            Some(_) => {
-                let pitch_ratio = (self.pole_pitch() as f64 - self.coil_span_reduction() as f64)
-                    / self.pole_pitch() as f64; // W/tau_p
-                return Some(
-                    PI / (4.0 * self.pole_pairs() as f64)
-                        * core.mean_slot_distance()
-                        * self.slots() as f64
-                        * pitch_ratio,
-                );
+        match core {
+            CoreRef::Lin(lin_core) => end_winding_half_turn_length_straight(self, lin_core, zone),
+            CoreRef::Rot(rot_core) => {
+                end_winding_half_turn_length_circular_arc(self, rot_core, zone)
             }
-            None => return None,
         }
     }
 }

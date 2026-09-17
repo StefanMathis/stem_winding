@@ -105,14 +105,14 @@ fn test_coil_direction() {
 
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
-                assert_eq!(coil.span(winding.slots()), 1); // A tooth coil winding always has a throw of 1
+                assert_eq!(coil.throw(Some(winding.slots())), 1); // A tooth coil winding always has a throw of 1
 
                 // Exclude corner cases
                 if coil.positive_zone().slot > 0 && coil.positive_zone().slot < 11 {
                     if coil.positive_zone() < coil.negative_zone() {
-                        assert!(coil.clockwise());
+                        assert!(coil.positive_slot_direction());
                     } else {
-                        assert!(!coil.clockwise());
+                        assert!(!coil.positive_slot_direction());
                     }
                 }
             }
@@ -133,14 +133,14 @@ fn test_coil_direction() {
 
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
-                assert_eq!(coil.span(winding.slots()), 1); // A tooth coil winding always has a throw of 1
+                assert_eq!(coil.throw(Some(winding.slots())), 1); // A tooth coil winding always has a throw of 1
 
                 // Exclude corner cases
                 if coil.positive_zone().slot > 0 && coil.positive_zone().slot < 11 {
                     if coil.positive_zone() < coil.negative_zone() {
-                        assert!(coil.clockwise());
+                        assert!(coil.positive_slot_direction());
                     } else {
-                        assert!(!coil.clockwise());
+                        assert!(!coil.positive_slot_direction());
                     }
                 }
             }

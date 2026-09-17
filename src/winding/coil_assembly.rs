@@ -5,6 +5,12 @@ use serde::{Deserialize, Serialize};
 
 use stem_coil_layout::{CoilLayout, Zone};
 
+#[cfg(feature = "stem_core")]
+use stem_core::prelude::*;
+
+#[cfg(feature = "stem_core")]
+use crate::core_support::*;
+
 use crate::{
     coils::{Coil, CoilExt, Coils},
     error::Error,
@@ -16,6 +22,12 @@ This winding type defines a winding as a collection of coils connected to each o
 giving fine-grained control of all aspects (e.g. defining a specific number of
 turns for each coil) at the cost of increased complexity. All other winding types
 can be interpreted as simplified versions of this winding type.
+
+TODO: end_winding_leakage_inductance and end_winding_half_turn_length cannot
+really be calculated for arbitrary coil assembly, so we use best guess approaches here.
+When the CoilAssembly was derived from a specialized winding, store the values
+from the specialized winding in an [`Overrides`] and use this when calculating
+data such as e.g. the total winding resistance!
 */
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -219,36 +231,17 @@ impl Winding for CoilAssembly {
     #[cfg(feature = "stem_core")]
     fn end_winding_leakage_inductance(
         &self,
-        phase: u16,
-        core: CoreRef<'_>,
-        overrides: &stem_primitives::Overrides,
+        _core: CoreRef<'_>,
+        _phase: NonZeroU16,
+        overrides: &Overrides,
     ) -> Inductance {
         if let Some(end_winding_leakage_inductance) = overrides.end_winding_leakage_inductance {
             return end_winding_leakage_inductance;
         }
 
-        // Calculate the mean end winding and overhang length
-        let number_coils = self.number_coils();
-        let mean_ew_length = self
-            .coils()
-            .map(|coil| {
-                let zone = coil.first_zone();
-                self.end_winding_half_turn_length(core, zone, overrides)
-                    .expect("must contain a coil")
-                    + self
-                        .axial_coil_overhang(core, zone)
-                        .expect("must contain a coil")
-            })
-            .sum::<Length>()
-            / number_coils as f64;
-
-        // This calculation assumes a symmetric winding -> Only calculate for phase 1
-        return 2.0
-            * self.end_winding_leakage_coefficient()
-            * *material::VACUUM_PERMEABILITY
-            * self.turns_per_phase(phase).to_integer().pow(2) as f64
-            * mean_ew_length
-            / self.pole_pairs() as f64;
+        // We cannot analytically calculate the end winding leakage inductance
+        // for an arbitrary coil setup, so we just return zero.
+        return Inductance::new::<si::inductance::henry>(0.0);
     }
 
     #[cfg(feature = "stem_core")]
@@ -256,7 +249,7 @@ impl Winding for CoilAssembly {
         &self,
         core: CoreRef<'_>,
         zone: Zone,
-        overrides: &stem_primitives::Overrides,
+        overrides: &Overrides,
     ) -> Option<Length> {
         let coil = self.coil_at(zone)?;
 
@@ -267,17 +260,25 @@ impl Winding for CoilAssembly {
             return Some(value);
         }
 
-        // This is an approximation of the end winding calculation based on heuristic
-        // values from [Mat19]. The pitch ratio is calculated individually for
-        // each coil
-        let pitch_ratio = coil.span(self.slots()) as f64 / self.pole_pitch() as f64; // W/tau_p
-
-        return Some(
-            std::f64::consts::PI / (4.0 * self.pole_pairs() as f64)
-                * core.mean_slot_distance()
-                * self.slots() as f64
-                * pitch_ratio,
-        );
+        // If the zones of the coil are in neighboring slots, use the
+        // end_winding_half_turn_length_semicircle approximation, otherwise use
+        // end_winding_half_turn_length_circular_arc /
+        // end_winding_half_turn_length_straight. This is obviously a rough
+        // approximation and will not necessarily match with the calculation
+        // method of a specialized winding type such as a ToothCoilWinding
+        let slots = core.rot().map(|_| self.slots());
+        if coil.throw(slots) <= 1 {
+            end_winding_half_turn_length_semicircle(self, core, zone)
+        } else {
+            match core {
+                CoreRef::Lin(lin_core) => {
+                    end_winding_half_turn_length_straight(self, lin_core, zone)
+                }
+                CoreRef::Rot(rot_core) => {
+                    end_winding_half_turn_length_circular_arc(self, rot_core, zone)
+                }
+            }
+        }
     }
 
     #[cfg(feature = "stem_core")]

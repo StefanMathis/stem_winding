@@ -1,7 +1,10 @@
-use std::{f64::consts::TAU, sync::Arc};
+use std::{
+    f64::consts::{FRAC_PI_2, PI, TAU},
+    num::NonZeroU16,
+    sync::Arc,
+};
 
-use stem_core::prelude::*;
-use stem_wire::stem_material::prelude::*;
+use stem_core::{planar_geo::composite::Composite, prelude::*};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -9,7 +12,13 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use dyn_quantity::deserialize_opt_quantity;
 
-use crate::winding::Winding;
+#[cfg(feature = "serde")]
+use serde_mosaic::{deserialize_arc_link, serialize_arc_link};
+
+use crate::{
+    coils::{Coil, CoilExt},
+    winding::Winding,
+};
 
 pub trait FromWinding<W: Winding> {
     fn from_winding(winding: &W) -> Self;
@@ -102,7 +111,8 @@ impl<W: Winding> FromWinding<W> for LinCore {
             CoilLayout::MultiVertical(_) => Length::new::<millimeter>(8.2),
         };
         let core_height = 1.3 * height;
-        let core_width = (Length::new::<millimeter>(6.8) + bottom_width) * winding.slots() as f64;
+        let core_width =
+            (Length::new::<millimeter>(6.8) + bottom_width) * winding.slots().get() as f64;
 
         let slot: SemiTrapezoidSlot = SemiTrapezoidWithoutSlopesBuilder {
             bottom_width,
@@ -146,7 +156,6 @@ pub struct ResistanceComponents {
     #[cfg_attr(feature = "serde", serde(default))]
     #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_quantity"))]
     pub resistance_constant: ReciprocalLength,
-
     #[cfg_attr(
         feature = "serde",
         serde(
@@ -154,7 +163,7 @@ pub struct ResistanceComponents {
             deserialize_with = "deserialize_arc_link"
         )
     )]
-    pub(crate) material: std::sync::Arc<Material>, // core material
+    pub material: std::sync::Arc<Material>,
 }
 
 impl ResistanceComponents {
@@ -248,7 +257,7 @@ impl Overrides {
 }
 
 pub struct CoilPropertyIterator<'a> {
-    pub coils: crate::CoilsIterator<'a>,
+    pub coils: crate::iterators::CoilsIterator<'a>,
     pub winding: &'a dyn Winding,
     pub core: CoreRef<'a>,
     pub overrides: &'a Overrides,
@@ -297,66 +306,278 @@ impl<'a> CoilProperties<'a> {
     pub fn end_winding_half_turn_length(&self) -> Length {
         return self
             .winding
-            .end_winding_half_turn_length(self.core.clone(), self.coil.first_zone(), self.overrides)
+            .end_winding_half_turn_length(
+                self.core.clone(),
+                self.coil.zones().next().expect("has at least one zone"),
+                self.overrides,
+            )
             .expect("must contain a coil");
     }
 
     pub fn end_winding_half_turn_volume(&self) -> Volume {
         return self
             .winding
-            .end_winding_half_turn_volume(self.core.clone(), self.coil.first_zone(), self.overrides)
+            .end_winding_half_turn_volume(
+                self.core.clone(),
+                self.coil.zones().next().expect("has at least one zone"),
+                self.overrides,
+            )
             .expect("must contain a coil");
     }
 
     pub fn end_winding_volume(&self) -> Volume {
         match self.coil() {
             Coil::Full(coil_full) => {
-                return 2.0 * self.end_winding_half_turn_volume() * coil_full.turns() as f64;
+                return 2.0 * self.end_winding_half_turn_volume() * coil_full.turns().get() as f64;
             }
             Coil::Half(coil_half) => {
-                return self.end_winding_half_turn_volume() * coil_half.turns() as f64;
+                return self.end_winding_half_turn_volume() * coil_half.turns().get() as f64;
             }
         }
     }
 
     pub fn volume(&self) -> Volume {
-        let winding_area = self.core.zone_area();
-        let first_zone = self.coil.first_zone();
-        let cross_section = self
-            .coil
-            .wire()
-            .cross_section(winding_area, self.coil.turns());
-        let coil_length = self.core.axial_coil_length()
-            + self
-                .winding
-                .axial_coil_overhang(self.core.clone(), first_zone)
-                .expect("must contain a coil");
-        let multiplier = match self.coil() {
-            Coil::Full(_) => 2.0,
-            Coil::Half(_) => 1.0,
-        };
-        return (cross_section * coil_length + self.end_winding_half_turn_volume())
-            * multiplier
-            * self.coil.turns() as f64;
+        let mut volume = Volume::new::<cubic_meter>(0.0);
+        for zone in self.coil.zones() {
+            if let Some(zone_contour) = self.core.winding_zone_at(&self.winding.coil_layout(), zone)
+            {
+                let zone_area = Area::new::<square_meter>(zone_contour.area());
+                let cross_section = self
+                    .coil
+                    .wire()
+                    .effective_conductor_area(zone_area, self.coil.turns());
+
+                let length = self.core.axial_coil_length()
+                    + self
+                        .winding
+                        .axial_coil_overhang(self.core, zone)
+                        .unwrap_or(Length::new::<meter>(0.0))
+                    + self
+                        .winding
+                        .end_winding_half_turn_length(self.core, zone, self.overrides)
+                        .unwrap_or(Length::new::<meter>(0.0));
+
+                volume += length * cross_section;
+            }
+        }
+
+        return volume;
     }
 
     pub fn mass(&self) -> Mass {
-        let mass_density = self
-            .coil
-            .wire()
-            .material_conductor()
-            .mass_density()
-            .get(&[]);
+        let mass_density = self.coil.wire().material().mass_density().get(&[]);
         return self.volume() * mass_density;
     }
 
     pub fn heat_capacity(&self) -> HeatCapacity {
-        let specific_heat_capacity = self
-            .coil
-            .wire()
-            .material_conductor()
-            .heat_capacity()
-            .get(&[]);
+        let specific_heat_capacity = self.coil.wire().material().heat_capacity().get(&[]);
         return self.mass() * specific_heat_capacity;
+    }
+}
+
+/// Estimates the mean length of a single wire in the end winding of a
+/// tooth-coil winding, approximating the half-turn as a semicircle spanning the
+/// two winding-zone centroids.
+/// Tooth coil winding, symmetric winding
+pub fn end_winding_leakage_inductance_semicircle<W: Winding>(
+    winding: &W,
+    core: CoreRef<'_>,
+    overrides: &Overrides,
+) -> Inductance {
+    *VACUUM_PERMEABILITY
+        * winding.end_winding_leakage_coefficient()
+        * f64::from(winding.slots().get())
+        / (f64::from(winding.layers().get()) * f64::from(winding.phases().get()))
+        * winding.turns_in_slot(0).pow(2) as f64
+        / f64::from(winding.parallel_paths().get()).powi(2)
+        * (winding
+            .end_winding_half_turn_length(core, Zone::new(0, 0), overrides)
+            .unwrap_or(Length::new::<meter>(0.0))
+            + core.axial_coil_overhang())
+}
+
+/// Tooth coil winding, symmetric winding
+pub fn end_winding_leakage_inductance_distributed<W: Winding>(
+    winding: &W,
+    core: CoreRef<'_>,
+    overrides: &Overrides,
+) -> Inductance {
+    2.0 * winding.end_winding_leakage_coefficient()
+        * *VACUUM_PERMEABILITY
+        * winding.turns_per_phase(NonZeroU16::MIN).to_integer().pow(2) as f64
+        * (winding
+            .end_winding_half_turn_length(core, Zone::new(0, 0), overrides)
+            .unwrap_or(Length::new::<meter>(0.0))
+            + core.axial_coil_overhang())
+        / winding.pole_pairs().get() as f64
+}
+
+// Calculate the end winding inductance according to [Mat19], eq. (3.70) and
+// (3.71).
+pub fn end_winding_leakage_inductance_cage<W: Winding>(
+    winding: &W,
+    core: CoreRef<'_>,
+    overrides: &Overrides,
+) -> Inductance {
+    use std::f64::consts::PI;
+
+    let end_winding_half_turn_length = winding
+        .end_winding_half_turn_length(core, Zone::new(0, 0), overrides)
+        .unwrap_or(Length::new::<meter>(0.0));
+    let ring_segment_inductance = *VACUUM_PERMEABILITY
+        * winding.end_winding_leakage_coefficient()
+        * end_winding_half_turn_length
+        / f64::from(winding.pole_pairs().get());
+
+    let poles_per_slot = f64::from(winding.pole_pairs().get()) / f64::from(winding.slots().get());
+    return ring_segment_inductance / (2.0 * (PI * poles_per_slot).sin());
+}
+
+/// Estimates the mean length of a single wire in the end winding of a
+/// tooth-coil winding, approximating the half-turn as a semicircle spanning the
+/// two winding-zone centroids.
+/// Tooth coil winding
+pub fn end_winding_half_turn_length_semicircle<W: Winding>(
+    winding: &W,
+    core: CoreRef<'_>,
+    zone: Zone,
+) -> Option<Length> {
+    use std::f64::consts::FRAC_PI_2;
+
+    match winding.coil_at(zone)? {
+        Coil::Full(coil_full) => {
+            let pos_contour =
+                core.winding_zone_at(&winding.coil_layout(), coil_full.positive_zone())?;
+            let neg_contour =
+                core.winding_zone_at(&winding.coil_layout(), coil_full.negative_zone())?;
+
+            let [xp, yp] = pos_contour.centroid();
+            let [xn, yn] = neg_contour.centroid();
+            Some(FRAC_PI_2 * Length::new::<meter>(((xp - xn).powi(2) + (yp - yn).powi(2)).sqrt()))
+        }
+        Coil::Half(_) => Some(Length::new::<meter>(0.0)),
+    }
+}
+
+/// Approximates the mean length of a single wire in the end winding of a
+/// tooth-coil winding as a circular arc at the mean radius of the two coil
+/// sides. The arc angle is determined from the coil throw.
+///
+/// This approximation follows the common mean-radius/coil-pitch approach used
+/// for analytical end-winding length calculations [1].
+/// https://ansyshelp.ansys.com/public/account/secured?returnurl=/Views/Secured/MotorCAD/v252/en/Motor-CAD_UG/MotorCAD/topics/end_winding_length_calculation.html?utm_source=chatgpt.com
+/// Gundogdu, T. and Komurgoz, G. (2020), Comparative study on performance characteristics of PM and reluctance machines equipped with overlapping, semi-overlapping, and non-overlapping windings. IET Electric Power Applications, 14: 991-1001. https://doi.org/10.1049/iet-epa.2019.0743
+pub fn end_winding_half_turn_length_circular_arc<W: Winding>(
+    winding: &W,
+    core: &RotCore,
+    zone: Zone,
+) -> Option<Length> {
+    match winding.coil_at(zone)? {
+        Coil::Full(coil_full) => {
+            let pos_contour =
+                core.winding_zone_at(&winding.coil_layout(), coil_full.positive_zone())?;
+            let neg_contour =
+                core.winding_zone_at(&winding.coil_layout(), coil_full.negative_zone())?;
+
+            let [xp, yp] = pos_contour.centroid();
+            let [xn, yn] = neg_contour.centroid();
+
+            let r1 = (xp.powi(2) + yp.powi(2)).sqrt();
+            let r2 = (xn.powi(2) + yn.powi(2)).sqrt();
+
+            let slots = winding.slots().get();
+            let throw = coil_full.throw(Some(winding.slots()));
+
+            let delta_theta = 2.0 * PI * f64::from(throw) / f64::from(slots);
+            let mean_radius = (r1 + r2) / 2.0;
+
+            // Approximation of the bending radii where the coil is bent from
+            // the axial direction into the cross-section plane. See drawing in
+            // docstring.
+            let slot_pitch_angle = TAU / f64::from(slots);
+            let [x0, y0] = core
+                .winding_zone_at(&CoilLayout::SingleFilled, Zone { slot: 0, layer: 0 })?
+                .centroid();
+            let angle_slot_0 = PI - y0.atan2(x0);
+            let offset = 0.5 * slot_pitch_angle - angle_slot_0;
+
+            let s1 = coil_full.positive_zone().slot;
+            let s2 = coil_full.negative_zone().slot;
+            let angle_zone1 = PI - yp.atan2(xp);
+            let angle_zone2 = PI - yn.atan2(xn);
+            let (d1, d2) = if coil_full.clockwise {
+                let angle_tooth1 = f64::from(s1 + 1) * slot_pitch_angle - offset;
+                let angle_tooth2 = f64::from(s2) * slot_pitch_angle - offset;
+                (angle_tooth1 - angle_zone1, angle_zone2 - angle_tooth2)
+            } else {
+                let angle_tooth1 = f64::from(s1) * slot_pitch_angle - offset;
+                let angle_tooth2 = f64::from(s2 + 1) * slot_pitch_angle - offset;
+                (angle_zone1 - angle_tooth1, angle_tooth2 - angle_zone2)
+            };
+            let b1 = r1 * d1.rem_euclid(TAU);
+            let b2 = r2 * d2.rem_euclid(TAU);
+
+            Some(Length::new::<meter>(
+                mean_radius * delta_theta + FRAC_PI_2 * (b1 + b2) - b1 - b2,
+            ))
+        }
+        Coil::Half(_) => Some(Length::new::<meter>(0.0)),
+    }
+}
+
+/// Estimates the mean length of a single wire in the end winding of a linear
+/// distributed winding.
+///
+/// The end winding is approximated by a straight section connecting the two
+/// winding-zone centroids, with a quarter-circle at each end to account for
+/// the transition from the winding zone to the end winding. The radius of
+/// each quarter-circle is approximated by the distance between the winding-zone
+/// centroid and the center of the adjacent tooth.
+/// The resulting length is therefore approximated as
+///
+/// `d + π * r`
+///
+/// where `d` is the distance between the two winding-zone centroids and `r`
+/// is the bend radius described above.
+pub fn end_winding_half_turn_length_straight<W: Winding>(
+    winding: &W,
+    core: &LinCore,
+    zone: Zone,
+) -> Option<Length> {
+    match winding.coil_at(zone)? {
+        Coil::Full(coil_full) => {
+            let pos_contour =
+                core.winding_zone_at(&winding.coil_layout(), coil_full.positive_zone())?;
+            let neg_contour =
+                core.winding_zone_at(&winding.coil_layout(), coil_full.negative_zone())?;
+
+            let [xp, yp] = pos_contour.centroid();
+            let [xn, yn] = second_contour.centroid();
+            let d = ((xp - xn).powi(2) + (yp - yn).powi(2)).sqrt();
+
+            // Approximation of the bending radii where the coil is bent from
+            // the axial direction into the cross-section plane. See drawing in
+            // docstring.
+            let slot_pitch = core.slot_pitch().get::<meter>();
+            let [x0, _] = core
+                .winding_zone_at(&CoilLayout::SingleFilled, Zone { slot: 0, layer: 0 })?
+                .centroid();
+            let offset = 0.5 * slot_pitch - x0;
+
+            let s1 = coil_full.positive_zone().slot;
+            let s2 = coil_full.negative_zone().slot;
+            let (b1, b2) = if s1 < s2 {
+                let tooth1_center = f64::from(s1 + 1) * slot_pitch - offset;
+                let tooth2_center = f64::from(s2) * slot_pitch - offset;
+                (tooth1_center - xp, xn - tooth2_center)
+            } else {
+                let tooth1_center = f64::from(s1) * slot_pitch - offset;
+                let tooth2_center = f64::from(s2 + 2) * slot_pitch - offset;
+                (xp - tooth1_center, tooth2_center - xn)
+            };
+
+            Some(Length::new::<meter>(d + FRAC_PI_2 * (b1 + b2) - b1 - b2))
+        }
+        Coil::Half(_) => Some(Length::new::<meter>(0.0)),
     }
 }

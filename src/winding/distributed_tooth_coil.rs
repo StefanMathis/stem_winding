@@ -10,8 +10,14 @@ use stem_wire::{round::RoundWire, wire::Wire};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "stem_core")]
+use stem_core::prelude::*;
+
+#[cfg(feature = "stem_core")]
+use crate::core_support::*;
+
 use crate::{
-    coils::{Coil, CoilFull, Coils},
+    coils::{Coil, Coils, FullCoil},
     error::{Error, WindingTableCreationError},
     iterators::HarmonicOrdinalsIterator,
     winding::{Connection, Winding},
@@ -173,7 +179,7 @@ impl DistributedToothCoilWinding {
         let layer = zone.layer;
 
         let mut return_slot: Option<u16> = None;
-        let mut clockwise: Option<bool> = None;
+        let mut positive_slot_direction: Option<bool> = None;
         let mut index: Option<u16> = None;
 
         // Search through the neighboring slots, but stay in the same layer
@@ -187,7 +193,7 @@ impl DistributedToothCoilWinding {
             // Detect direction change in search_slot: Use the slot in position q-k+1
             if *winding_table.get_cyclic(Zone::new(search_slot, layer)) == -phase {
                 return_slot = Some((slot + 2 * k - 1).rem_euclid(self.slots().get()));
-                clockwise = Some(true);
+                positive_slot_direction = Some(true);
                 index = Some(k - 1);
                 break;
             }
@@ -202,7 +208,7 @@ impl DistributedToothCoilWinding {
                     (slot as i32 - 2 * self.coils_per_coil_group() as i32 + 2 * k as i32 - 1)
                         .rem_euclid(self.slots().get() as i32) as u16,
                 );
-                clockwise = Some(false);
+                positive_slot_direction = Some(false);
                 index = Some(k - 1);
                 break;
             }
@@ -210,17 +216,16 @@ impl DistributedToothCoilWinding {
 
         match return_slot {
             Some(return_slot) => {
-                let clockwise = clockwise.unwrap();
+                let positive_slot_direction = positive_slot_direction.unwrap();
                 let index = index.unwrap();
                 let phase_abs = NonZeroU16::new(phase.abs() as u16)
                     .expect("phase cannot be zero for this winding type");
                 let wire = clone_box(&*self.wires[index as usize].1);
                 if phase > 0 {
-                    return CoilFull::new(
+                    return FullCoil::new(
                         Zone::new(slot, layer),
                         Zone::new(return_slot, layer),
-                        true,
-                        clockwise,
+                        positive_slot_direction,
                         self.calculated_turns_at(Zone::new(slot, layer), winding_table),
                         phase_abs,
                         wire,
@@ -228,11 +233,10 @@ impl DistributedToothCoilWinding {
                     .ok()
                     .map(|coil| Coil::Full(coil));
                 } else {
-                    return CoilFull::new(
-                        Zone::new(slot, layer),
+                    return FullCoil::new(
                         Zone::new(return_slot, layer),
-                        false,
-                        !clockwise,
+                        Zone::new(slot, layer),
+                        !positive_slot_direction,
                         self.calculated_turns_at(Zone::new(slot, layer), winding_table),
                         phase_abs,
                         wire,
@@ -340,29 +344,27 @@ impl Winding for DistributedToothCoilWinding {
     #[cfg(feature = "stem_core")]
     fn end_winding_leakage_inductance(
         &self,
-        _phase: u16,
-        _core: CoreRef<'_>,
+        core: CoreRef<'_>,
+        _phase: NonZeroU16,
         overrides: &Overrides,
     ) -> Inductance {
         if let Some(end_winding_leakage_inductance) = overrides.end_winding_leakage_inductance {
             return end_winding_leakage_inductance;
         }
-
-        todo!()
+        end_winding_leakage_inductance_semicircle(self, core, overrides)
     }
 
     #[cfg(feature = "stem_core")]
     fn end_winding_half_turn_length(
         &self,
-        _core: CoreRef<'_>,
-        _zone: Zone,
+        core: CoreRef<'_>,
+        zone: Zone,
         overrides: &Overrides,
     ) -> Option<Length> {
         if let Some(end_winding_half_turn_length) = overrides.end_winding_half_turn_length {
             return Some(end_winding_half_turn_length);
         }
-
-        todo!();
+        end_winding_half_turn_length_semicircle(self, core, zone)
     }
 }
 

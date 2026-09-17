@@ -28,7 +28,7 @@ fn test_coil_direction() {
 
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
-                assert_eq!(coil.span(winding.slots()), 1); // A tooth coil winding always has a throw of 1
+                assert_eq!(coil.throw(winding.slots()), 1); // A tooth coil winding always has a throw of 1
 
                 // Exclude corner cases
                 if coil.positive_zone().slot > 0 && coil.positive_zone().slot < 11 {

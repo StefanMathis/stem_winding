@@ -133,7 +133,7 @@ fn test_coil_analysis() {
         .unwrap();
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
-                let throw = coil.span(winding.slots());
+                let throw = coil.throw(winding.slots());
                 assert!(throw == 1 || throw == 3); // Coil throw is either 1 or 3
 
                 // All coils of this winding are clockwise

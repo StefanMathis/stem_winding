@@ -1,13 +1,20 @@
 use std::num::{NonZeroU16, NonZeroUsize};
 
 use num::Integer;
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
 use stem_coil_layout::{CoilLayout, Zone};
 use stem_wire::{round::RoundWire, wire::Wire};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "stem_core")]
+use stem_core::prelude::*;
+
+#[cfg(feature = "stem_core")]
+use crate::core_support::*;
+
 use crate::{
-    coils::{Coil, CoilFull, Coils},
+    coils::{Coil, Coils, FullCoil},
     error::{Error, WindingTableCreationError},
     winding::{Connection, Winding, base_winding_count_repeating_coil_groups},
     winding_table::{WindingTable, WindingTableMethod},
@@ -113,10 +120,9 @@ impl ToothCoilWinding {
                         Zone::new(slot.checked_sub(1).unwrap_or(self.slots().get() - 1), layer)
                     };
 
-                    return CoilFull::new(
+                    return FullCoil::new(
                         Zone::new(slot, layer),
                         negative_zone,
-                        true,
                         counter.is_odd(),
                         self.turns_per_coil,
                         phase_abs,
@@ -137,10 +143,9 @@ impl ToothCoilWinding {
                 Zone::new((slot + 1).rem_euclid(self.slots().get()), 0)
             };
 
-            return CoilFull::new(
+            return FullCoil::new(
                 Zone::new(slot, layer),
                 negative_zone,
-                true,
                 layer == 1,
                 self.turns_per_coil,
                 phase_abs,
@@ -263,107 +268,29 @@ impl Winding for ToothCoilWinding {
     }
 
     #[cfg(feature = "stem_core")]
-    fn resistance_components(
-        &self,
-        core: CoreRef<'_>,
-        overrides: &Overrides,
-    ) -> Option<crate::ResistanceComponents> {
-        let material = self.wire().material_conductor().clone();
-        if let Some(resistance_constant) = overrides.resistance_constant {
-            return Some(crate::ResistanceComponents {
-                resistance_constant,
-                material,
-            });
-        }
-
-        let resistance = self.resistance(1, core, &[], overrides);
-        let electrical_resistivity = material.electrical_resistivity().get(&[]);
-        return Some(crate::ResistanceComponents {
-            resistance_constant: resistance / electrical_resistivity,
-            material,
-        });
-    }
-
-    #[cfg(feature = "stem_core")]
-    fn resistance(
-        &self,
-        phase: u16,
-        core: CoreRef<'_>,
-        conditions: &[InfluencingQuantity],
-        overrides: &Overrides,
-    ) -> ElectricalResistance {
-        let electrical_resistivity = self
-            .wire()
-            .material_conductor()
-            .electrical_resistivity()
-            .get(conditions);
-
-        if let Some(resitance_constant) = overrides.resistance_constant {
-            return resitance_constant * electrical_resistivity;
-        }
-
-        let mean_coil_turn_length = 2.0
-            * (core.axial_coil_length()
-                + core.axial_coil_overhang()
-                + self
-                    .end_winding_half_turn_length(core, Zone::new(0, 0), overrides)
-                    .expect("must contain a coil"));
-
-        return self.wire().resistance(
-            core.zone_area() / self.turns_in_slot(0) as f64,
-            mean_coil_turn_length,
-            conditions,
-        ) * self.turns_per_phase(phase).to_integer() as f64
-            / self.parallel_paths() as f64;
-    }
-
-    #[cfg(feature = "stem_core")]
     fn end_winding_leakage_inductance(
         &self,
-        _phase: u16,
         core: CoreRef<'_>,
+        _phase: NonZeroU16,
         overrides: &Overrides,
     ) -> Inductance {
         if let Some(end_winding_leakage_inductance) = overrides.end_winding_leakage_inductance {
             return end_winding_leakage_inductance;
         }
-
-        return *material::VACUUM_PERMEABILITY
-            * self.end_winding_leakage_coefficient()
-            * self.slots() as f64
-            / (self.layers() as f64 * self.phases() as f64)
-            * self.turns_in_slot(0).pow(2) as f64
-            / self.parallel_paths().pow(2) as f64
-            * (self
-                .end_winding_half_turn_length(core, Zone::new(0, 0), overrides)
-                .expect("must contain a coil")
-                + core.axial_coil_overhang());
+        end_winding_leakage_inductance_semicircle(self, core, overrides)
     }
 
     #[cfg(feature = "stem_core")]
     fn end_winding_half_turn_length(
         &self,
         core: CoreRef<'_>,
-        _zone: Zone,
+        zone: Zone,
         overrides: &Overrides,
     ) -> Option<Length> {
-        use std::f64::consts::{FRAC_PI_2, PI};
-
         if let Some(end_winding_half_turn_length) = overrides.end_winding_half_turn_length {
             return Some(end_winding_half_turn_length);
         }
-
-        let length = if self.layers() == 1 {
-            FRAC_PI_2 * core.mean_slot_distance()
-        } else {
-            // Different calculation patterns depending on the "slottedness" of the core
-            if core.slotted() {
-                PI / 4.0 * (core.tooth_width() + core.mean_slot_distance())
-            } else {
-                PI / 4.0 * core.mean_slot_distance()
-            }
-        };
-        return Some(length);
+        end_winding_half_turn_length_semicircle(self, core, zone)
     }
 }
 

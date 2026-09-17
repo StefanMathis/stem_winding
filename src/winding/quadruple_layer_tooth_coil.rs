@@ -6,11 +6,17 @@ use num::Integer;
 use stem_coil_layout::{CoilLayout, Zone};
 use stem_wire::{round::RoundWire, wire::Wire};
 
+#[cfg(feature = "stem_core")]
+use stem_core::prelude::*;
+
+#[cfg(feature = "stem_core")]
+use crate::core_support::*;
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    coils::{Coil, CoilFull, Coils},
+    coils::{Coil, Coils, FullCoil},
     error::{Error, WindingTableCreationError},
     winding::{Connection, Winding, base_winding_count_repeating_coil_groups, hole_number},
     winding_table::{WindingTable, WindingTableMethod},
@@ -281,7 +287,7 @@ impl QuadrupleLayerToothCoilWinding {
             _ => panic!("a quadruple layer winding must have 4 layers"),
         };
 
-        let (negative_zone, clockwise) = if layer == LL || layer == UL {
+        let (negative_zone, positive_slot_direction) = if layer == LL || layer == UL {
             // Coil must start at the previous slot
             (
                 Zone::new(
@@ -300,11 +306,10 @@ impl QuadrupleLayerToothCoilWinding {
 
         let turns = self.calculated_turns_at(Zone::new(slot, layer), winding_table);
 
-        return CoilFull::new(
+        return FullCoil::new(
             Zone::new(slot, layer),
             negative_zone,
-            true,
-            clockwise,
+            positive_slot_direction,
             turns,
             phase_abs.try_into().unwrap_or(NonZeroU16::MIN),
             clone_box(&*self.wire),
@@ -394,29 +399,27 @@ impl Winding for QuadrupleLayerToothCoilWinding {
     #[cfg(feature = "stem_core")]
     fn end_winding_leakage_inductance(
         &self,
-        _phase: u16,
-        _core: CoreRef<'_>,
+        core: CoreRef<'_>,
+        _phase: NonZeroU16,
         overrides: &Overrides,
     ) -> Inductance {
         if let Some(end_winding_leakage_inductance) = overrides.end_winding_leakage_inductance {
             return end_winding_leakage_inductance;
         }
-
-        todo!()
+        end_winding_leakage_inductance_semicircle(self, core, overrides)
     }
 
     #[cfg(feature = "stem_core")]
     fn end_winding_half_turn_length(
         &self,
-        _core: CoreRef<'_>,
-        _zone: Zone,
+        core: CoreRef<'_>,
+        zone: Zone,
         overrides: &Overrides,
     ) -> Option<Length> {
         if let Some(end_winding_half_turn_length) = overrides.end_winding_half_turn_length {
             return Some(end_winding_half_turn_length);
         }
-
-        todo!();
+        end_winding_half_turn_length_semicircle(self, core, zone)
     }
 }
 

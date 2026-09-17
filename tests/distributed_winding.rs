@@ -178,7 +178,7 @@ fn test_coil_span() {
         .unwrap();
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
-                assert_eq!(coil.span(winding.slots()), 9); // Coil span is always 9
+                assert_eq!(coil.throw(Some(winding.slots())), 9); // Coil span is always 9
             }
         }
     }
@@ -198,7 +198,7 @@ fn test_coil_span() {
 
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
-                assert_eq!(coil.span(winding.slots()), 9); // Coil span is always 9
+                assert_eq!(coil.throw(Some(winding.slots())), 9); // Coil span is always 9
                 assert_ne!(coil.negative_zone().layer, coil.positive_zone().layer);
             }
         }
@@ -219,7 +219,7 @@ fn test_coil_span() {
 
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
-                let span = coil.span(winding.slots());
+                let span = coil.throw(Some(winding.slots()));
                 assert!(span == 1 || span == 2); // Coil span is either 2 or 1
             }
         }
@@ -240,7 +240,7 @@ fn test_coil_span() {
 
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
-                let span = coil.span(winding.slots());
+                let span = coil.throw(Some(winding.slots()));
                 assert!(span == 2); // Coil span is always 2
                 assert_ne!(coil.negative_zone().layer, coil.positive_zone().layer);
             }
@@ -262,7 +262,7 @@ fn test_coil_span() {
 
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
-                let span = coil.span(winding.slots());
+                let span = coil.throw(Some(winding.slots()));
                 assert!(span == 3 || span == 4); // Coil span is either 3 or 4
             }
         }
@@ -283,7 +283,7 @@ fn test_coil_span() {
 
         for coil in winding.coils() {
             if let Coil::Full(coil) = coil {
-                let span = coil.span(winding.slots());
+                let span = coil.throw(Some(winding.slots()));
                 assert!(span == 3); // Coil span is always 3
                 assert_ne!(coil.negative_zone().layer, coil.positive_zone().layer);
             }
@@ -309,18 +309,18 @@ fn test_coil_span() {
         }
         .try_into()
         .unwrap();
-        let s = winding.slots();
+        let s = Some(winding.slots());
 
         // In a concentric winding, the coil is reduced to the middle of a coil group
-        assert_eq!(winding.coil_at(Zone::new(0, 0)).unwrap().span(s), 11);
-        assert_eq!(winding.coil_at(Zone::new(1, 0)).unwrap().span(s), 9);
-        assert_eq!(winding.coil_at(Zone::new(2, 0)).unwrap().span(s), 7);
-        assert_eq!(winding.coil_at(Zone::new(3, 0)).unwrap().span(s), 7);
-        assert_eq!(winding.coil_at(Zone::new(4, 0)).unwrap().span(s), 9);
-        assert_eq!(winding.coil_at(Zone::new(5, 0)).unwrap().span(s), 11);
-        assert_eq!(winding.coil_at(Zone::new(6, 0)).unwrap().span(s), 11);
-        assert_eq!(winding.coil_at(Zone::new(7, 0)).unwrap().span(s), 9);
-        assert_eq!(winding.coil_at(Zone::new(8, 0)).unwrap().span(s), 7);
+        assert_eq!(winding.coil_at(Zone::new(0, 0)).unwrap().throw(s), 11);
+        assert_eq!(winding.coil_at(Zone::new(1, 0)).unwrap().throw(s), 9);
+        assert_eq!(winding.coil_at(Zone::new(2, 0)).unwrap().throw(s), 7);
+        assert_eq!(winding.coil_at(Zone::new(3, 0)).unwrap().throw(s), 7);
+        assert_eq!(winding.coil_at(Zone::new(4, 0)).unwrap().throw(s), 9);
+        assert_eq!(winding.coil_at(Zone::new(5, 0)).unwrap().throw(s), 11);
+        assert_eq!(winding.coil_at(Zone::new(6, 0)).unwrap().throw(s), 11);
+        assert_eq!(winding.coil_at(Zone::new(7, 0)).unwrap().throw(s), 9);
+        assert_eq!(winding.coil_at(Zone::new(8, 0)).unwrap().throw(s), 7);
     }
 
     // Concentric winding
@@ -342,18 +342,18 @@ fn test_coil_span() {
         }
         .try_into()
         .unwrap();
-        let s = winding.slots();
+        let s = Some(winding.slots());
 
         // In a concentric winding, the coil is reduced to the middle of a coil group
-        assert_eq!(winding.coil_at(Zone::new(0, 0)).unwrap().span(s), 11);
-        assert_eq!(winding.coil_at(Zone::new(1, 0)).unwrap().span(s), 9);
-        assert_eq!(winding.coil_at(Zone::new(2, 0)).unwrap().span(s), 7);
-        assert_eq!(winding.coil_at(Zone::new(3, 0)).unwrap().span(s), 11);
-        assert_eq!(winding.coil_at(Zone::new(4, 0)).unwrap().span(s), 9);
-        assert_eq!(winding.coil_at(Zone::new(5, 0)).unwrap().span(s), 7);
-        assert_eq!(winding.coil_at(Zone::new(6, 0)).unwrap().span(s), 11);
-        assert_eq!(winding.coil_at(Zone::new(7, 0)).unwrap().span(s), 9);
-        assert_eq!(winding.coil_at(Zone::new(8, 0)).unwrap().span(s), 7);
+        assert_eq!(winding.coil_at(Zone::new(0, 0)).unwrap().throw(s), 11);
+        assert_eq!(winding.coil_at(Zone::new(1, 0)).unwrap().throw(s), 9);
+        assert_eq!(winding.coil_at(Zone::new(2, 0)).unwrap().throw(s), 7);
+        assert_eq!(winding.coil_at(Zone::new(3, 0)).unwrap().throw(s), 11);
+        assert_eq!(winding.coil_at(Zone::new(4, 0)).unwrap().throw(s), 9);
+        assert_eq!(winding.coil_at(Zone::new(5, 0)).unwrap().throw(s), 7);
+        assert_eq!(winding.coil_at(Zone::new(6, 0)).unwrap().throw(s), 11);
+        assert_eq!(winding.coil_at(Zone::new(7, 0)).unwrap().throw(s), 9);
+        assert_eq!(winding.coil_at(Zone::new(8, 0)).unwrap().throw(s), 7);
     }
 }
 
@@ -388,7 +388,7 @@ fn test_winding_36_4() {
         for coil in winding.coils() {
             match coil {
                 Coil::Full(coil) => {
-                    assert_eq!(coil.span(winding.slots()), 9);
+                    assert_eq!(coil.throw(Some(winding.slots())), 9);
                 }
                 Coil::Half(_) => unreachable!(),
             }
@@ -438,7 +438,7 @@ fn test_winding_36_4() {
             match coil {
                 Coil::Full(coil) => {
                     assert_ne!(coil.positive_zone().layer, coil.negative_zone().layer);
-                    assert_eq!(coil.span(winding.slots()), 8);
+                    assert_eq!(coil.throw(Some(winding.slots())), 8);
                 }
                 Coil::Half(_) => unreachable!(),
             }
