@@ -45,4 +45,4 @@ doc-images = ["dep:embed-doc-image"]
 serde_mosaic = { version = "0.3", features = ["serde_yaml"] }
 indoc = "1.0"
 yaml_serde = "0.10.6"
-stem_winding = { path = ".", features = ["serde"] }
+stem_winding = { path = ".", features = ["serde", "stem_core"] }

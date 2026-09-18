@@ -327,8 +327,8 @@ impl<'a> CoilProperties<'a> {
 
     pub fn end_winding_volume(&self) -> Volume {
         match self.coil() {
-            Coil::Full(coil_full) => {
-                return 2.0 * self.end_winding_half_turn_volume() * coil_full.turns().get() as f64;
+            Coil::Full(full_coil) => {
+                return 2.0 * self.end_winding_half_turn_volume() * full_coil.turns().get() as f64;
             }
             Coil::Half(coil_half) => {
                 return self.end_winding_half_turn_volume() * coil_half.turns().get() as f64;
@@ -437,6 +437,7 @@ pub fn end_winding_leakage_inductance_cage<W: Winding>(
 /// tooth-coil winding, approximating the half-turn as a semicircle spanning the
 /// two winding-zone centroids.
 /// Tooth coil winding
+/// The end winding is approximated by the centerline of the conductor path.
 pub fn end_winding_half_turn_length_semicircle<W: Winding>(
     winding: &W,
     core: CoreRef<'_>,
@@ -445,11 +446,11 @@ pub fn end_winding_half_turn_length_semicircle<W: Winding>(
     use std::f64::consts::FRAC_PI_2;
 
     match winding.coil_at(zone)? {
-        Coil::Full(coil_full) => {
+        Coil::Full(full_coil) => {
             let pos_contour =
-                core.winding_zone_at(&winding.coil_layout(), coil_full.positive_zone())?;
+                core.winding_zone_at(&winding.coil_layout(), full_coil.positive_zone())?;
             let neg_contour =
-                core.winding_zone_at(&winding.coil_layout(), coil_full.negative_zone())?;
+                core.winding_zone_at(&winding.coil_layout(), full_coil.negative_zone())?;
 
             let [xp, yp] = pos_contour.centroid();
             let [xn, yn] = neg_contour.centroid();
@@ -467,17 +468,18 @@ pub fn end_winding_half_turn_length_semicircle<W: Winding>(
 /// for analytical end-winding length calculations [1].
 /// https://ansyshelp.ansys.com/public/account/secured?returnurl=/Views/Secured/MotorCAD/v252/en/Motor-CAD_UG/MotorCAD/topics/end_winding_length_calculation.html?utm_source=chatgpt.com
 /// Gundogdu, T. and Komurgoz, G. (2020), Comparative study on performance characteristics of PM and reluctance machines equipped with overlapping, semi-overlapping, and non-overlapping windings. IET Electric Power Applications, 14: 991-1001. https://doi.org/10.1049/iet-epa.2019.0743
+/// The end winding is approximated by the centerline of the conductor path.
 pub fn end_winding_half_turn_length_circular_arc<W: Winding>(
     winding: &W,
     core: &RotCore,
     zone: Zone,
 ) -> Option<Length> {
     match winding.coil_at(zone)? {
-        Coil::Full(coil_full) => {
+        Coil::Full(full_coil) => {
             let pos_contour =
-                core.winding_zone_at(&winding.coil_layout(), coil_full.positive_zone())?;
+                core.winding_zone_at(&winding.coil_layout(), full_coil.positive_zone())?;
             let neg_contour =
-                core.winding_zone_at(&winding.coil_layout(), coil_full.negative_zone())?;
+                core.winding_zone_at(&winding.coil_layout(), full_coil.negative_zone())?;
 
             let [xp, yp] = pos_contour.centroid();
             let [xn, yn] = neg_contour.centroid();
@@ -486,7 +488,7 @@ pub fn end_winding_half_turn_length_circular_arc<W: Winding>(
             let r2 = (xn.powi(2) + yn.powi(2)).sqrt();
 
             let slots = winding.slots().get();
-            let throw = coil_full.throw(Some(winding.slots()));
+            let throw = full_coil.throw(Some(winding.slots()));
 
             let delta_theta = 2.0 * PI * f64::from(throw) / f64::from(slots);
             let mean_radius = (r1 + r2) / 2.0;
@@ -498,14 +500,14 @@ pub fn end_winding_half_turn_length_circular_arc<W: Winding>(
             let [x0, y0] = core
                 .winding_zone_at(&CoilLayout::SingleFilled, Zone { slot: 0, layer: 0 })?
                 .centroid();
-            let angle_slot_0 = PI - y0.atan2(x0);
+            let angle_slot_0 = y0.atan2(-x0);
             let offset = 0.5 * slot_pitch_angle - angle_slot_0;
 
-            let s1 = coil_full.positive_zone().slot;
-            let s2 = coil_full.negative_zone().slot;
-            let angle_zone1 = PI - yp.atan2(xp);
-            let angle_zone2 = PI - yn.atan2(xn);
-            let (d1, d2) = if coil_full.clockwise {
+            let s1 = full_coil.positive_zone().slot;
+            let s2 = full_coil.negative_zone().slot;
+            let angle_zone1 = yp.atan2(-xp);
+            let angle_zone2 = yn.atan2(-xn);
+            let (d1, d2) = if full_coil.positive_slot_direction() {
                 let angle_tooth1 = f64::from(s1 + 1) * slot_pitch_angle - offset;
                 let angle_tooth2 = f64::from(s2) * slot_pitch_angle - offset;
                 (angle_tooth1 - angle_zone1, angle_zone2 - angle_tooth2)
@@ -514,11 +516,14 @@ pub fn end_winding_half_turn_length_circular_arc<W: Winding>(
                 let angle_tooth2 = f64::from(s2 + 1) * slot_pitch_angle - offset;
                 (angle_zone1 - angle_tooth1, angle_tooth2 - angle_zone2)
             };
+
+            // Bending radius is roughly the distance from zone centroid to tooth
+            // middle on the circle which goes through the respective zone centroid.
             let b1 = r1 * d1.rem_euclid(TAU);
             let b2 = r2 * d2.rem_euclid(TAU);
 
             Some(Length::new::<meter>(
-                mean_radius * delta_theta + FRAC_PI_2 * (b1 + b2) - b1 - b2,
+                mean_radius * delta_theta + (FRAC_PI_2 - 1.0) * (b1 + b2),
             ))
         }
         Coil::Half(_) => Some(Length::new::<meter>(0.0)),
@@ -539,20 +544,22 @@ pub fn end_winding_half_turn_length_circular_arc<W: Winding>(
 ///
 /// where `d` is the distance between the two winding-zone centroids and `r`
 /// is the bend radius described above.
+/// Special case: coil throw = 0 (start and stop slot are identical) => d * π/2
+/// The end winding is approximated by the centerline of the conductor path.
 pub fn end_winding_half_turn_length_straight<W: Winding>(
     winding: &W,
     core: &LinCore,
     zone: Zone,
 ) -> Option<Length> {
     match winding.coil_at(zone)? {
-        Coil::Full(coil_full) => {
+        Coil::Full(full_coil) => {
             let pos_contour =
-                core.winding_zone_at(&winding.coil_layout(), coil_full.positive_zone())?;
+                core.winding_zone_at(&winding.coil_layout(), full_coil.positive_zone())?;
             let neg_contour =
-                core.winding_zone_at(&winding.coil_layout(), coil_full.negative_zone())?;
+                core.winding_zone_at(&winding.coil_layout(), full_coil.negative_zone())?;
 
             let [xp, yp] = pos_contour.centroid();
-            let [xn, yn] = second_contour.centroid();
+            let [xn, yn] = neg_contour.centroid();
             let d = ((xp - xn).powi(2) + (yp - yn).powi(2)).sqrt();
 
             // Approximation of the bending radii where the coil is bent from
@@ -564,19 +571,28 @@ pub fn end_winding_half_turn_length_straight<W: Winding>(
                 .centroid();
             let offset = 0.5 * slot_pitch - x0;
 
-            let s1 = coil_full.positive_zone().slot;
-            let s2 = coil_full.negative_zone().slot;
-            let (b1, b2) = if s1 < s2 {
-                let tooth1_center = f64::from(s1 + 1) * slot_pitch - offset;
-                let tooth2_center = f64::from(s2) * slot_pitch - offset;
-                (tooth1_center - xp, xn - tooth2_center)
-            } else {
-                let tooth1_center = f64::from(s1) * slot_pitch - offset;
-                let tooth2_center = f64::from(s2 + 2) * slot_pitch - offset;
-                (xp - tooth1_center, tooth2_center - xn)
+            let s1 = full_coil.positive_zone().slot;
+            let s2 = full_coil.negative_zone().slot;
+            let (b1, b2) = match s1.cmp(&s2) {
+                std::cmp::Ordering::Less => {
+                    let tooth1_center = f64::from(s1 + 1) * slot_pitch - offset;
+                    let tooth2_center = f64::from(s2) * slot_pitch - offset;
+                    (tooth1_center - xp, xn - tooth2_center)
+                }
+                std::cmp::Ordering::Equal => (0.0, d), // Resulting in a semi-circle
+                std::cmp::Ordering::Greater => {
+                    let tooth1_center = f64::from(s1) * slot_pitch - offset;
+                    let tooth2_center = f64::from(s2 + 1) * slot_pitch - offset;
+                    (xp - tooth1_center, tooth2_center - xn)
+                }
             };
 
-            Some(Length::new::<meter>(d + FRAC_PI_2 * (b1 + b2) - b1 - b2))
+            /*
+            d: Euclidian distance between the contour centers
+            FRAC_PI_2: Quarter circle length
+            -1: Subtract the length of the bending radii from d
+            */
+            Some(Length::new::<meter>(d + (FRAC_PI_2 - 1.0) * (b1 + b2)))
         }
         Coil::Half(_) => Some(Length::new::<meter>(0.0)),
     }

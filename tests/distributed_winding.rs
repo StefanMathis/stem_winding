@@ -6,6 +6,69 @@ use stem_winding::prelude::*;
 const ONE: NonZeroU16 = NonZeroU16::MIN;
 
 #[test]
+fn test_winding_12_1_dl_coil_span_reduction() {
+    let winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 12.try_into().expect("not zero"),
+        pole_pairs: 1.try_into().expect("not zero"),
+        phases: 3.try_into().expect("not zero"),
+        layers: 2.try_into().expect("not zero"),
+        coil_span_reduction: 0,
+        zone_span_variation: 0,
+        winding_table_method: WindingTableMethod::Tingley,
+    }
+    .try_into()
+    .unwrap();
+    for coil in winding.coils() {
+        assert_eq!(coil.throw(Some(winding.slots())), 6);
+    }
+
+    let winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 12.try_into().expect("not zero"),
+        pole_pairs: 1.try_into().expect("not zero"),
+        phases: 3.try_into().expect("not zero"),
+        layers: 2.try_into().expect("not zero"),
+        coil_span_reduction: 1,
+        zone_span_variation: 0,
+        winding_table_method: WindingTableMethod::Tingley,
+    }
+    .try_into()
+    .unwrap();
+    for coil in winding.coils() {
+        assert_eq!(coil.throw(Some(winding.slots())), 5);
+    }
+
+    let winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 12.try_into().expect("not zero"),
+        pole_pairs: 1.try_into().expect("not zero"),
+        phases: 3.try_into().expect("not zero"),
+        layers: 2.try_into().expect("not zero"),
+        coil_span_reduction: 2,
+        zone_span_variation: 0,
+        winding_table_method: WindingTableMethod::Tingley,
+    }
+    .try_into()
+    .unwrap();
+    for coil in winding.coils() {
+        assert_eq!(coil.throw(Some(winding.slots())), 4);
+    }
+
+    let winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 12.try_into().expect("not zero"),
+        pole_pairs: 1.try_into().expect("not zero"),
+        phases: 3.try_into().expect("not zero"),
+        layers: 2.try_into().expect("not zero"),
+        coil_span_reduction: 3,
+        zone_span_variation: 0,
+        winding_table_method: WindingTableMethod::Tingley,
+    }
+    .try_into()
+    .unwrap();
+    for coil in winding.coils() {
+        assert_eq!(coil.throw(Some(winding.slots())), 3);
+    }
+}
+
+#[test]
 fn test_winding_6_1_dl_coil_span_reduction() {
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 6.try_into().expect("not zero"),

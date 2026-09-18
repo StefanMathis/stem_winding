@@ -51,9 +51,16 @@ pub mod prelude {
     pub use stem_coil_layout;
     pub use stem_coil_layout::*;
 
+    #[cfg(feature = "stem_core")]
+    pub use crate::core_support::FromWinding;
+
     #[doc(hidden)]
     #[cfg(feature = "stem_core")]
     pub use stem_core;
+
+    #[doc(hidden)]
+    #[cfg(feature = "stem_core")]
+    pub use stem_core::prelude::*;
 
     #[doc(hidden)]
     #[cfg(feature = "stem_core")]
@@ -65,9 +72,4 @@ pub mod prelude {
 
     #[doc(hidden)]
     pub use stem_material;
-
-    // Prevent rustdoc from documenting
-    #[doc(hidden)]
-    #[cfg(feature = "stem_core")]
-    pub use stem_slot::prelude::*;
 }

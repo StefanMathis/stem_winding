@@ -125,6 +125,20 @@ impl Coil {
     pub fn zones_and_polarities<'a>(&'a self) -> ZoneAndPolarityIterator<'a> {
         return ZoneAndPolarityIterator::new(self);
     }
+
+    pub fn full(&self) -> Option<&FullCoil> {
+        match self {
+            Coil::Full(full_coil) => Some(full_coil),
+            Coil::Half(_) => None,
+        }
+    }
+
+    pub fn half(&self) -> Option<&HalfCoil> {
+        match self {
+            Coil::Full(_) => None,
+            Coil::Half(half_coil) => Some(half_coil),
+        }
+    }
 }
 
 pub trait CoilExt {
