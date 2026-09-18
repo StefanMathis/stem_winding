@@ -34,7 +34,7 @@ fn test_build_from_scratch() {
     let wire = RoundWire::default();
     coil_assembly
         .insert(
-            FullCoil::with_positive_and_negative_zones(
+            FullCoil::new(
                 Zone::new(1, 0),
                 Zone::new(2, 0),
                 true,
@@ -258,7 +258,6 @@ fn test_harmonic_ordinal_and_amplitude() {
                         Zone { slot: 0, layer: 0 },
                         Zone { slot: 7, layer: 1 },
                         true,
-                        true,
                         1.try_into().expect("not zero"),
                         1.try_into().expect("not zero"),
                         Box::new(RoundWire::default()),
@@ -272,7 +271,6 @@ fn test_harmonic_ordinal_and_amplitude() {
                         Zone { slot: 1, layer: 0 },
                         Zone { slot: 8, layer: 1 },
                         true,
-                        true,
                         1.try_into().expect("not zero"),
                         1.try_into().expect("not zero"),
                         Box::new(RoundWire::default()),
@@ -285,7 +283,6 @@ fn test_harmonic_ordinal_and_amplitude() {
                     FullCoil::new(
                         Zone { slot: 2, layer: 0 },
                         Zone { slot: 9, layer: 1 },
-                        true,
                         true,
                         1.try_into().expect("not zero"),
                         1.try_into().expect("not zero"),
@@ -302,7 +299,6 @@ fn test_harmonic_ordinal_and_amplitude() {
                         Zone { slot: 6, layer: 0 },
                         Zone { slot: 13, layer: 1 },
                         true,
-                        true,
                         1.try_into().expect("not zero"),
                         2.try_into().expect("not zero"),
                         Box::new(RoundWire::default()),
@@ -316,7 +312,6 @@ fn test_harmonic_ordinal_and_amplitude() {
                         Zone { slot: 7, layer: 0 },
                         Zone { slot: 14, layer: 1 },
                         true,
-                        true,
                         1.try_into().expect("not zero"),
                         2.try_into().expect("not zero"),
                         Box::new(RoundWire::default()),
@@ -329,7 +324,6 @@ fn test_harmonic_ordinal_and_amplitude() {
                     FullCoil::new(
                         Zone { slot: 8, layer: 0 },
                         Zone { slot: 15, layer: 1 },
-                        true,
                         true,
                         1.try_into().expect("not zero"),
                         2.try_into().expect("not zero"),
@@ -346,7 +340,6 @@ fn test_harmonic_ordinal_and_amplitude() {
                         Zone { slot: 12, layer: 0 },
                         Zone { slot: 1, layer: 1 },
                         true,
-                        true,
                         1.try_into().expect("not zero"),
                         3.try_into().expect("not zero"),
                         Box::new(RoundWire::default()),
@@ -360,7 +353,6 @@ fn test_harmonic_ordinal_and_amplitude() {
                         Zone { slot: 13, layer: 0 },
                         Zone { slot: 2, layer: 1 },
                         true,
-                        true,
                         1.try_into().expect("not zero"),
                         3.try_into().expect("not zero"),
                         Box::new(RoundWire::default()),
@@ -373,7 +365,6 @@ fn test_harmonic_ordinal_and_amplitude() {
                     FullCoil::new(
                         Zone { slot: 14, layer: 0 },
                         Zone { slot: 3, layer: 1 },
-                        true,
                         true,
                         1.try_into().expect("not zero"),
                         3.try_into().expect("not zero"),
