@@ -469,6 +469,13 @@ pub fn end_winding_half_turn_length_semicircle<W: Winding>(
 /// https://ansyshelp.ansys.com/public/account/secured?returnurl=/Views/Secured/MotorCAD/v252/en/Motor-CAD_UG/MotorCAD/topics/end_winding_length_calculation.html?utm_source=chatgpt.com
 /// Gundogdu, T. and Komurgoz, G. (2020), Comparative study on performance characteristics of PM and reluctance machines equipped with overlapping, semi-overlapping, and non-overlapping windings. IET Electric Power Applications, 14: 991-1001. https://doi.org/10.1049/iet-epa.2019.0743
 /// The end winding is approximated by the centerline of the conductor path.
+///
+/// Approximation of the coil diameter. This diameter has to be
+/// travelled up and down if the coil overlaps at least one other
+/// coil, which is usually the case for non tooth-coil windings.
+/// The coil is approximated as a circle which covers the same area
+/// as the mean value of the two contours:
+/// coil_dia = 2 * sqrt((Apos + Aneg) / (2 * PI))
 pub fn end_winding_half_turn_length_circular_arc<W: Winding>(
     winding: &W,
     core: &RotCore,
@@ -490,8 +497,16 @@ pub fn end_winding_half_turn_length_circular_arc<W: Winding>(
             let slots = winding.slots().get();
             let throw = full_coil.throw(Some(winding.slots()));
 
-            let delta_theta = 2.0 * PI * f64::from(throw) / f64::from(slots);
+            let theta = 2.0 * PI * f64::from(throw) / f64::from(slots);
             let mean_radius = (r1 + r2) / 2.0;
+
+            // Approximation of the coil diameter. This diameter has to be
+            // travelled up and down if the coil overlaps at least one other
+            // coil, which is usually the case for non tooth-coil windings.
+            // The coil is approximated as a circle which covers the same area
+            // as the mean value of the two contours:
+            // coil_dia = 2 * sqrt((Apos + Aneg) / (2 * PI))
+            let coil_dia = 2.0 * ((pos_contour.area() + neg_contour.area()) / (TAU)).sqrt();
 
             // Approximation of the bending radii where the coil is bent from
             // the axial direction into the cross-section plane. See drawing in
@@ -523,7 +538,7 @@ pub fn end_winding_half_turn_length_circular_arc<W: Winding>(
             let b2 = r2 * d2.rem_euclid(TAU);
 
             Some(Length::new::<meter>(
-                mean_radius * delta_theta + (FRAC_PI_2 - 1.0) * (b1 + b2),
+                mean_radius * theta + (FRAC_PI_2 - 1.0) * (b1 + b2) + 2.0 * coil_dia,
             ))
         }
         Coil::Half(_) => Some(Length::new::<meter>(0.0)),
@@ -546,6 +561,13 @@ pub fn end_winding_half_turn_length_circular_arc<W: Winding>(
 /// is the bend radius described above.
 /// Special case: coil throw = 0 (start and stop slot are identical) => d * π/2
 /// The end winding is approximated by the centerline of the conductor path.
+///
+/// Approximation of the coil diameter. This diameter has to be
+/// travelled up and down if the coil overlaps at least one other
+/// coil, which is usually the case for non tooth-coil windings.
+/// The coil is approximated as a circle which covers the same area
+/// as the mean value of the two contours:
+/// coil_dia = 2 * sqrt((Apos + Aneg) / (2 * PI))
 pub fn end_winding_half_turn_length_straight<W: Winding>(
     winding: &W,
     core: &LinCore,
@@ -561,6 +583,14 @@ pub fn end_winding_half_turn_length_straight<W: Winding>(
             let [xp, yp] = pos_contour.centroid();
             let [xn, yn] = neg_contour.centroid();
             let d = ((xp - xn).powi(2) + (yp - yn).powi(2)).sqrt();
+
+            // Approximation of the coil diameter. This diameter has to be
+            // travelled up and down if the coil overlaps at least one other
+            // coil, which is usually the case for non tooth-coil windings.
+            // The coil is approximated as a circle which covers the same area
+            // as the mean value of the two contours:
+            // coil_dia = 2 * sqrt((Apos + Aneg) / (2 * PI))
+            let coil_dia = 2.0 * ((pos_contour.area() + neg_contour.area()) / (TAU)).sqrt();
 
             // Approximation of the bending radii where the coil is bent from
             // the axial direction into the cross-section plane. See drawing in
@@ -592,7 +622,9 @@ pub fn end_winding_half_turn_length_straight<W: Winding>(
             FRAC_PI_2: Quarter circle length
             -1: Subtract the length of the bending radii from d
             */
-            Some(Length::new::<meter>(d + (FRAC_PI_2 - 1.0) * (b1 + b2)))
+            Some(Length::new::<meter>(
+                d + (FRAC_PI_2 - 1.0) * (b1 + b2) + 2.0 * coil_dia,
+            ))
         }
         Coil::Half(_) => Some(Length::new::<meter>(0.0)),
     }
