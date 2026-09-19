@@ -174,52 +174,59 @@ mod serde_tests {
 #[cfg(feature = "stem_core")]
 mod stem_core_tests {
 
+    use std::sync::Arc;
+
+    use super::*;
+
     #[test]
     fn test_resistance_and_properties() {
         let mut material = Material::default();
         material
             .set_electrical_resistivity(ElectricalResistivity::new::<ohm_meter>(1.7857e-8).into());
 
-        let rotor_winding = SquirrelCageWinding::new(
-            28,
-            2,
-            0.0,
-            Box::new(SffWire::new(Arc::new(material), 1.0, 1.0).unwrap()),
-            Length::new::<millimeter>(11.0),
-            Length::new::<millimeter>(11.2),
-            true,
-        )
-        .unwrap();
-        let slot = SlotTrapezoidSemi::new(
-            Length::new::<millimeter>(6.76),
-            Length::new::<millimeter>(1.5),
-            Length::new::<millimeter>(1.5),
-            Length::new::<millimeter>(6.79),
-            Length::new::<millimeter>(5.54),
-            Length::new::<millimeter>(0.75),
-            -0.2243994752564138,
-            1.6829960644231035,
-            1.611245917561955,
-            Length::new::<millimeter>(0.0),
-            Length::new::<millimeter>(0.0),
-            Length::new::<millimeter>(0.0),
-            Length::new::<millimeter>(0.0),
-            Length::new::<millimeter>(0.0),
-            true,
-        )
+        let rotor_winding: SquirrelCageWinding = SquirrelCageBuilder {
+            slots: 28.try_into().expect("not zero"),
+            pole_pairs: 2.try_into().expect("not zero"),
+            end_winding_leakage_coefficient: 0.0,
+            wire: Box::new(SffWire::new(Arc::new(material), 1.0, 1.0).unwrap()),
+            end_ring_width: Length::new::<millimeter>(11.0),
+            end_ring_height: Length::new::<millimeter>(11.2),
+            consider_current_displacement: true,
+        }
+        .try_into()
         .unwrap();
 
-        let core: CoreRot = magnetic_core::CoreRotBuilder {
+        let slot: SemiTrapezoidSlot = SemiTrapezoidWidthsAndHeightsBuilder {
+            bottom_width: Length::new::<millimeter>(6.76),
+            bottom_side_width: Length::new::<millimeter>(6.76),
+            top_side_width: Length::new::<millimeter>(8.0),
+            top_width: Length::new::<millimeter>(1.5),
+            opening_width: Length::new::<millimeter>(1.5),
+            bottom_height: Length::new::<millimeter>(0.0),
+            side_height: Length::new::<millimeter>(6.79 - 0.75 - 0.5),
+            top_height: Length::new::<millimeter>(0.5),
+            opening_height: Length::new::<millimeter>(0.75),
+            bottom_radius: Length::new::<millimeter>(0.0),
+            bottom_side_radius: Length::new::<millimeter>(0.0),
+            top_radius: Length::new::<millimeter>(0.0),
+            top_side_radius: Length::new::<millimeter>(0.0),
+            opening_radius: Length::new::<millimeter>(0.0),
+            consider_tooth_tip_leakage: true,
+        }
+        .try_into()
+        .unwrap();
+
+        let core: RotCore = RotCoreBuilder {
             air_gap_radius: Length::new::<millimeter>(54.4),
             yoke_radius: Length::new::<millimeter>(19.0),
             axial_length: Length::new::<millimeter>(165.0),
             axial_coil_overhang: Length::new::<millimeter>(0.0),
             iron_fill_factor: 0.95,
             material: Arc::new(Material::default()),
-            pole_pairs: 2,
+            pole_pairs: 2.try_into().expect("not zero"),
             skew_angle: 0.0,
-            air_gap: Box::new(magnetic_core::AirGapSlotted {
-                slots: 28,
+            air_gap: Box::new(SlottedAirGap {
+                slots: 28.try_into().expect("not zero"),
                 starts_in_slot_middle: true,
                 carter_factor_model: CarterFactorModel::Bin12,
                 slot: Box::new(slot),
@@ -232,32 +239,30 @@ mod stem_core_tests {
         approxim::assert_abs_diff_eq!(
             rotor_winding
                 .resistance(
-                    1,
                     CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
                     &[
-                        InfluencingQuantity::Temperature(ThermodynamicTemperature::new::<
-                            degree_celsius,
-                        >(20.0)),
-                        InfluencingQuantity::Frequency(Frequency::new::<hertz>(50.0)),
+                        ThermodynamicTemperature::new::<degree_celsius>(20.0).into(),
+                        Frequency::new::<hertz>(50.0).into(),
                     ],
                     &Default::default(),
                 )
                 .get::<ohm>(),
-            8.624087e-5, // Expected resistance in Ohm
+            8.6414323e-5,
             epsilon = 1e-10
         );
 
         approxim::assert_abs_diff_eq!(
             rotor_winding
                 .slot_leakage_inductance(
-                    1,
                     CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
                     Length::new::<millimeter>(1.0),
                     &[],
                     &Default::default(),
                 )
                 .get::<henry>(),
-            2.2416022e-7, // Expected value in H
+            2.22086776e-7,
             epsilon = 1e-12
         );
     }

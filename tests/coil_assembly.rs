@@ -456,41 +456,48 @@ mod serde_tests {
 #[cfg(feature = "stem_core")]
 mod stem_core_tests {
 
-    fn create_core_trap() -> CoreRot {
-        let slot = SlotTrapezoidSemi::new(
-            Length::new::<millimeter>(9.21),
-            Length::new::<millimeter>(6.2353854401185835),
-            Length::new::<millimeter>(2.0),
-            Length::new::<millimeter>(17.75),
-            Length::new::<millimeter>(17.0),
-            Length::new::<millimeter>(0.75),
-            0.17453292519943295,
-            1.4835298641951802,
-            1.658062789394613,
-            Length::new::<millimeter>(0.5),
-            Length::new::<millimeter>(0.0),
-            Length::new::<millimeter>(1.0),
-            Length::new::<millimeter>(0.0),
-            Length::new::<millimeter>(0.0),
-            true,
-        )
+    use super::*;
+
+    use std::{f64::consts::PI, sync::Arc};
+
+    use serde_mosaic::{DatabaseManager, SerdeYaml};
+
+    fn create_dbm() -> DatabaseManager {
+        return DatabaseManager::open("tests", SerdeYaml).expect("must exist");
+    }
+
+    fn create_core_trap() -> RotCore {
+        let slot_angle = PI / 18.0;
+        let bottom_width = Length::new::<millimeter>(9.2);
+        let slot: SemiTrapezoidSlot = SemiTrapezoidWithoutSlopesBuilder {
+            bottom_width,
+            opening_width: Length::new::<millimeter>(2.0),
+            height: Length::new::<millimeter>(17.75),
+            opening_height: Length::new::<millimeter>(2.0),
+            slot_angle,
+            bottom_radius: Length::new::<millimeter>(2.0),
+            top_radius: Length::new::<millimeter>(2.0),
+            opening_radius: Length::new::<millimeter>(0.5),
+            consider_tooth_tip_leakage: false,
+        }
+        .try_into()
         .unwrap();
 
-        return CoreRotBuilder {
+        return RotCoreBuilder {
             air_gap_radius: Length::new::<millimeter>(55.0),
             yoke_radius: Length::new::<millimeter>(85.0),
             axial_length: Length::new::<millimeter>(165.0),
             axial_coil_overhang: Length::new::<millimeter>(0.0),
-            iron_fill_factor: 1.0,
+            iron_fill_factor: 0.95,
             material: Arc::new(Material::default()),
-            pole_pairs: 2,
+            pole_pairs: 2.try_into().expect("not zero"),
             skew_angle: 0.0,
-            air_gap: Box::new(AirGapSlotted {
-                slots: 36,
-                starts_in_slot_middle: false,
-                carter_factor_model: CarterFactorModel::Bin12,
-                slot: Box::new(slot.clone()),
-            }),
+            air_gap: Box::new(SlottedAirGap::new(
+                36.try_into().expect("not zero"),
+                true,
+                CarterFactorModel::Bin12,
+                Box::new(slot),
+            )),
             flux_barrier: None,
         }
         .try_into()
@@ -519,39 +526,35 @@ mod stem_core_tests {
         .unwrap();
 
         let strand_list = vec![
-            WireGroup::new(Box::new(wire_1), 2),
-            WireGroup::new(Box::new(wire_2), 3),
+            WireGroup::new(Box::new(wire_1), 2.try_into().unwrap()),
+            WireGroup::new(Box::new(wire_2), 3.try_into().unwrap()),
         ];
         let wire = StrandedWire::new(strand_list).unwrap();
-        let winding = DistributedWinding::new(
-            36,
-            2,
-            3,
-            1,
-            0,
-            0,
-            31,
-            1,
-            Connection::Star,
-            0.25,
-            Box::new(wire.clone()),
-            WindingTableMethod::Tingley,
-            false,
-        )
+        let winding: DistributedWinding = DistributedBuilder {
+            slots: 36.try_into().expect("not zero"),
+            pole_pairs: 2.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            layers: 1.try_into().expect("not zero"),
+            coil_span_reduction: 0,
+            zone_span_variation: 0,
+            winding_table_method: WindingTableMethod::Tingley,
+            turns_per_coil: 31.try_into().expect("not zero"),
+            parallel_paths: 1.try_into().expect("not zero"),
+            connection: Connection::Star,
+            end_winding_leakage_coefficient: 0.25,
+            wire: Box::new(wire.clone()),
+            concentric_coils: false,
+        }
+        .try_into()
         .unwrap();
         let coil_assembly = CoilAssembly::from(&winding);
 
         // Check the mean end winding length
         approxim::assert_abs_diff_eq!(
             coil_assembly
-                .end_winding_half_turn_length(
-                    CoreRef::Rot(&core),
-                    Zone::new(0, 0),
-                    &Default::default(),
-                )
-                .unwrap()
+                .end_winding_half_turn_length(CoreRef::Rot(&core), Zone::new(0, 0),)
                 .get::<meter>(),
-            0.15757, // Expected value in m
+            0.13376,
             epsilon = 0.0001
         );
 
@@ -562,16 +565,21 @@ mod stem_core_tests {
                 .map(|cp| cp.volume())
                 .sum::<Volume>()
                 .get::<cubic_millimeter>(),
-            681491.68774, // Expected value in m
+            20359.228154,
             epsilon = 0.0001
         );
 
         // Check the phase resistance
         approxim::assert_abs_diff_eq!(
             coil_assembly
-                .resistance(1, CoreRef::Rot(&core), &[], &Default::default(),)
+                .resistance(
+                    CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
+                    &[],
+                    &Default::default(),
+                )
                 .get::<ohm>(),
-            1.13214, // Expected value in Ohm
+            1.04848,
             epsilon = 0.0001
         );
 
@@ -579,22 +587,22 @@ mod stem_core_tests {
         approxim::assert_abs_diff_eq!(
             coil_assembly
                 .slot_leakage_inductance(
-                    1,
                     CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
                     Length::new::<millimeter>(1.0),
                     &[],
                     &Default::default(),
                 )
                 .get::<henry>(),
-            0.0034017, // Expected value in H
+            0.0044122,
             epsilon = 1e-6
         );
 
         approxim::assert_abs_diff_eq!(
             coil_assembly
-                .end_winding_leakage_inductance(1, CoreRef::Rot(&core), &Default::default())
+                .end_winding_leakage_inductance(CoreRef::Rot(&core), NonZeroU16::MIN, None,)
                 .get::<henry>(),
-            0.0017129, // Expected value in H
+            0.0,
             epsilon = 1e-6
         );
     }

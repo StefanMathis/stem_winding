@@ -1195,7 +1195,6 @@ mod stem_core_tests {
     use std::{f64::consts::PI, sync::Arc};
 
     use serde_mosaic::{DatabaseManager, SerdeYaml};
-    use si::inductance::henry;
 
     fn create_core_rect() -> RotCore {
         let opening_height = Length::new::<millimeter>(2.0);
@@ -1399,14 +1398,14 @@ mod stem_core_tests {
                     &Default::default(),
                 )
                 .get::<ohm>(),
-            1.04848, // Expected value in Ohm
+            1.04848,
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             winding
                 .resistance(CoreRef::Rot(&core), 1.try_into().unwrap(), &[], &overrides)
                 .get::<ohm>(),
-            1.13201, // Expected value in Ohm
+            1.13201,
             epsilon = 0.0001
         );
 

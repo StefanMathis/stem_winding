@@ -72,4 +72,7 @@ pub mod prelude {
 
     #[doc(hidden)]
     pub use stem_material;
+
+    #[doc(hidden)]
+    pub use si::inductance::{henry, kilohenry, megahenry, microhenry, millihenry, nanohenry};
 }
