@@ -233,7 +233,7 @@ mod stem_core_tests {
             rotor_winding
                 .resistance(
                     1,
-                    core.as_lin_or_rot(),
+                    CoreRef::Rot(&core),
                     &[
                         InfluencingQuantity::Temperature(ThermodynamicTemperature::new::<
                             degree_celsius,
@@ -251,7 +251,7 @@ mod stem_core_tests {
             rotor_winding
                 .slot_leakage_inductance(
                     1,
-                    core.as_lin_or_rot(),
+                    CoreRef::Rot(&core),
                     Length::new::<millimeter>(1.0),
                     &[],
                     &Default::default(),

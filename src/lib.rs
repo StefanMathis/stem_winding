@@ -26,8 +26,8 @@ pub mod prelude {
 
     // Reexporting
     pub use crate::coils::*;
-    pub use crate::winding::Winding;
     pub use crate::winding::*;
+    pub use crate::winding::{Connection, Winding};
     pub use crate::winding_table::*;
     // pub use core_integration::*;
     //
@@ -52,7 +52,7 @@ pub mod prelude {
     pub use stem_coil_layout::*;
 
     #[cfg(feature = "stem_core")]
-    pub use crate::core_support::FromWinding;
+    pub use crate::core_support::{FromWinding, Overrides};
 
     #[doc(hidden)]
     #[cfg(feature = "stem_core")]

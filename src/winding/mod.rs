@@ -67,8 +67,8 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// Returns the coil layout of the winding.
     fn coil_layout(&self) -> CoilLayout;
 
-    // Return the coil at the given slot / layer position, if the position contains
-    // a coil.
+    /// Return the coil at the given slot / layer position, if the position
+    /// contains a coil.
     fn coil_at(&self, zone: Zone) -> Option<&Coil>;
 
     fn as_dyn(&self) -> &dyn Winding;
@@ -133,11 +133,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// upper layer of a double layer winding at slot 2 is indexed as
     /// `self.turns_at(Zone::new(1, 0))`.
     fn turns_at(&self, zone: Zone) -> usize {
-        if let Some(coil) = self.coil_at(zone) {
-            return coil.turns().into();
-        } else {
-            return 0;
-        }
+        self.coil_at(zone).map(|c| c.turns().get()).unwrap_or(0)
     }
 
     /// Return the number of turns per phase as given in [MVP08].
@@ -172,7 +168,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         &self,
         _core: CoreRef<'_>,
         _phase: NonZeroU16,
-        _overrides: &Overrides,
+        _end_winding_half_turn_length: Option<Length>,
     ) -> Inductance {
         return Default::default();
     }
@@ -193,12 +189,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     ```
      */
     #[cfg(feature = "stem_core")]
-    fn end_winding_half_turn_length(
-        &self,
-        _core: CoreRef<'_>,
-        _zone: Zone,
-        _overrides: &Overrides,
-    ) -> Option<Length> {
+    fn end_winding_half_turn_length(&self, _core: CoreRef<'_>, _zone: Zone) -> Length {
         return Default::default();
     }
 
@@ -740,39 +731,26 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         &self,
         core: CoreRef<'_>,
         zone: Zone,
-        overrides: &Overrides,
-    ) -> Option<Volume> {
-        let coil = self.coil_at(zone)?;
-        let zone_area =
-            Area::new::<square_meter>(core.winding_zone_at(&self.coil_layout(), zone)?.area());
+        end_winding_half_turn_length: Option<Length>,
+    ) -> Volume {
+        let coil = match self.coil_at(zone) {
+            Some(c) => c,
+            None => return Volume::new::<cubic_meter>(0.0),
+        };
+        let zone_area = Area::new::<square_meter>(
+            core.winding_zone_at(&self.coil_layout(), zone)
+                .map(|c| c.area())
+                .unwrap_or(0.0),
+        );
         let cross_section = coil
             .wire()
             .effective_conductor_area(zone_area, coil.turns());
-        let length = self.end_winding_half_turn_length(core, zone, overrides)?;
-        return Some(cross_section * length);
-    }
 
-    /**
-    Returns the total axial coil overhang on boths sides of the magnetic core.
+        // Check if the end winding length has been overriden.
 
-    The ASCII art below visualizes the axial coil overhang with equal signs (=).
-    If = equals one mm, the return value of `axial_coil_overhang` would be 3 mm.
-
-    ```text
-         ┌──────┐
-    ┌──==│      │=──┐
-    │    │ Core │   │ <-- Coil
-    └──==│      │=──┘
-         └──────┘
-    ```
-    Axial overhang can be caused by e.g. the end winding insulation. While this overhang is part of the end winding,
-    it is not included in the calculation of the end winding length of the `Winding` trait method `end_winding_half_turn_length`.
-    Therefore, in the calculation of the end winding inductance, the coil length is calculated as `axial_coil_overhang` + `end_winding_half_turn_length`.
-    This length is not considered in the main inductance calculation.
-     */
-    #[cfg(feature = "stem_core")]
-    fn axial_coil_overhang(&self, core: CoreRef<'_>, _zone: Zone) -> Option<Length> {
-        return Some(core.axial_coil_overhang());
+        let length = end_winding_half_turn_length
+            .unwrap_or_else(|| self.end_winding_half_turn_length(core, zone));
+        return cross_section * length;
     }
 
     /// Assert the symmetry of the winding. If true, the following is also true:
@@ -792,13 +770,13 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
         // Condition 2: Calculate the phase resistance for some assumed conditions
         let resistance_1 = self
-            .resistance(NonZeroU16::MIN, core, &[], overrides)
+            .resistance(core, NonZeroU16::MIN, &[], overrides)
             .get::<ohm>();
         for phase in 2..(self.phases().get() + 1) {
             if approxim::abs_diff_ne!(
                 self.resistance(
-                    NonZeroU16::new(phase).unwrap_or(NonZeroU16::MIN),
                     core,
+                    NonZeroU16::new(phase).unwrap_or(NonZeroU16::MIN),
                     &[],
                     overrides
                 )
@@ -846,7 +824,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
             });
         }
 
-        let resistance = self.resistance(NonZeroU16::MIN, core, &[], overrides);
+        let resistance = self.resistance(core, NonZeroU16::MIN, &[], overrides);
         let electrical_resistivity = material.electrical_resistivity().get(&[]);
         return Some(ResistanceComponents {
             resistance_constant: resistance / electrical_resistivity,
@@ -856,14 +834,12 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
     /**
     Calculate the slot leakage inductance for a symmetric winding
-
-    Panics if the winding is not symmetric
      */
     #[cfg(feature = "stem_core")]
     fn slot_leakage_inductance(
         &self,
-        phase: NonZeroU16,
         core: CoreRef<'_>,
+        phase: NonZeroU16,
         effective_air_gap: Length,
         _conditions: &[DynQuantity<f64>],
         overrides: &Overrides,
@@ -871,7 +847,6 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         if let Some(slot_leakage_inductance) = overrides.slot_leakage_inductance {
             return slot_leakage_inductance;
         }
-        assert!(self.is_symmetric(core, overrides));
 
         if let Some(slot) = core.slot() {
             // Opening and tooth tip inductance are independent of the layer configuration
@@ -1008,10 +983,41 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     }
 
     #[cfg(feature = "stem_core")]
+    fn coil_resistance(
+        &self,
+        core: CoreRef<'_>,
+        zone: Zone,
+        conditions: &[DynQuantity<f64>],
+        end_winding_half_turn_length: Option<Length>,
+    ) -> ElectricalResistance {
+        let mut resistance = ElectricalResistance::new::<ohm>(0.0);
+
+        let coil = match self.coil_at(zone) {
+            Some(c) => c,
+            None => return resistance,
+        };
+
+        let end_winding_half_turn_length = end_winding_half_turn_length
+            .unwrap_or_else(|| self.end_winding_half_turn_length(core, zone));
+
+        for zone in coil.zones() {
+            if let Some(zone_contour) = core.winding_zone_at(&self.coil_layout(), zone) {
+                let zone_area = Area::new::<square_meter>(zone_contour.area());
+
+                let length = core.axial_coil_length()
+                    + core.axial_coil_overhang()
+                    + end_winding_half_turn_length;
+                resistance += coil.resistance(zone_area, length, conditions);
+            }
+        }
+        resistance
+    }
+
+    #[cfg(feature = "stem_core")]
     fn resistance(
         &self,
-        phase: NonZeroU16,
         core: CoreRef<'_>,
+        phase: NonZeroU16,
         conditions: &[DynQuantity<f64>],
         overrides: &Overrides,
     ) -> ElectricalResistance {
@@ -1025,13 +1031,14 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
                     if let Some(zone_contour) = core.winding_zone_at(&self.coil_layout(), zone) {
                         let zone_area = Area::new::<square_meter>(zone_contour.area());
 
+                        let end_winding_half_turn_length = overrides
+                            .end_winding_half_turn_lengths
+                            .get(&zone)
+                            .cloned()
+                            .unwrap_or_else(|| self.end_winding_half_turn_length(core, zone));
                         let length = core.axial_coil_length()
-                            + self
-                                .axial_coil_overhang(core, zone)
-                                .expect("must contain a coil")
-                            + self
-                                .end_winding_half_turn_length(core, zone, overrides)
-                                .expect("at this zone, there must be a coil");
+                            + core.axial_coil_overhang()
+                            + end_winding_half_turn_length;
                         resistance += coil.resistance(zone_area, length, conditions);
                     }
                 }

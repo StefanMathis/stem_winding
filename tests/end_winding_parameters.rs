@@ -26,7 +26,6 @@ fn test_end_winding_half_turn_length_semicircle() {
             for zone in coil.zones() {
                 let len =
                     end_winding_half_turn_length_semicircle(&winding, CoreRef::from(&core), zone)
-                        .unwrap()
                         .get::<meter>();
                 assert_abs_diff_eq!(len, 0.013964, epsilon = 1e-6);
             }
@@ -49,7 +48,6 @@ fn test_end_winding_half_turn_length_semicircle() {
             for zone in coil.zones() {
                 let len =
                     end_winding_half_turn_length_semicircle(&winding, CoreRef::from(&core), zone)
-                        .unwrap()
                         .get::<meter>();
                 assert_abs_diff_eq!(len, 0.009037, epsilon = 1e-6);
             }
@@ -75,9 +73,8 @@ fn test_end_winding_half_turn_length_circular_arc() {
         let core = RotCore::from_winding(&winding);
         for coil in winding.coils() {
             for zone in coil.zones() {
-                let len = end_winding_half_turn_length_circular_arc(&winding, &core, zone)
-                    .unwrap()
-                    .get::<meter>();
+                let len =
+                    end_winding_half_turn_length_circular_arc(&winding, &core, zone).get::<meter>();
                 assert_abs_diff_eq!(len, 0.072185, epsilon = 1e-6);
             }
         }
@@ -98,9 +95,8 @@ fn test_end_winding_half_turn_length_circular_arc() {
         let core = RotCore::from_winding(&winding);
         for coil in winding.coils() {
             for zone in coil.zones() {
-                let len = end_winding_half_turn_length_circular_arc(&winding, &core, zone)
-                    .unwrap()
-                    .get::<meter>();
+                let len =
+                    end_winding_half_turn_length_circular_arc(&winding, &core, zone).get::<meter>();
                 assert_abs_diff_eq!(len, 0.068186, epsilon = 1e-6);
             }
         }
@@ -121,9 +117,8 @@ fn test_end_winding_half_turn_length_circular_arc() {
         let core = RotCore::from_winding(&winding);
         for coil in winding.coils() {
             for zone in coil.zones() {
-                let len = end_winding_half_turn_length_circular_arc(&winding, &core, zone)
-                    .unwrap()
-                    .get::<meter>();
+                let len =
+                    end_winding_half_turn_length_circular_arc(&winding, &core, zone).get::<meter>();
                 assert_abs_diff_eq!(len, 0.059218, epsilon = 1e-6);
             }
         }
@@ -144,9 +139,8 @@ fn test_end_winding_half_turn_length_circular_arc() {
         let core = RotCore::from_winding(&winding);
         for coil in winding.coils() {
             for zone in coil.zones() {
-                let len = end_winding_half_turn_length_circular_arc(&winding, &core, zone)
-                    .unwrap()
-                    .get::<meter>();
+                let len =
+                    end_winding_half_turn_length_circular_arc(&winding, &core, zone).get::<meter>();
                 assert_abs_diff_eq!(len, 0.050251, epsilon = 1e-6);
             }
         }
@@ -212,12 +206,10 @@ fn test_end_winding_half_turn_phd_motor() {
 
     for coil in winding.coils() {
         for zone in coil.zones() {
-            let len_func = end_winding_half_turn_length_circular_arc(&winding, &core, zone)
-                .unwrap()
-                .get::<meter>();
+            let len_func =
+                end_winding_half_turn_length_circular_arc(&winding, &core, zone).get::<meter>();
             let len_method = winding
-                .end_winding_half_turn_length(CoreRef::Rot(&core), zone, &Overrides::default())
-                .unwrap()
+                .end_winding_half_turn_length(CoreRef::Rot(&core), zone)
                 .get::<meter>();
             assert_abs_diff_eq!(len_func, 0.133768, epsilon = 1e-6);
             assert_abs_diff_eq!(len_func, len_method, epsilon = 1e-6);
@@ -243,9 +235,8 @@ fn test_end_winding_half_turn_length_straight() {
         let core = LinCore::from_winding(&winding);
         for coil in winding.coils() {
             for zone in coil.zones() {
-                let len = end_winding_half_turn_length_straight(&winding, &core, zone)
-                    .unwrap()
-                    .get::<meter>();
+                let len =
+                    end_winding_half_turn_length_straight(&winding, &core, zone).get::<meter>();
                 assert_abs_diff_eq!(len, 0.118980, epsilon = 1e-6);
             }
         }
@@ -266,9 +257,8 @@ fn test_end_winding_half_turn_length_straight() {
         let core = LinCore::from_winding(&winding);
         for coil in winding.coils() {
             for zone in coil.zones() {
-                let len = end_winding_half_turn_length_straight(&winding, &core, zone)
-                    .unwrap()
-                    .get::<meter>();
+                let len =
+                    end_winding_half_turn_length_straight(&winding, &core, zone).get::<meter>();
                 if coil.throw(None) == 5 {
                     assert_abs_diff_eq!(len, 0.104079, epsilon = 1e-6);
                 } else if coil.throw(None) == 7 {
@@ -295,9 +285,8 @@ fn test_end_winding_half_turn_length_straight() {
         let core = LinCore::from_winding(&winding);
         for coil in winding.coils() {
             for zone in coil.zones() {
-                let len = end_winding_half_turn_length_straight(&winding, &core, zone)
-                    .unwrap()
-                    .get::<meter>();
+                let len =
+                    end_winding_half_turn_length_straight(&winding, &core, zone).get::<meter>();
                 if coil.throw(None) == 4 {
                     assert_abs_diff_eq!(len, 0.089227, epsilon = 1e-6);
                 } else if coil.throw(None) == 8 {
@@ -324,9 +313,8 @@ fn test_end_winding_half_turn_length_straight() {
         let core = LinCore::from_winding(&winding);
         for coil in winding.coils() {
             for zone in coil.zones() {
-                let len = end_winding_half_turn_length_straight(&winding, &core, zone)
-                    .unwrap()
-                    .get::<meter>();
+                let len =
+                    end_winding_half_turn_length_straight(&winding, &core, zone).get::<meter>();
                 assert_abs_diff_eq!(len, 0.034840, epsilon = 1e-6);
             }
         }
@@ -347,9 +335,8 @@ fn test_end_winding_half_turn_length_straight() {
         let core = LinCore::from_winding(&winding);
         for coil in winding.coils() {
             for zone in coil.zones() {
-                let len = end_winding_half_turn_length_straight(&winding, &core, zone)
-                    .unwrap()
-                    .get::<meter>();
+                let len =
+                    end_winding_half_turn_length_straight(&winding, &core, zone).get::<meter>();
                 assert_abs_diff_eq!(len, 0.126730, epsilon = 1e-6);
             }
         }
@@ -368,9 +355,8 @@ fn test_end_winding_half_turn_length_straight() {
         let core = LinCore::from_winding(&winding);
         for coil in winding.coils() {
             for zone in coil.zones() {
-                let len = end_winding_half_turn_length_straight(&winding, &core, zone)
-                    .unwrap()
-                    .get::<meter>();
+                let len =
+                    end_winding_half_turn_length_straight(&winding, &core, zone).get::<meter>();
                 assert_abs_diff_eq!(len, 0.051730, epsilon = 1e-6);
             }
         }

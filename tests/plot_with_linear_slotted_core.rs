@@ -96,7 +96,7 @@ fn test_plot_winding_shapes_dl_tooth_coil() {
         ))),
         true,
     );
-    let mut drawables = winding.drawables(core.as_lin_or_rot(), &zone_config);
+    let mut drawables = winding.drawables(CoreRef::Rot(&core), &zone_config);
     drawables.push(core.drawable());
 
     let view = visualization::Viewport::from_bounded_entities(drawables.iter(), 500).unwrap();
@@ -123,7 +123,7 @@ fn test_plot_winding_shapes_sl_tooth_coil() {
         ))),
         true,
     );
-    let mut drawables = winding.drawables(core.as_lin_or_rot(), &zone_config);
+    let mut drawables = winding.drawables(CoreRef::Rot(&core), &zone_config);
     drawables.push(core.drawable());
 
     let view = visualization::Viewport::from_bounded_entities(drawables.iter(), 500).unwrap();
@@ -158,7 +158,7 @@ fn test_plot_winding_shapes_quadruple_layer() {
         ))),
         true,
     );
-    let mut drawables = winding.drawables(core.as_lin_or_rot(), &zone_config);
+    let mut drawables = winding.drawables(CoreRef::Rot(&core), &zone_config);
     drawables.push(core.drawable());
 
     let view = visualization::Viewport::from_bounded_entities(drawables.iter(), 500).unwrap();
@@ -191,7 +191,7 @@ fn test_plot_winding_shapes_quadruple_layer_ampere_turns() {
         Some(ZoneCenterConfig::AmpereTurns),
         true,
     );
-    let mut drawables = winding.drawables(core.as_lin_or_rot(), &zone_config);
+    let mut drawables = winding.drawables(CoreRef::Rot(&core), &zone_config);
     drawables.push(core.drawable());
 
     let view = visualization::Viewport::from_bounded_entities(drawables.iter(), 800).unwrap();
@@ -219,7 +219,7 @@ fn test_plot_winding_shapes_distributed() {
         ))),
         true,
     );
-    let mut drawables = winding.drawables(core.as_lin_or_rot(), &zone_config);
+    let mut drawables = winding.drawables(CoreRef::Rot(&core), &zone_config);
     drawables.push(core.drawable());
 
     let view = visualization::Viewport::from_bounded_entities(drawables.iter(), 500).unwrap();
@@ -285,7 +285,7 @@ fn test_double_layer_multi_vs_double_vertical() {
             ))),
             true,
         );
-        let mut drawables = coil_assembly.drawables(core.as_lin_or_rot(), &zone_config);
+        let mut drawables = coil_assembly.drawables(CoreRef::Rot(&core), &zone_config);
         drawables.push(core.drawable());
 
         let view = visualization::Viewport::from_bounded_entities(drawables.iter(), 500).unwrap();
@@ -316,7 +316,7 @@ fn test_double_layer_multi_vs_double_vertical() {
             ))),
             true,
         );
-        let mut drawables = coil_assembly.drawables(core.as_lin_or_rot(), &zone_config);
+        let mut drawables = coil_assembly.drawables(CoreRef::Rot(&core), &zone_config);
         drawables.push(core.drawable());
 
         let view = visualization::Viewport::from_bounded_entities(drawables.iter(), 500).unwrap();
@@ -367,7 +367,7 @@ fn test_four_layer_multi_vertical() {
             ))),
             true,
         );
-        let mut drawables = coil_assembly.drawables(core.as_lin_or_rot(), &zone_config);
+        let mut drawables = coil_assembly.drawables(CoreRef::Rot(&core), &zone_config);
         drawables.push(core.drawable());
 
         let view = visualization::Viewport::from_bounded_entities(drawables.iter(), 500).unwrap();
@@ -389,7 +389,7 @@ fn test_four_layer_multi_vertical() {
             ))),
             true,
         );
-        let drawables = coil_assembly.drawables(core.as_lin_or_rot(), &zone_config);
+        let drawables = coil_assembly.drawables(CoreRef::Rot(&core), &zone_config);
         let view = visualization::Viewport::from_bounded_entities(drawables.iter(), 500).unwrap();
         let path = std::path::Path::new("img/four_layer_multi_vertical_show_empty.png"); // Always compare to the same reference image
         let callback = move |path: &std::path::Path| {
@@ -409,7 +409,7 @@ fn test_four_layer_multi_vertical() {
             ))),
             false,
         );
-        let drawables = coil_assembly.drawables(core.as_lin_or_rot(), &zone_config);
+        let drawables = coil_assembly.drawables(CoreRef::Rot(&core), &zone_config);
         let view = visualization::Viewport::from_bounded_entities(drawables.iter(), 500).unwrap();
         let path = std::path::Path::new("img/four_layer_multi_vertical_hide_empty.png"); // Always compare to the same reference image
         let callback = move |path: &std::path::Path| {

@@ -20,7 +20,8 @@ fn test_from_winding() {
 
 #[test]
 fn test_winding_shapes_single_layer_arrow() {
-    let wdg = DistributedWinding::new_minimal(6, 1, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
+    let wdg =
+        DistributedWinding::new_minimal(6, 1, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
     let core = CoreRot::from_winding(&wdg);
 
     let zone_config = ZoneConfig::new(
@@ -31,7 +32,7 @@ fn test_winding_shapes_single_layer_arrow() {
         true,
     );
 
-    let drawables = wdg.drawables(core.as_lin_or_rot(), &zone_config);
+    let drawables = wdg.drawables(CoreRef::Rot(&core), &zone_config);
 
     let view = visualization::Viewport::from_bounded_entities(drawables.iter(), 500).unwrap();
     let path = std::path::Path::new("img/winding_shapes_single_layer_arrow.png"); // Always compare to the same reference image
@@ -47,7 +48,8 @@ fn test_winding_shapes_single_layer_arrow() {
 
 #[test]
 fn test_winding_shapes_single_layer_ampere_turns() {
-    let wdg = DistributedWinding::new_minimal(6, 1, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
+    let wdg =
+        DistributedWinding::new_minimal(6, 1, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
     let core = CoreRot::from_winding(&wdg);
 
     let zone_config = ZoneConfig::new(
@@ -56,7 +58,7 @@ fn test_winding_shapes_single_layer_ampere_turns() {
         true,
     );
 
-    let drawables = wdg.drawables(core.as_lin_or_rot(), &zone_config);
+    let drawables = wdg.drawables(CoreRef::Rot(&core), &zone_config);
 
     let view = visualization::Viewport::from_bounded_entities(drawables.iter(), 500).unwrap();
     let path = std::path::Path::new("img/winding_shapes_single_layer_ampere_turns.png"); // Always compare to the same reference image
@@ -73,9 +75,15 @@ fn test_winding_shapes_single_layer_ampere_turns() {
 #[test]
 fn test_winding_shapes_quadruple_layer() {
     // Single shift
-    let wdg =
-        QuadrupleLayerToothCoilWinding::new_minimal(9, 4, 3, 3, vec![1], WindingTableMethod::Tingley)
-            .unwrap();
+    let wdg = QuadrupleLayerToothCoilWinding::new_minimal(
+        9,
+        4,
+        3,
+        3,
+        vec![1],
+        WindingTableMethod::Tingley,
+    )
+    .unwrap();
     let core = CoreRot::from_winding(&wdg);
 
     let zone_config = ZoneConfig::new(
@@ -86,7 +94,7 @@ fn test_winding_shapes_quadruple_layer() {
         true,
     );
 
-    let drawables = wdg.drawables(core.as_lin_or_rot(), &zone_config);
+    let drawables = wdg.drawables(CoreRef::Rot(&core), &zone_config);
 
     let view = visualization::Viewport::from_bounded_entities(drawables.iter(), 500).unwrap();
     let path = std::path::Path::new("img/winding_shapes_quadruple_layer_single_shift.png"); // Always compare to the same reference image
@@ -111,7 +119,7 @@ fn test_winding_shapes_quadruple_layer() {
     .unwrap();
     let core = CoreRot::from_winding(&wdg);
 
-    let drawables = wdg.drawables(core.as_lin_or_rot(), &zone_config);
+    let drawables = wdg.drawables(CoreRef::Rot(&core), &zone_config);
 
     let view = visualization::Viewport::from_bounded_entities(drawables.iter(), 500).unwrap();
     let path = std::path::Path::new("img/winding_shapes_quadruple_layer_double_shift.png"); // Always compare to the same reference image
@@ -127,9 +135,15 @@ fn test_winding_shapes_quadruple_layer() {
 
 #[test]
 fn test_plot_winding_shapes_rot_quadruple_layer_ampere_turns() {
-    let winding =
-        QuadrupleLayerToothCoilWinding::new_minimal(12, 5, 3, 4, vec![3], WindingTableMethod::Tingley)
-            .unwrap();
+    let winding = QuadrupleLayerToothCoilWinding::new_minimal(
+        12,
+        5,
+        3,
+        4,
+        vec![3],
+        WindingTableMethod::Tingley,
+    )
+    .unwrap();
     let core = CoreRot::from_winding(&winding);
 
     // Test with ampere turns
@@ -138,7 +152,7 @@ fn test_plot_winding_shapes_rot_quadruple_layer_ampere_turns() {
         Some(ZoneCenterConfig::AmpereTurns),
         true,
     );
-    let mut drawables = winding.drawables(core.as_lin_or_rot(), &zone_config);
+    let mut drawables = winding.drawables(CoreRef::Rot(&core), &zone_config);
     drawables.push(core.drawable());
 
     let view = visualization::Viewport::from_bounded_entities(drawables.iter(), 800).unwrap();
@@ -162,7 +176,7 @@ fn test_plot_winding_shapes_rot_quadruple_layer_ampere_turns() {
         ))),
         true,
     );
-    let mut drawables = winding.drawables(core.as_lin_or_rot(), &zone_config);
+    let mut drawables = winding.drawables(CoreRef::Rot(&core), &zone_config);
     drawables.push(core.drawable());
 
     let view = visualization::Viewport::from_bounded_entities(drawables.iter(), 800).unwrap();
@@ -186,7 +200,7 @@ fn test_plot_winding_shapes_rot_quadruple_layer_ampere_turns() {
         ))),
         true,
     );
-    let mut drawables = winding.drawables(core.as_lin_or_rot(), &zone_config);
+    let mut drawables = winding.drawables(CoreRef::Rot(&core), &zone_config);
     drawables.push(core.drawable());
 
     let view = visualization::Viewport::from_bounded_entities(drawables.iter(), 800).unwrap();

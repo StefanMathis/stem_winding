@@ -272,24 +272,13 @@ impl Winding for ToothCoilWinding {
         &self,
         core: CoreRef<'_>,
         _phase: NonZeroU16,
-        overrides: &Overrides,
+        end_winding_half_turn_length: Option<Length>,
     ) -> Inductance {
-        if let Some(end_winding_leakage_inductance) = overrides.end_winding_leakage_inductance {
-            return end_winding_leakage_inductance;
-        }
-        end_winding_leakage_inductance_semicircle(self, core, overrides)
+        end_winding_leakage_inductance_semicircle(self, core, end_winding_half_turn_length)
     }
 
     #[cfg(feature = "stem_core")]
-    fn end_winding_half_turn_length(
-        &self,
-        core: CoreRef<'_>,
-        zone: Zone,
-        overrides: &Overrides,
-    ) -> Option<Length> {
-        if let Some(end_winding_half_turn_length) = overrides.end_winding_half_turn_length {
-            return Some(end_winding_half_turn_length);
-        }
+    fn end_winding_half_turn_length(&self, core: CoreRef<'_>, zone: Zone) -> Length {
         end_winding_half_turn_length_semicircle(self, core, zone)
     }
 }

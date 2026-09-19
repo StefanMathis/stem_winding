@@ -233,32 +233,19 @@ impl Winding for CoilAssembly {
         &self,
         _core: CoreRef<'_>,
         _phase: NonZeroU16,
-        overrides: &Overrides,
+        _end_winding_half_turn_length: Option<Length>,
     ) -> Inductance {
-        if let Some(end_winding_leakage_inductance) = overrides.end_winding_leakage_inductance {
-            return end_winding_leakage_inductance;
-        }
-
         // We cannot analytically calculate the end winding leakage inductance
         // for an arbitrary coil setup, so we just return zero.
         return Inductance::new::<si::inductance::henry>(0.0);
     }
 
     #[cfg(feature = "stem_core")]
-    fn end_winding_half_turn_length(
-        &self,
-        core: CoreRef<'_>,
-        zone: Zone,
-        overrides: &Overrides,
-    ) -> Option<Length> {
-        let coil = self.coil_at(zone)?;
-
-        if let Some(end_winding_half_turn_length) = overrides.end_winding_half_turn_length {
-            return Some(end_winding_half_turn_length);
-        }
-        if let Some(value) = coil.end_length() {
-            return Some(value);
-        }
+    fn end_winding_half_turn_length(&self, core: CoreRef<'_>, zone: Zone) -> Length {
+        let coil = match self.coil_at(zone) {
+            Some(c) => c,
+            None => return Length::new::<meter>(0.0),
+        };
 
         // If the zones of the coil are in neighboring slots, use the
         // end_winding_half_turn_length_semicircle approximation, otherwise use
@@ -279,15 +266,6 @@ impl Winding for CoilAssembly {
                 }
             }
         }
-    }
-
-    #[cfg(feature = "stem_core")]
-    fn axial_coil_overhang(&self, core: CoreRef<'_>, zone: Zone) -> Option<Length> {
-        let coil = self.coil_at(zone)?;
-        if let Some(value) = coil.axial_overhang() {
-            return Some(value);
-        }
-        return Some(core.axial_coil_overhang());
     }
 }
 

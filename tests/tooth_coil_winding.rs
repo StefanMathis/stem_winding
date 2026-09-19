@@ -625,7 +625,7 @@ mod stem_core_tests {
         approxim::assert_abs_diff_eq!(
             winding
                 .end_winding_half_turn_length(
-                    core.as_lin_or_rot(),
+                    CoreRef::Rot(&core),
                     Zone::new(0, 0),
                     &Default::default(),
                 )
@@ -640,7 +640,7 @@ mod stem_core_tests {
             winding
                 .slot_leakage_inductance(
                     1,
-                    core.as_lin_or_rot(),
+                    CoreRef::Rot(&core),
                     Length::new::<millimeter>(1.0),
                     &[],
                     &Default::default(),
@@ -660,7 +660,7 @@ mod stem_core_tests {
         approxim::assert_abs_diff_eq!(
             winding
                 .end_winding_half_turn_length(
-                    core.as_lin_or_rot(),
+                    CoreRef::Rot(&core),
                     Zone::new(0, 0),
                     &Default::default(),
                 )
@@ -675,7 +675,7 @@ mod stem_core_tests {
             winding
                 .slot_leakage_inductance(
                     1,
-                    core.as_lin_or_rot(),
+                    CoreRef::Rot(&core),
                     Length::new::<millimeter>(1.0),
                     &[],
                     &Default::default(),

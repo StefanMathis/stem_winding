@@ -545,7 +545,7 @@ mod stem_core_tests {
         approxim::assert_abs_diff_eq!(
             coil_assembly
                 .end_winding_half_turn_length(
-                    core.as_lin_or_rot(),
+                    CoreRef::Rot(&core),
                     Zone::new(0, 0),
                     &Default::default(),
                 )
@@ -558,7 +558,7 @@ mod stem_core_tests {
         // Check the wire volume
         approxim::assert_abs_diff_eq!(
             winding
-                .coil_properties(core.as_lin_or_rot(), &Default::default())
+                .coil_properties(CoreRef::Rot(&core), &Default::default())
                 .map(|cp| cp.volume())
                 .sum::<Volume>()
                 .get::<cubic_millimeter>(),
@@ -569,7 +569,7 @@ mod stem_core_tests {
         // Check the phase resistance
         approxim::assert_abs_diff_eq!(
             coil_assembly
-                .resistance(1, core.as_lin_or_rot(), &[], &Default::default(),)
+                .resistance(1, CoreRef::Rot(&core), &[], &Default::default(),)
                 .get::<ohm>(),
             1.13214, // Expected value in Ohm
             epsilon = 0.0001
@@ -580,7 +580,7 @@ mod stem_core_tests {
             coil_assembly
                 .slot_leakage_inductance(
                     1,
-                    core.as_lin_or_rot(),
+                    CoreRef::Rot(&core),
                     Length::new::<millimeter>(1.0),
                     &[],
                     &Default::default(),
@@ -592,7 +592,7 @@ mod stem_core_tests {
 
         approxim::assert_abs_diff_eq!(
             coil_assembly
-                .end_winding_leakage_inductance(1, core.as_lin_or_rot(), &Default::default())
+                .end_winding_leakage_inductance(1, CoreRef::Rot(&core), &Default::default())
                 .get::<henry>(),
             0.0017129, // Expected value in H
             epsilon = 1e-6

@@ -173,8 +173,8 @@ impl Winding for SquirrelCageWinding {
     #[cfg(feature = "stem_core")]
     fn slot_leakage_inductance(
         &self,
-        _phase: NonZeroU16,
         core: CoreRef<'_>,
+        _phase: NonZeroU16,
         effective_air_gap: Length,
         conditions: &[DynQuantity<f64>],
         overrides: &Overrides,
@@ -225,8 +225,8 @@ impl Winding for SquirrelCageWinding {
         &self,
         core: CoreRef<'_>,
         _: Zone,
-        _: &Overrides,
-    ) -> Option<Volume> {
+        _: Option<Length>,
+    ) -> Volume {
         use std::f64::consts::FRAC_PI_2;
         use uom::typenum::P2;
 
@@ -238,19 +238,15 @@ impl Winding for SquirrelCageWinding {
                 let dia_ring_inner =
                     2.0 * inner_end_ring_radius(is_outer_part, core_rot.air_gap_radius(), self);
 
-                return Some(
-                    FRAC_PI_2
-                        * (dia_ring_outer.powi(P2::new()) - dia_ring_inner.powi(P2::new()))
-                        * self.end_ring_width(),
-                );
+                return FRAC_PI_2
+                    * (dia_ring_outer.powi(P2::new()) - dia_ring_inner.powi(P2::new()))
+                    * self.end_ring_width();
             }
             CoreRef::Lin(_) => {
-                return Some(
-                    self.end_ring_height()
-                        * self.end_ring_width()
-                        * core.slot_pitch()
-                        * f64::from(self.slots().get()),
-                );
+                return self.end_ring_height()
+                    * self.end_ring_width()
+                    * core.slot_pitch()
+                    * f64::from(self.slots().get());
             }
         }
     }
@@ -258,8 +254,8 @@ impl Winding for SquirrelCageWinding {
     #[cfg(feature = "stem_core")]
     fn resistance(
         &self,
-        phase: NonZeroU16,
         core: CoreRef<'_>,
+        phase: NonZeroU16,
         conditions: &[DynQuantity<f64>],
         overrides: &Overrides,
     ) -> ElectricalResistance {
@@ -366,26 +362,14 @@ impl Winding for SquirrelCageWinding {
         &self,
         core: CoreRef<'_>,
         _phase: NonZeroU16,
-        overrides: &Overrides,
+        end_winding_half_turn_length: Option<Length>,
     ) -> Inductance {
-        if let Some(end_winding_leakage_inductance) = overrides.end_winding_leakage_inductance {
-            return end_winding_leakage_inductance;
-        }
-        end_winding_leakage_inductance_cage(self, core, overrides)
+        end_winding_leakage_inductance_cage(self, core, end_winding_half_turn_length)
     }
 
     #[cfg(feature = "stem_core")]
-    fn end_winding_half_turn_length(
-        &self,
-        core: CoreRef<'_>,
-        _: Zone,
-        overrides: &Overrides,
-    ) -> Option<Length> {
+    fn end_winding_half_turn_length(&self, core: CoreRef<'_>, _: Zone) -> Length {
         use std::f64::consts::PI;
-        if let Some(end_winding_half_turn_length) = overrides.end_winding_half_turn_length {
-            return Some(end_winding_half_turn_length);
-        }
-
         match core {
             CoreRef::Rot(core_rot) => {
                 let is_outer_part = core_rot.is_outer();
@@ -393,12 +377,11 @@ impl Winding for SquirrelCageWinding {
                     outer_end_ring_radius(is_outer_part, core_rot.air_gap_radius(), self);
                 let inner_end_ring_rad =
                     inner_end_ring_radius(is_outer_part, core_rot.air_gap_radius(), self);
-                return Some(
-                    PI * (outer_end_ring_rad + inner_end_ring_rad) / f64::from(self.slots().get()),
-                );
+                return PI * (outer_end_ring_rad + inner_end_ring_rad)
+                    / f64::from(self.slots().get());
             }
             CoreRef::Lin(core_lin) => {
-                return Some(core_lin.width() / f64::from(self.slots().get()));
+                return core_lin.width() / f64::from(self.slots().get());
             }
         }
     }

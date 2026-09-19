@@ -1,7 +1,6 @@
 use std::num::{NonZeroU16, NonZeroUsize};
 
 use crate::error::Error;
-use compare_variables::compare_variables;
 use keyring_map::KeyringMap;
 use num::Complex;
 use stem_coil_layout::Zone;
@@ -154,12 +153,9 @@ pub trait CoilExt {
 
     fn voltage_phasor(&self, phasor_angle: f64, ordinal: f64) -> Complex<f64>;
 
-    fn voltage_phasor_at(
-        &self,
-        zone: Zone,
-        phasor_angle: f64,
-        ordinal: f64,
-    ) -> Option<Complex<f64>>;
+    fn voltage_phasor_at(&self, zone: Zone, phasor_angle: f64, ordinal: f64) -> Complex<f64>;
+
+    fn any_zone(&self) -> Zone;
 
     fn wire(&self) -> &dyn Wire;
 
@@ -173,10 +169,6 @@ pub trait CoilExt {
     /// None, a linear winding structure is assumed and no wrapping around the
     /// slot sequence is possible.
     fn throw(&self, slots: Option<NonZeroU16>) -> u16;
-
-    fn axial_overhang(&self) -> Option<Length>;
-
-    fn end_length(&self) -> Option<Length>;
 
     fn resistance(
         &self,
@@ -219,6 +211,13 @@ impl CoilExt for Coil {
         }
     }
 
+    fn any_zone(&self) -> Zone {
+        match self {
+            Coil::Full(coil) => coil.any_zone(),
+            Coil::Half(coil) => coil.any_zone(),
+        }
+    }
+
     fn voltage_phasor(&self, phasor_angle: f64, ordinal: f64) -> Complex<f64> {
         match self {
             Coil::Full(coil) => coil.voltage_phasor(phasor_angle, ordinal),
@@ -226,12 +225,7 @@ impl CoilExt for Coil {
         }
     }
 
-    fn voltage_phasor_at(
-        &self,
-        zone: Zone,
-        phasor_angle: f64,
-        ordinal: f64,
-    ) -> Option<Complex<f64>> {
+    fn voltage_phasor_at(&self, zone: Zone, phasor_angle: f64, ordinal: f64) -> Complex<f64> {
         match self {
             Coil::Full(coil) => coil.voltage_phasor_at(zone, phasor_angle, ordinal),
             Coil::Half(coil) => coil.voltage_phasor_at(zone, phasor_angle, ordinal),
@@ -263,20 +257,6 @@ impl CoilExt for Coil {
         match self {
             Coil::Full(coil) => coil.throw(slots),
             Coil::Half(coil) => coil.throw(slots),
-        }
-    }
-
-    fn axial_overhang(&self) -> Option<Length> {
-        match self {
-            Coil::Full(coil) => coil.axial_overhang(),
-            Coil::Half(coil) => coil.axial_overhang(),
-        }
-    }
-
-    fn end_length(&self) -> Option<Length> {
-        match self {
-            Coil::Full(coil) => coil.end_length(),
-            Coil::Half(coil) => coil.end_length(),
         }
     }
 
@@ -355,10 +335,6 @@ pub struct FullCoil {
     // ensures that every phase number, with either polarity, fits in i32.
     phase: NonZeroU16,
     wire: Box<dyn Wire>,
-    #[cfg_attr(feature = "serde", serde(default))]
-    axial_overhang: Option<Length>,
-    #[cfg_attr(feature = "serde", serde(default))]
-    end_length: Option<Length>,
 }
 
 impl FullCoil {
@@ -371,57 +347,10 @@ impl FullCoil {
         phase: NonZeroU16,
         wire: Box<dyn Wire>,
     ) -> Result<Self, Error> {
-        return Self::with_coil_end_lengths(
-            positive_zone,
-            negative_zone,
-            positive_slot_direction,
-            turns,
-            phase,
-            wire,
-            None,
-            None,
-        );
-    }
-
-    /**
-    Build a coil with a specified axial overhang and end winding length.
-    Both values are specified for a half-turn (see drawing below)
-    If those values are set to None, this function is equivalent to `FullCoil::new`.
-
-    The ASCII art below visualizes the axial coil overhang with equal signs (=)
-    and the end winding length with box drawing characters (─).
-    If the space of a single character equals one mm, the return value of `axial_overhang` would be 3 mm and
-    `end_winding_half_turn_length` would be 7 mm.
-
-    ```text
-         ┌──────┐
-    ┌──==│      │=──┐
-    │    │ Core │   │ <-- Coil
-    └──==│      │=──┘
-         └──────┘
-    ```
-     */
-    pub fn with_coil_end_lengths(
-        positive_zone: Zone,
-        negative_zone: Zone,
-        positive_slot_direction: bool,
-        turns: NonZeroUsize,
-        phase: NonZeroU16,
-        wire: Box<dyn Wire>,
-        axial_overhang: Option<Length>,
-        end_length: Option<Length>,
-    ) -> Result<Self, Error> {
         if positive_zone == negative_zone {
             return Err(Error::EqualCoilZones(positive_zone));
         }
 
-        let zero = Length::new::<meter>(0.0);
-        if let Some(value) = axial_overhang {
-            compare_variables!(val zero <= value)?;
-        }
-        if let Some(value) = end_length {
-            compare_variables!(val zero <= value)?;
-        }
         return Ok(FullCoil {
             positive_zone,
             negative_zone,
@@ -429,8 +358,6 @@ impl FullCoil {
             turns,
             phase,
             wire,
-            axial_overhang,
-            end_length,
         });
     }
 
@@ -600,6 +527,10 @@ impl CoilExt for FullCoil {
             + self.voltage_phasor_negative_zone(phasor_angle, ordinal);
     }
 
+    fn any_zone(&self) -> Zone {
+        self.positive_zone
+    }
+
     fn wire(&self) -> &dyn Wire {
         return &*self.wire;
     }
@@ -648,27 +579,14 @@ impl CoilExt for FullCoil {
         (slots + minuend).wrapping_sub(subtrahend) % slots
     }
 
-    fn voltage_phasor_at(
-        &self,
-        zone: Zone,
-        phasor_angle: f64,
-        ordinal: f64,
-    ) -> Option<Complex<f64>> {
+    fn voltage_phasor_at(&self, zone: Zone, phasor_angle: f64, ordinal: f64) -> Complex<f64> {
         if self.positive_zone() == zone {
-            return Some(self.voltage_phasor_positive_zone(phasor_angle, ordinal));
+            return self.voltage_phasor_positive_zone(phasor_angle, ordinal);
         } else if self.negative_zone() == zone {
-            return Some(self.voltage_phasor_negative_zone(phasor_angle, ordinal));
+            return self.voltage_phasor_negative_zone(phasor_angle, ordinal);
         } else {
-            return None;
+            return Complex::new(0.0, 0.0);
         }
-    }
-
-    fn axial_overhang(&self) -> Option<Length> {
-        return self.axial_overhang;
-    }
-
-    fn end_length(&self) -> Option<Length> {
-        return self.end_length;
     }
 
     fn invert(&mut self) {
@@ -695,14 +613,9 @@ pub struct HalfCoil {
     turns: NonZeroUsize,
     phase: NonZeroU16,
     wire: Box<dyn Wire>,
-    #[cfg_attr(feature = "serde", serde(default))]
-    axial_overhang: Option<Length>,
-    #[cfg_attr(feature = "serde", serde(default))]
-    end_length: Option<Length>,
 }
 
 impl HalfCoil {
-    /// Returns an instance of `Coil`
     pub fn new(
         zone: Zone,
         is_positive: bool,
@@ -710,34 +623,13 @@ impl HalfCoil {
         phase: NonZeroU16,
         wire: Box<dyn Wire>,
     ) -> Self {
-        Self::with_coil_end_lengths(zone, is_positive, turns, phase, wire, None, None)
-    }
-
-    pub fn with_coil_end_lengths(
-        zone: Zone,
-        is_positive: bool,
-        turns: NonZeroUsize,
-        phase: NonZeroU16,
-        wire: Box<dyn Wire>,
-        axial_overhang: Option<Length>,
-        end_length: Option<Length>,
-    ) -> Self {
-        let zero_length = Length::new::<meter>(0.0);
-        if let Some(value) = axial_overhang {
-            compare_variables!(zero_length <= value).unwrap();
-        }
-        if let Some(value) = end_length {
-            compare_variables!(zero_length <= value).unwrap();
-        }
-        return HalfCoil {
+        Self {
             zone,
             is_positive,
             turns,
             phase,
             wire,
-            axial_overhang,
-            end_length,
-        };
+        }
     }
 
     pub fn zone(&self) -> Zone {
@@ -766,6 +658,10 @@ impl CoilExt for HalfCoil {
         self.phase = phase;
     }
 
+    fn any_zone(&self) -> Zone {
+        self.zone
+    }
+
     fn voltage_phasor(&self, phasor_angle: f64, ordinal: f64) -> Complex<f64> {
         let slot_angle = self.zone().slot as f64 * phasor_angle * ordinal;
         let slot_angle = if self.is_positive {
@@ -792,25 +688,12 @@ impl CoilExt for HalfCoil {
         return 0;
     }
 
-    fn voltage_phasor_at(
-        &self,
-        zone: Zone,
-        phasor_angle: f64,
-        ordinal: f64,
-    ) -> Option<Complex<f64>> {
+    fn voltage_phasor_at(&self, zone: Zone, phasor_angle: f64, ordinal: f64) -> Complex<f64> {
         if self.zone == zone {
-            return Some(self.voltage_phasor(phasor_angle, ordinal));
+            return self.voltage_phasor(phasor_angle, ordinal);
         } else {
-            return None;
+            return Complex::new(0.0, 0.0);
         }
-    }
-
-    fn axial_overhang(&self) -> Option<Length> {
-        return self.axial_overhang;
-    }
-
-    fn end_length(&self) -> Option<Length> {
-        return self.end_length;
     }
 
     fn invert(&mut self) {
