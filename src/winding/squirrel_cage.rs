@@ -116,8 +116,8 @@ impl Winding for SquirrelCageWinding {
         1
     }
 
-    fn phase_at(&self, zone: Zone) -> Option<i32> {
-        Some(i32::from(u16::from(zone.slot)) + 1)
+    fn phase_at(&self, zone: Zone) -> i32 {
+        i32::from(zone.slot) + 1
     }
 
     fn coil_layout(&self) -> CoilLayout {

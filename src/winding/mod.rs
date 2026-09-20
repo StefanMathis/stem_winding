@@ -17,6 +17,9 @@ use crate::core_support::{Overrides, ResistanceComponents};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "cairo")]
+use crate::draw::{WindingZoneDrawables, ZoneConfig};
+
 use stem_coil_layout::{CoilLayout, Zone};
 use stem_wire::{stem_material::si::Length, wire::Wire};
 
@@ -97,12 +100,10 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
                 let slot = index / layers;
                 let layer = index % layers;
 
-                self.0
-                    .phase_at(Zone {
-                        slot: slot as u16,
-                        layer: layer as u16,
-                    })
-                    .unwrap_or(0)
+                self.0.phase_at(Zone {
+                    slot: slot as u16,
+                    layer: layer as u16,
+                })
             }
         }
 
@@ -223,17 +224,20 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// zero, so the upper layer of a double layer winding at slot 2 is indexed
     /// as `self.turns_at(1, 0)`. If the slot or layer doesn't exist, return
     /// an error instead.
-    fn phase_at(&self, zone: Zone) -> Option<i32> {
-        let coil = self.coil_at(zone)?;
+    fn phase_at(&self, zone: Zone) -> i32 {
+        let coil = match self.coil_at(zone) {
+            Some(c) => c,
+            None => return 0,
+        };
         let is_positive = match coil {
             Coil::Full(coil) => zone == coil.positive_zone(),
             Coil::Half(coil) => coil.is_positive(),
         };
-        let phase = i32::from(u16::from(coil.phase()));
+        let phase = i32::from(coil.phase().get());
         if is_positive {
-            return Some(phase);
+            return phase;
         } else {
-            return Some(-phase);
+            return -phase;
         }
     }
 
@@ -275,9 +279,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         for slot in 0..slots.get() {
             for layer in 0..layers.get() {
                 let zone = Zone::new(slot, layer);
-                if let Some(phase) = self.phase_at(zone) {
-                    winding_table[zone] = phase;
-                }
+                winding_table[zone] = self.phase_at(zone);
             }
         }
 
@@ -445,19 +447,18 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
                 for layer in 0..layers.get() {
                     // Check if the current slot and layer is assigned to the phase
-                    if let Some(current_phase) = self.phase_at(Zone::new(slot, layer)) {
-                        if current_phase.abs() == i32::from(u16::from(phase)) {
-                            // Get the angle of the ρ-th zone. The reference is the first zone
-                            // of phase 1, which always equals the first beam of the phasor star
-                            // (alpha_rho=0 = 0°) If the zone is
-                            // negative, the beam direction needs to be inverted (sign-function)
-                            let dir_angle = if current_phase < 0 { PI } else { 0.0 };
-                            let phasor_length = self.turns_at(Zone::new(slot, layer));
-                            phasor_sum_geo = phasor_sum_geo
-                                + (phasor_length as f64)
-                                    * (Complex::new(0.0, slot_angle + dir_angle)).exp();
-                            phasor_sum_abs = phasor_sum_abs + phasor_length;
-                        }
+                    let current_phase = self.phase_at(Zone::new(slot, layer));
+                    if current_phase.abs() == i32::from(u16::from(phase)) {
+                        // Get the angle of the ρ-th zone. The reference is the first zone
+                        // of phase 1, which always equals the first beam of the phasor star
+                        // (alpha_rho=0 = 0°) If the zone is
+                        // negative, the beam direction needs to be inverted (sign-function)
+                        let dir_angle = if current_phase < 0 { PI } else { 0.0 };
+                        let phasor_length = self.turns_at(Zone::new(slot, layer));
+                        phasor_sum_geo = phasor_sum_geo
+                            + (phasor_length as f64)
+                                * (Complex::new(0.0, slot_angle + dir_angle)).exp();
+                        phasor_sum_abs = phasor_sum_abs + phasor_length;
                     }
                 }
 
@@ -500,18 +501,17 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
                     verts[slot as usize] = verts[slot as usize - 1].clone()
                 }
 
-                if let Some(phase) = self.phase_at(Zone::new(slot, layer)) {
-                    // Add the magnetic voltage to the current polygon node
-                    if phase == 0 {
-                        continue;
-                    } else {
-                        let turns = self.turns_at(Zone::new(slot, layer));
-                        let phase_angle = ((phase as f64).abs() - 1.0) * delta_phase_angle;
+                // Add the magnetic voltage to the current polygon node
+                let phase = self.phase_at(Zone::new(slot, layer));
+                if phase == 0 {
+                    continue;
+                } else {
+                    let turns = self.turns_at(Zone::new(slot, layer));
+                    let phase_angle = ((phase as f64).abs() - 1.0) * delta_phase_angle;
 
-                        verts[slot as usize] = verts[slot as usize]
-                            + (turns as f64 * num::signum(phase) as f64)
-                                * (Complex::new(0.0, phase_angle)).exp();
-                    }
+                    verts[slot as usize] = verts[slot as usize]
+                        + (turns as f64 * num::signum(phase) as f64)
+                            * (Complex::new(0.0, phase_angle)).exp();
                 }
             }
         }
@@ -923,13 +923,9 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
                                     // Calculate the coupling direction between the linked coil and
                                     // the excitation coil
                                     let coupling = 1
-                                        * self
-                                            .phase_at(Zone::new(slot_idx, linked_layer))
-                                            .expect("the link coil exists")
-                                            .signum()
+                                        * self.phase_at(Zone::new(slot_idx, linked_layer)).signum()
                                         * self
                                             .phase_at(Zone::new(slot_idx, excitation_layer))
-                                            .expect("the excitation coil exists")
                                             .signum();
 
                                     // Get the normalized excitation current and modify its
@@ -1064,7 +1060,11 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     }
 
     #[cfg(all(feature = "cairo", feature = "stem_core"))]
-    fn drawables(&self, core: CoreRef<'_>, zone_config: ZoneConfig) -> WindingZoneDrawables {
+    fn drawables<'a, 'b>(
+        &'a self,
+        core: CoreRef<'_>,
+        zone_config: &'a ZoneConfig,
+    ) -> WindingZoneDrawables<'a> {
         WindingZoneDrawables::new(self.as_dyn(), core, zone_config)
     }
 }

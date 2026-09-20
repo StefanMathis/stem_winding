@@ -16,6 +16,9 @@ pub use stem_wire::{self, stem_material};
 #[cfg(feature = "stem_core")]
 pub use stem_core::{self, stem_magnet, stem_slot};
 
+#[cfg(feature = "cairo")]
+pub mod draw;
+
 pub mod prelude {
     /*!
     This module reexports the core, air gap and flux barrier types defined in
@@ -29,17 +32,11 @@ pub mod prelude {
     pub use crate::winding::*;
     pub use crate::winding::{Connection, Winding};
     pub use crate::winding_table::*;
-    // pub use core_integration::*;
-    //
-    // pub use drawing::*;
-    // pub use fec_spectral_analysis::*;
-    // pub use is_winding::*;
-    // pub use iterators::*;
-    // pub use slot::CoilLayout;
-    // pub use uom;
-    // pub use winding_variants::*;
-    // pub use wire;
-    // pub use zones::*;
+
+    #[cfg(feature = "cairo")]
+    pub use crate::draw::{
+        ZoneArrowConfig, ZoneBackgroundColor, ZoneCenterConfig, ZoneConfig, get_phase_color,
+    };
 
     #[doc(hidden)]
     pub use stem_wire;

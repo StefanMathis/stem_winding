@@ -457,27 +457,3 @@ pub fn multiphase_system(
             .cos()
     });
 }
-
-#[cfg(feature = "cairo")]
-#[derive(Clone, Debug)]
-pub struct WindingZoneDrawables {
-    pub(crate) winding_zones: WindingZones,
-    pub(crate) zone_config: crate::ZoneConfig,
-}
-
-#[cfg(feature = "cairo")]
-impl WindingZoneDrawables {
-    pub(crate) fn new(winding_zones: WindingZones, zone_config: crate::ZoneConfig) {
-        return WindingZoneDrawables {};
-    }
-}
-
-#[cfg(feature = "cairo")]
-impl Iterator for WindingZoneDrawables {
-    type Item = (Zone, Drawable);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let zone = self.winding_zones.next()?;
-        return Some(zone.into_drawable());
-    }
-}

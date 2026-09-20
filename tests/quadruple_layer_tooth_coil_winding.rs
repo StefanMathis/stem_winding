@@ -149,22 +149,22 @@ fn test_equal_turns_per_coil_9_8() {
         assert_eq!(winding_table, expected_result);
 
         // All layers in slot 1
-        assert_eq!(winding.phase_at(Zone::new(0, LL)).unwrap(), 1);
-        assert_eq!(winding.phase_at(Zone::new(0, UL)).unwrap(), 1);
-        assert_eq!(winding.phase_at(Zone::new(0, UR)).unwrap(), 1);
-        assert_eq!(winding.phase_at(Zone::new(0, LR)).unwrap(), 1);
+        assert_eq!(winding.phase_at(Zone::new(0, LL)), 1);
+        assert_eq!(winding.phase_at(Zone::new(0, UL)), 1);
+        assert_eq!(winding.phase_at(Zone::new(0, UR)), 1);
+        assert_eq!(winding.phase_at(Zone::new(0, LR)), 1);
 
         // All layers in slot 2
-        assert_eq!(winding.phase_at(Zone::new(1, LL)).unwrap(), -1);
-        assert_eq!(winding.phase_at(Zone::new(1, UL)).unwrap(), -1);
-        assert_eq!(winding.phase_at(Zone::new(1, UR)).unwrap(), 2);
-        assert_eq!(winding.phase_at(Zone::new(1, LR)).unwrap(), 2);
+        assert_eq!(winding.phase_at(Zone::new(1, LL)), -1);
+        assert_eq!(winding.phase_at(Zone::new(1, UL)), -1);
+        assert_eq!(winding.phase_at(Zone::new(1, UR)), 2);
+        assert_eq!(winding.phase_at(Zone::new(1, LR)), 2);
 
         // All layers in slot 3
-        assert_eq!(winding.phase_at(Zone::new(2, LL)).unwrap(), -2);
-        assert_eq!(winding.phase_at(Zone::new(2, UL)).unwrap(), -2);
-        assert_eq!(winding.phase_at(Zone::new(2, UR)).unwrap(), -2);
-        assert_eq!(winding.phase_at(Zone::new(2, LR)).unwrap(), -2);
+        assert_eq!(winding.phase_at(Zone::new(2, LL)), -2);
+        assert_eq!(winding.phase_at(Zone::new(2, UL)), -2);
+        assert_eq!(winding.phase_at(Zone::new(2, UR)), -2);
+        assert_eq!(winding.phase_at(Zone::new(2, LR)), -2);
     }
 
     {
@@ -193,22 +193,22 @@ fn test_equal_turns_per_coil_9_8() {
         assert_eq!(winding_table, expected_result);
 
         // All layers in slot 1
-        assert_eq!(winding.phase_at(Zone::new(0, LL)).unwrap(), 1);
-        assert_eq!(winding.phase_at(Zone::new(0, UL)).unwrap(), 1);
-        assert_eq!(winding.phase_at(Zone::new(0, UR)).unwrap(), 1);
-        assert_eq!(winding.phase_at(Zone::new(0, LR)).unwrap(), 1);
+        assert_eq!(winding.phase_at(Zone::new(0, LL)), 1);
+        assert_eq!(winding.phase_at(Zone::new(0, UL)), 1);
+        assert_eq!(winding.phase_at(Zone::new(0, UR)), 1);
+        assert_eq!(winding.phase_at(Zone::new(0, LR)), 1);
 
         // All layers in slot 2
-        assert_eq!(winding.phase_at(Zone::new(1, LL)).unwrap(), -1);
-        assert_eq!(winding.phase_at(Zone::new(1, UL)).unwrap(), -1);
-        assert_eq!(winding.phase_at(Zone::new(1, UR)).unwrap(), -1);
-        assert_eq!(winding.phase_at(Zone::new(1, LR)).unwrap(), 2);
+        assert_eq!(winding.phase_at(Zone::new(1, LL)), -1);
+        assert_eq!(winding.phase_at(Zone::new(1, UL)), -1);
+        assert_eq!(winding.phase_at(Zone::new(1, UR)), -1);
+        assert_eq!(winding.phase_at(Zone::new(1, LR)), 2);
 
         // All layers in slot 3
-        assert_eq!(winding.phase_at(Zone::new(2, LL)).unwrap(), -2);
-        assert_eq!(winding.phase_at(Zone::new(2, UL)).unwrap(), 1);
-        assert_eq!(winding.phase_at(Zone::new(2, UR)).unwrap(), -2);
-        assert_eq!(winding.phase_at(Zone::new(2, LR)).unwrap(), -2);
+        assert_eq!(winding.phase_at(Zone::new(2, LL)), -2);
+        assert_eq!(winding.phase_at(Zone::new(2, UL)), 1);
+        assert_eq!(winding.phase_at(Zone::new(2, UR)), -2);
+        assert_eq!(winding.phase_at(Zone::new(2, LR)), -2);
 
         // Check turns per coil at different positions
 
@@ -252,28 +252,28 @@ fn test_equal_turns_per_coil_9_8() {
         assert_eq!(winding_table, expected_result);
 
         // All layers in slot 1
-        assert_eq!(winding.phase_at(Zone::new(0, LL)).unwrap(), 1);
-        assert_eq!(winding.phase_at(Zone::new(0, UL)).unwrap(), -3);
-        assert_eq!(winding.phase_at(Zone::new(0, UR)).unwrap(), 1);
-        assert_eq!(winding.phase_at(Zone::new(0, LR)).unwrap(), 1);
+        assert_eq!(winding.phase_at(Zone::new(0, LL)), 1);
+        assert_eq!(winding.phase_at(Zone::new(0, UL)), -3);
+        assert_eq!(winding.phase_at(Zone::new(0, UR)), 1);
+        assert_eq!(winding.phase_at(Zone::new(0, LR)), 1);
 
         // All layers in slot 2
-        assert_eq!(winding.phase_at(Zone::new(1, LL)).unwrap(), -1);
-        assert_eq!(winding.phase_at(Zone::new(1, UL)).unwrap(), -1);
-        assert_eq!(winding.phase_at(Zone::new(1, UR)).unwrap(), -1);
-        assert_eq!(winding.phase_at(Zone::new(1, LR)).unwrap(), 2);
+        assert_eq!(winding.phase_at(Zone::new(1, LL)), -1);
+        assert_eq!(winding.phase_at(Zone::new(1, UL)), -1);
+        assert_eq!(winding.phase_at(Zone::new(1, UR)), -1);
+        assert_eq!(winding.phase_at(Zone::new(1, LR)), 2);
 
         // All layers in slot 3
-        assert_eq!(winding.phase_at(Zone::new(2, LL)).unwrap(), -2);
-        assert_eq!(winding.phase_at(Zone::new(2, UL)).unwrap(), 1);
-        assert_eq!(winding.phase_at(Zone::new(2, UR)).unwrap(), 1);
-        assert_eq!(winding.phase_at(Zone::new(2, LR)).unwrap(), -2);
+        assert_eq!(winding.phase_at(Zone::new(2, LL)), -2);
+        assert_eq!(winding.phase_at(Zone::new(2, UL)), 1);
+        assert_eq!(winding.phase_at(Zone::new(2, UR)), 1);
+        assert_eq!(winding.phase_at(Zone::new(2, LR)), -2);
 
         // All layers in slot 4
-        assert_eq!(winding.phase_at(Zone::new(3, LL)).unwrap(), 2);
-        assert_eq!(winding.phase_at(Zone::new(3, UL)).unwrap(), -1);
-        assert_eq!(winding.phase_at(Zone::new(3, UR)).unwrap(), 2);
-        assert_eq!(winding.phase_at(Zone::new(3, LR)).unwrap(), 2);
+        assert_eq!(winding.phase_at(Zone::new(3, LL)), 2);
+        assert_eq!(winding.phase_at(Zone::new(3, UL)), -1);
+        assert_eq!(winding.phase_at(Zone::new(3, UR)), 2);
+        assert_eq!(winding.phase_at(Zone::new(3, LR)), 2);
 
         approxim::assert_abs_diff_eq!(0.046, winding.winding_factor(ONE, 0.25), epsilon = 0.001);
         approxim::assert_abs_diff_eq!(0.024, winding.winding_factor(ONE, 0.5), epsilon = 0.001);

@@ -568,20 +568,20 @@ fn test_double_layer_differing_number_of_coils_24_2_dl() {
         assert_eq!(winding.turns_at(Zone::new(2, 1)), 115);
         assert_eq!(winding.turns_at(Zone::new(3, 1)), 85);
 
-        assert_eq!(winding.phase_at(Zone::new(0, 0)).unwrap(), 1);
-        assert_eq!(winding.phase_at(Zone::new(1, 0)).unwrap(), 1);
-        assert_eq!(winding.phase_at(Zone::new(2, 0)).unwrap(), -1);
-        assert_eq!(winding.phase_at(Zone::new(3, 0)).unwrap(), -1);
+        assert_eq!(winding.phase_at(Zone::new(0, 0)), 1);
+        assert_eq!(winding.phase_at(Zone::new(1, 0)), 1);
+        assert_eq!(winding.phase_at(Zone::new(2, 0)), -1);
+        assert_eq!(winding.phase_at(Zone::new(3, 0)), -1);
 
-        assert_eq!(winding.phase_at(Zone::new(12, 0)).unwrap(), 1);
-        assert_eq!(winding.phase_at(Zone::new(13, 0)).unwrap(), 1);
-        assert_eq!(winding.phase_at(Zone::new(14, 0)).unwrap(), -1);
-        assert_eq!(winding.phase_at(Zone::new(15, 0)).unwrap(), -1);
+        assert_eq!(winding.phase_at(Zone::new(12, 0)), 1);
+        assert_eq!(winding.phase_at(Zone::new(13, 0)), 1);
+        assert_eq!(winding.phase_at(Zone::new(14, 0)), -1);
+        assert_eq!(winding.phase_at(Zone::new(15, 0)), -1);
 
-        assert_eq!(winding.phase_at(Zone::new(0, 1)).unwrap(), 2);
-        assert_eq!(winding.phase_at(Zone::new(1, 1)).unwrap(), 2);
-        assert_eq!(winding.phase_at(Zone::new(2, 1)).unwrap(), -3);
-        assert_eq!(winding.phase_at(Zone::new(3, 1)).unwrap(), -3);
+        assert_eq!(winding.phase_at(Zone::new(0, 1)), 2);
+        assert_eq!(winding.phase_at(Zone::new(1, 1)), 2);
+        assert_eq!(winding.phase_at(Zone::new(2, 1)), -3);
+        assert_eq!(winding.phase_at(Zone::new(3, 1)), -3);
 
         // Check the winding factor
         approxim::assert_abs_diff_eq!(0.5166, winding.winding_factor(ONE, 1.0), epsilon = 0.0001);

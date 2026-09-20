@@ -20,8 +20,8 @@ fn test_cage_winding_properties() {
     ); // Holds true for all cage windings
     assert_eq!(cage_winding.turns_at(Zone::new(2, 0)), 1); // Holds true for all cage windings
 
-    assert_eq!(cage_winding.phase_at(Zone::new(2, 0)).unwrap(), 3); // Holds true for all cage windings
-    assert_eq!(cage_winding.phase_at(Zone::new(3, 0)).unwrap(), 4); // Holds true for all cage windings
+    assert_eq!(cage_winding.phase_at(Zone::new(2, 0)), 3); // Holds true for all cage windings
+    assert_eq!(cage_winding.phase_at(Zone::new(3, 0)), 4); // Holds true for all cage windings
 }
 
 #[test]
