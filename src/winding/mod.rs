@@ -181,12 +181,27 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     this function would be 7 mm (│ + ┌ + 4*─ + ┐).
 
     ```text
-       ┌──────┐
-    ┌──│      │──┐
-    │  │ Core │  │ <-- Coil
-    └──│      │──┘
-       └──────┘
+       ╔══════╗
+    ┏━━║      ║━━┓
+    ┃  ║ Core ║  ┃ <-- Coil
+    ┗━━║      ║━━┛
+       ╚══════╝
     ```
+    End winding half turn is bold.
+
+    Assignment end_winding_half_turn_length to zone:
+    End winding always belongs to the zone the current comes from
+    ```text
+           ┏━━━┓   ┏━━━┓
+           │   │   │           │
+    coil   ▲   ▼   ▲           ▼
+           │   │   │           │
+           ┗━━━┛           ┗━━━┛
+            (a)     (b)     (c)
+    ```
+    (a) Full coil through `Zone { slot: 0, layer:0 }` and `Zone { slot: 1, layer:0 }`
+    (b) End winding associated with `Zone { slot: 0, layer:0 }`
+    (c) End winding associated with `Zone { slot: 1, layer:0 }`
      */
     #[cfg(feature = "stem_core")]
     fn end_winding_half_turn_length(&self, _core: CoreRef<'_>, _zone: Zone) -> Length {

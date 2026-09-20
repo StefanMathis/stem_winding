@@ -202,7 +202,9 @@ The default value for all properties is `None`.
 pub struct Overrides {
     /// Overrides for individual coils, characterised by one of their zones.
     /// If more than one zone of a single coil is specified, the value which
-    /// corresponds to the first zone returned by [`CoilExt::zones`] is used
+    /// corresponds to the first zone returned by [`CoilExt::zones`] is used.
+    /// See [`Winding::end_winding_half_turn_length`] on which zone corresponds
+    /// to which end winding.
     #[cfg_attr(feature = "serde", serde(default))]
     pub end_winding_half_turn_lengths: HashMap<Zone, Length>,
 
