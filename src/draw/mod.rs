@@ -1,9 +1,13 @@
-pub mod cross_section;
 use std::num::NonZeroU16;
 
 use colorgrad::Gradient;
-pub use cross_section::*;
 use stem_core::planar_geo::draw::Color;
+
+pub mod cross_section;
+pub use cross_section::*;
+
+pub mod end_winding_layouter;
+pub use end_winding_layouter::*;
 
 /**
 Returns the color for a phase
