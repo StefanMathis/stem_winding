@@ -295,7 +295,6 @@ impl ZoneArrowConfig {
                 a: 1.0,
             }
         };
-        println!("phase {phase} phase_color {:?}", phase_color);
 
         if rel_curr > 0.0 {
             if let Some(arrow_components) =
