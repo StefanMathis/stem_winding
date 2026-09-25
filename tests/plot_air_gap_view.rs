@@ -9,12 +9,13 @@ mod cairo_tests {
 
     #[test]
     fn test_coil() {
-        let ew_drawing = CoilDrawablesParameters {
+        let params = CoilDrawablesParameters {
             arrowhead_length: 0.5,
             line_width: 1.0,
             slot_width: 1.0,
             tooth_width: 1.0,
             axial_length: 4.0,
+            axial_coil_overhang: 0.8,
             arrow_head_height: 1.0,
             start_height: 0.0,
             delta_empty_zone: 0.1,
@@ -31,7 +32,7 @@ mod cairo_tests {
             let x_return = 3.5;
 
             let style = Style::default();
-            let drawables = ew_drawing.coil_drawable_from_coordinates(
+            let drawables = params.coil_drawable_from_coordinates(
                 NonZeroU16::new(6).unwrap(),
                 NonZeroU16::new(1).unwrap(),
                 x_outward,
@@ -64,7 +65,7 @@ mod cairo_tests {
         {
             let x_outward = 2.5;
             let x_return = 1.0;
-            let drawables = ew_drawing.coil_drawable_from_coordinates(
+            let drawables = params.coil_drawable_from_coordinates(
                 NonZeroU16::new(6).unwrap(),
                 NonZeroU16::new(1).unwrap(),
                 x_outward,
@@ -97,7 +98,7 @@ mod cairo_tests {
         {
             let x_outward = 2.5;
             let x_return = -0.5;
-            let drawables = ew_drawing.coil_drawable_from_coordinates(
+            let drawables = params.coil_drawable_from_coordinates(
                 NonZeroU16::new(6).unwrap(),
                 NonZeroU16::new(1).unwrap(),
                 x_outward,
@@ -130,7 +131,7 @@ mod cairo_tests {
         {
             let x_outward = 2.5;
             let x_return = 0.0;
-            let drawables = ew_drawing.coil_drawable_from_coordinates(
+            let drawables = params.coil_drawable_from_coordinates(
                 NonZeroU16::new(6).unwrap(),
                 NonZeroU16::new(1).unwrap(),
                 x_outward,
@@ -162,301 +163,198 @@ mod cairo_tests {
         }
     }
 
-    // #[test]
-    // fn test_distributed_winding_pointed() {
-    //     distributed_winding_priv(EndWindingStyle::Pointed {
-    //         end_winding_coil_angle: 30.0 / 180.0 * PI,
-    //     });
-    // }
-
-    // #[test]
-    // fn test_distributed_winding_layered() {
-    //     distributed_winding_priv(EndWindingStyle::Layered);
-    // }
-
-    // fn distributed_winding_priv(end_winding_style: EndWindingStyle) {
-    //     let ew_drawing = CoilDrawablesParameters {
-    //         arrowhead_length: 0.5,
-    //         line_width: 1.0,
-    //         slot_width: 1.0,
-    //         tooth_width: 1.0,
-    //         axial_length: 4.0,
-    //         arrow_head_height: 1.0,
-    //         start_height: 0.0,
-    //         delta_empty_zone: 0.1,
-    //         font_size: 14,
-    //         end_winding_style,
-    //         draw_both_sides: true,
-    //     };
-
-    //     let ew_style = match end_winding_style {
-    //         EndWindingStyle::Pointed {
-    //             end_winding_coil_angle: _,
-    //         } => "pointed",
-    //         EndWindingStyle::Layered => "layered",
-    //     };
-
-    //     {
-    //         let winding =
-    //             WindingDistributed::new_minimal(18, 4, 3, 1, 0, 0,
-    // ZonePlanMethod::CoilSide)                 .unwrap();
-    //         let drawables = ew_drawing.drawables(&winding);
-
-    //         let view =
-    //
-    // visualization::Viewport::from_bounded_entities(drawables.iter(),
-    // SideLength::LongSide(2000)).unwrap();         let name =
-    // format!("img/end_winding_{ew_style}_18_4_SL.png");         let path =
-    // std::path::Path::new(&name);         let callback = |path:
-    // &std::path::Path| {             return view.write_to_file(path, &|cr|
-    // {                 for drawable in drawables.iter() {
-    //                     drawable.draw(cr);
-    //                 }
-    //             });
-    //         };
-    //         assert!(compare_or_create(path, &callback).is_ok());
-    //     }
-
-    //     {
-    //         let winding =
-    //             WindingDistributed::new_minimal(36, 2, 3, 2, 0, 0,
-    // ZonePlanMethod::Tingley)                 .unwrap();
-    //         let drawables = ew_drawing.drawables(&winding);
-
-    //         let view =
-    //
-    // visualization::Viewport::from_bounded_entities(drawables.iter(),
-    // SideLength::LongSide(2000)).unwrap();         let name =
-    // format!("img/end_winding_{ew_style}_36_2_DL.png");         let path =
-    // std::path::Path::new(&name);         let callback = |path:
-    // &std::path::Path| {             return view.write_to_file(path, &|cr|
-    // {                 for drawable in drawables.iter() {
-    //                     drawable.draw(cr);
-    //                 }
-    //             });
-    //         };
-    //         assert!(compare_or_create(path, &callback).is_ok());
-    //     }
-
-    //     {
-    //         let winding =
-    //             WindingDistributed::new_minimal(36, 2, 3, 2, 1, 0,
-    // ZonePlanMethod::Tingley)                 .unwrap();
-    //         let drawables = ew_drawing.drawables(&winding);
-
-    //         let view =
-    //
-    // visualization::Viewport::from_bounded_entities(drawables.iter(),
-    // SideLength::LongSide(2000)).unwrap();         let name =
-    // format!("img/end_winding_{ew_style}_36_2_DL_pitch_1.png");
-    //         let path = std::path::Path::new(&name);
-    //         let callback = |path: &std::path::Path| {
-    //             return view.write_to_file(path, &|cr| {
-    //                 for drawable in drawables.iter() {
-    //                     drawable.draw(cr);
-    //                 }
-    //             });
-    //         };
-    //         assert!(compare_or_create(path, &callback).is_ok());
-    //     }
-    //     {
-    //         let winding = WindingDistributed::new(
-    //             12,
-    //             1,
-    //             3,
-    //             1,
-    //             0,
-    //             0,
-    //             1,
-    //             1,
-    //             Connection::Star,
-    //             0.0,
-    //             Box::new(wire::RoundWire::default()),
-    //             ZonePlanMethod::Tingley,
-    //             true,
-    //         )
-    //         .unwrap();
-    //         let drawables = ew_drawing.drawables(&winding);
-
-    //         let view =
-    //
-    // visualization::Viewport::from_bounded_entities(drawables.iter(),
-    // SideLength::LongSide(2000)).unwrap();         let name =
-    // format!("img/end_winding_{ew_style}_12_1_SL_concentric.png");
-    //         let path = std::path::Path::new(&name);
-    //         let callback = |path: &std::path::Path| {
-    //             return view.write_to_file(path, &|cr| {
-    //                 for drawable in drawables.iter() {
-    //                     drawable.draw(cr);
-    //                 }
-    //             });
-    //         };
-    //         assert!(compare_or_create(path, &callback).is_ok());
-    //     }
-    //     {
-    //         let winding = WindingDistributed::new(
-    //             12,
-    //             1,
-    //             3,
-    //             2,
-    //             0,
-    //             0,
-    //             1,
-    //             1,
-    //             Connection::Star,
-    //             0.0,
-    //             Box::new(wire::RoundWire::default()),
-    //             ZonePlanMethod::Tingley,
-    //             true,
-    //         )
-    //         .unwrap();
-    //         let drawables = ew_drawing.drawables(&winding);
-
-    //         let view =
-    //
-    // visualization::Viewport::from_bounded_entities(drawables.iter(),
-    // SideLength::LongSide(2000)).unwrap();         let name =
-    // format!("img/end_winding_{ew_style}_12_1_DL_concentric.png");
-    //         let path = std::path::Path::new(&name);
-    //         let callback = |path: &std::path::Path| {
-    //             return view.write_to_file(path, &|cr| {
-    //                 for drawable in drawables.iter() {
-    //                     drawable.draw(cr);
-    //                 }
-    //             });
-    //         };
-    //         assert!(compare_or_create(path, &callback).is_ok());
-    //     }
-    //     {
-    //         let winding = WindingDistributed::new(
-    //             12,
-    //             1,
-    //             3,
-    //             2,
-    //             0,
-    //             0,
-    //             1,
-    //             1,
-    //             Connection::Star,
-    //             0.0,
-    //             Box::new(wire::RoundWire::default()),
-    //             ZonePlanMethod::Tingley,
-    //             false,
-    //         )
-    //         .unwrap();
-    //         let drawables = ew_drawing.drawables(&winding);
-
-    //         let view =
-    //
-    // visualization::Viewport::from_bounded_entities(drawables.iter(),
-    // SideLength::LongSide(2000)).unwrap();         let name =
-    // format!("img/end_winding_{ew_style}_12_1_DL.png");         let path =
-    // std::path::Path::new(&name);         let callback = |path:
-    // &std::path::Path| {             return view.write_to_file(path, &|cr|
-    // {                 for drawable in drawables.iter() {
-    //                     drawable.draw(cr);
-    //                 }
-    //             });
-    //         };
-    //         assert!(compare_or_create(path, &callback).is_ok());
-    //     }
-    //     {
-    //         let winding = WindingDistributed::new(
-    //             36,
-    //             1,
-    //             3,
-    //             1,
-    //             0,
-    //             0,
-    //             1,
-    //             1,
-    //             Connection::Star,
-    //             0.0,
-    //             Box::new(wire::RoundWire::default()),
-    //             ZonePlanMethod::Tingley,
-    //             true,
-    //         )
-    //         .unwrap();
-    //         let drawables = ew_drawing.drawables(&winding);
-
-    //         let view =
-    //
-    // visualization::Viewport::from_bounded_entities(drawables.iter(),
-    // SideLength::LongSide(2000)).unwrap();         let name =
-    // format!("img/end_winding_{ew_style}_36_1_SL_concentric.png");
-    //         let path = std::path::Path::new(&name);
-    //         let callback = |path: &std::path::Path| {
-    //             return view.write_to_file(path, &|cr| {
-    //                 for drawable in drawables.iter() {
-    //                     drawable.draw(cr);
-    //                 }
-    //             });
-    //         };
-    //         assert!(compare_or_create(path, &callback).is_ok());
-    //     }
-    // }
-
-    // #[test]
-    // fn test_trait_object() {
-    //     let ew_drawing = CoilDrawablesParameters {
-    //         arrowhead_length: 0.5,
-    //         line_width: 1.0,
-    //         slot_width: 1.0,
-    //         tooth_width: 1.0,
-    //         axial_length: 4.0,
-    //         arrow_head_height: 1.0,
-    //         start_height: 0.0,
-    //         delta_empty_zone: 0.1,
-    //         font_size: 14,
-    //         end_winding_style: EndWindingStyle::Pointed {
-    //             end_winding_coil_angle: 30.0 / 180.0 * PI,
-    //         },
-    //         draw_both_sides: true,
-    //     };
-
-    //     let winding = WindingDistributed::new(
-    //         36,
-    //         1,
-    //         3,
-    //         1,
-    //         0,
-    //         0,
-    //         1,
-    //         1,
-    //         Connection::Star,
-    //         0.0,
-    //         Box::new(wire::RoundWire::default()),
-    //         ZonePlanMethod::Tingley,
-    //         true,
-    //     )
-    //     .unwrap();
-    //     let wdg_trait_object: &dyn IsWinding = &winding;
-
-    //     let drawables = ew_drawing.drawables(wdg_trait_object);
-
-    //     let view =
-    // visualization::Viewport::from_bounded_entities(drawables.iter(),
-    // SideLength::LongSide(2000)).unwrap();     let name =
-    // format!("img/end_winding_pointed_36_1_SL_concentric.png");
-    //     let path = std::path::Path::new(&name);
-    //     let callback = |path: &std::path::Path| {
-    //         return view.write_to_file(path, &|cr| {
-    //             for drawable in drawables.iter() {
-    //                 drawable.draw(cr);
-    //             }
-    //         });
-    //     };
-    //     assert!(compare_or_create(path, &callback).is_ok());
-    // }
+    #[test]
+    fn test_distributed_winding_pointed() {
+        distributed_winding_impl(EndWindingStyle::Pointed {
+            end_winding_coil_angle: 30.0 / 180.0 * PI,
+        });
+    }
 
     #[test]
-    fn test_tooth_coil_winding() {
-        let ew_drawing = CoilDrawablesParameters {
+    fn test_distributed_winding_layered() {
+        distributed_winding_impl(EndWindingStyle::Layered);
+    }
+
+    fn distributed_winding_impl(end_winding_style: EndWindingStyle) {
+        fn check<W: Winding>(winding: &W, params: &CoilDrawablesParameters, name: &str) {
+            let mut drawables: Vec<Drawable> = (0..(winding.slots().get() + 1))
+                .map(|slot| params.tooth_drawable(slot))
+                .collect();
+            for d in winding.coil_drawables(&params).map(|t| t.1) {
+                drawables.push(d);
+            }
+
+            let bb1 = BoundingBox::from_bounded_entities(drawables.iter()).unwrap();
+            let bb2 = params.bounding_box(winding, true);
+            assert!(bb1.approx_eq(&bb2, 1e-10));
+
+            let view = Viewport::from_bounding_box(&bb1, SideLength::Long(2000));
+            let path = std::path::Path::new(&name);
+            let callback = |path: &std::path::Path| {
+                return view.write_to_file(path, |cr| {
+                    cr.set_source_rgb(1.0, 1.0, 1.0);
+                    cr.paint()?;
+
+                    for drawable in drawables.iter() {
+                        drawable.draw(cr)?;
+                    }
+                    return Ok(());
+                });
+            };
+            assert!(compare_or_create(path, &callback, 0.99).is_ok());
+        }
+
+        let axial_coil_overhang = match end_winding_style {
+            EndWindingStyle::Pointed {
+                end_winding_coil_angle: _,
+            } => 0.8,
+            EndWindingStyle::Layered => 0.0,
+        };
+
+        let params = CoilDrawablesParameters {
             arrowhead_length: 0.5,
             line_width: 1.0,
             slot_width: 1.0,
             tooth_width: 1.0,
             axial_length: 4.0,
+            arrow_head_height: 1.0,
+            start_height: 0.0,
+            delta_empty_zone: 0.1,
+            font_size: 14,
+            end_winding_style,
+            draw_both_sides: true,
+            axial_coil_overhang,
+            cyclic: true,
+        };
+
+        let ew_style = match end_winding_style {
+            EndWindingStyle::Pointed {
+                end_winding_coil_angle: _,
+            } => "pointed",
+            EndWindingStyle::Layered => "layered",
+        };
+
+        {
+            let winding: DistributedWinding = DistributedMinimalBuilder {
+                slots: 18.try_into().expect("not zero"),
+                pole_pairs: 4.try_into().expect("not zero"),
+                phases: 3.try_into().expect("not zero"),
+                layers: 1.try_into().expect("not zero"),
+                coil_span_reduction: 0,
+                zone_span_variation: 0,
+                winding_table_method: WindingTableMethod::CoilSide,
+            }
+            .try_into()
+            .unwrap();
+            let name = format!("tests/img/end_winding_{ew_style}_18_4_SL.png");
+            check(&winding, &params, &name);
+        }
+
+        {
+            let winding: DistributedWinding = DistributedMinimalBuilder {
+                slots: 36.try_into().expect("not zero"),
+                pole_pairs: 2.try_into().expect("not zero"),
+                phases: 3.try_into().expect("not zero"),
+                layers: 2.try_into().expect("not zero"),
+                coil_span_reduction: 0,
+                zone_span_variation: 0,
+                winding_table_method: WindingTableMethod::Tingley,
+            }
+            .try_into()
+            .unwrap();
+            let name = format!("tests/img/end_winding_{ew_style}_36_2_DL.png");
+            check(&winding, &params, &name);
+        }
+
+        {
+            let winding: DistributedWinding = DistributedMinimalBuilder {
+                slots: 36.try_into().expect("not zero"),
+                pole_pairs: 2.try_into().expect("not zero"),
+                phases: 3.try_into().expect("not zero"),
+                layers: 2.try_into().expect("not zero"),
+                coil_span_reduction: 1,
+                zone_span_variation: 0,
+                winding_table_method: WindingTableMethod::Tingley,
+            }
+            .try_into()
+            .unwrap();
+            let name = format!("tests/img/end_winding_{ew_style}_36_2_DL_pitch_1.png");
+            check(&winding, &params, &name);
+        }
+        {
+            let mut winding: DistributedWinding = DistributedMinimalBuilder {
+                slots: 12.try_into().expect("not zero"),
+                pole_pairs: 1.try_into().expect("not zero"),
+                phases: 3.try_into().expect("not zero"),
+                layers: 1.try_into().expect("not zero"),
+                coil_span_reduction: 0,
+                zone_span_variation: 0,
+                winding_table_method: WindingTableMethod::Tingley,
+            }
+            .try_into()
+            .unwrap();
+            winding.set_concentric_coils(true);
+            let name = format!("tests/img/end_winding_{ew_style}_12_1_SL_concentric.png");
+            check(&winding, &params, &name);
+        }
+        {
+            let mut winding: DistributedWinding = DistributedMinimalBuilder {
+                slots: 12.try_into().expect("not zero"),
+                pole_pairs: 1.try_into().expect("not zero"),
+                phases: 3.try_into().expect("not zero"),
+                layers: 2.try_into().expect("not zero"),
+                coil_span_reduction: 0,
+                zone_span_variation: 0,
+                winding_table_method: WindingTableMethod::Tingley,
+            }
+            .try_into()
+            .unwrap();
+            winding.set_concentric_coils(true);
+            let name = format!("tests/img/end_winding_{ew_style}_12_1_DL_concentric.png");
+            check(&winding, &params, &name);
+        }
+        {
+            let winding: DistributedWinding = DistributedMinimalBuilder {
+                slots: 12.try_into().expect("not zero"),
+                pole_pairs: 1.try_into().expect("not zero"),
+                phases: 3.try_into().expect("not zero"),
+                layers: 2.try_into().expect("not zero"),
+                coil_span_reduction: 0,
+                zone_span_variation: 0,
+                winding_table_method: WindingTableMethod::Tingley,
+            }
+            .try_into()
+            .unwrap();
+            let name = format!("tests/img/end_winding_{ew_style}_12_1_DL.png");
+            check(&winding, &params, &name);
+        }
+        {
+            let mut winding: DistributedWinding = DistributedMinimalBuilder {
+                slots: 36.try_into().expect("not zero"),
+                pole_pairs: 1.try_into().expect("not zero"),
+                phases: 3.try_into().expect("not zero"),
+                layers: 1.try_into().expect("not zero"),
+                coil_span_reduction: 0,
+                zone_span_variation: 0,
+                winding_table_method: WindingTableMethod::Tingley,
+            }
+            .try_into()
+            .unwrap();
+            winding.set_concentric_coils(true);
+            let name = format!("tests/img/end_winding_{ew_style}_36_1_SL_concentric.png");
+            check(&winding, &params, &name);
+        }
+    }
+
+    #[test]
+    fn test_tooth_coil_winding() {
+        let params = CoilDrawablesParameters {
+            arrowhead_length: 0.5,
+            line_width: 1.0,
+            slot_width: 1.0,
+            tooth_width: 1.0,
+            axial_length: 4.0,
+            axial_coil_overhang: 0.8,
             arrow_head_height: 1.0,
             start_height: 0.0,
             delta_empty_zone: 0.1,
@@ -479,14 +377,17 @@ mod cairo_tests {
             .try_into()
             .unwrap();
             let mut drawables: Vec<Drawable> = (0..(winding.slots().get() + 1))
-                .map(|slot| ew_drawing.tooth_drawable(slot))
+                .map(|slot| params.tooth_drawable(slot))
                 .collect();
-            for d in winding.coil_drawables(&ew_drawing).map(|t| t.1) {
+            for d in winding.coil_drawables(&params).map(|t| t.1) {
                 drawables.push(d);
             }
 
-            let view =
-                Viewport::from_bounded_entities(drawables.iter(), SideLength::Long(2000)).unwrap();
+            let bb1 = BoundingBox::from_bounded_entities(drawables.iter()).unwrap();
+            let bb2 = params.bounding_box(&winding, true);
+            assert!(bb1.approx_eq(&bb2, 1e-10));
+
+            let view = Viewport::from_bounding_box(&bb1, SideLength::Long(2000));
             let path = std::path::Path::new("tests/img/end_winding_12_5_DL.png");
             let callback = |path: &std::path::Path| {
                 return view.write_to_file(path, |cr| {
@@ -500,17 +401,33 @@ mod cairo_tests {
                 });
             };
             assert!(compare_or_create(path, &callback, 0.99).is_ok());
+
+            // Test strictly increasing zone index
+            let mut current_zone = Zone { slot: 0, layer: 0 };
+            for (zone, _) in winding.coil_drawables(&params) {
+                println!("{:?}", zone);
+                // if zone != current_zone {
+                //     if current_zone.layer == 1 {
+                //         current_zone.slot = current_zone.slot + 1;
+                //         current_zone.layer = 0;
+                //     } else {
+                //         current_zone.layer += 1;
+                //     }
+                //     assert_eq!(current_zone, zone);
+                // }
+            }
         }
     }
 
     #[test]
     fn test_tooth_coil_winding_half() {
-        let ew_drawing = CoilDrawablesParameters {
+        let params = CoilDrawablesParameters {
             arrowhead_length: 0.5,
             line_width: 1.0,
             slot_width: 1.0,
             tooth_width: 1.0,
             axial_length: 4.0,
+            axial_coil_overhang: 0.8,
             arrow_head_height: 1.0,
             start_height: 0.0,
             delta_empty_zone: 0.1,
@@ -533,14 +450,17 @@ mod cairo_tests {
             .try_into()
             .unwrap();
             let mut drawables: Vec<Drawable> = (0..(winding.slots().get() + 1))
-                .map(|slot| ew_drawing.tooth_drawable(slot))
+                .map(|slot| params.tooth_drawable(slot))
                 .collect();
-            for d in winding.coil_drawables(&ew_drawing).map(|t| t.1) {
+            for d in winding.coil_drawables(&params).map(|t| t.1) {
                 drawables.push(d);
             }
 
-            let view =
-                Viewport::from_bounded_entities(drawables.iter(), SideLength::Long(2000)).unwrap();
+            let bb1 = BoundingBox::from_bounded_entities(drawables.iter()).unwrap();
+            let bb2 = params.bounding_box(&winding, true);
+            assert!(bb1.approx_eq(&bb2, 1e-10));
+
+            let view = Viewport::from_bounding_box(&bb1, SideLength::Long(2000));
             let path = std::path::Path::new("tests/img/end_winding_12_5_DL_halfed.png");
             let callback = |path: &std::path::Path| {
                 return view.write_to_file(path, |cr| {
@@ -559,12 +479,13 @@ mod cairo_tests {
 
     #[test]
     fn test_coil_assembly() {
-        let ew_drawing = CoilDrawablesParameters {
+        let params = CoilDrawablesParameters {
             arrowhead_length: 0.5,
             line_width: 1.0,
             slot_width: 1.0,
             tooth_width: 1.0,
             axial_length: 4.0,
+            axial_coil_overhang: 0.8,
             arrow_head_height: 1.0,
             start_height: 0.0,
             delta_empty_zone: 0.1,
@@ -631,14 +552,17 @@ mod cairo_tests {
             .unwrap();
 
             let mut drawables: Vec<Drawable> = (0..(winding.slots().get() + 1))
-                .map(|slot| ew_drawing.tooth_drawable(slot))
+                .map(|slot| params.tooth_drawable(slot))
                 .collect();
-            for d in winding.coil_drawables(&ew_drawing).map(|t| t.1) {
+            for d in winding.coil_drawables(&params).map(|t| t.1) {
                 drawables.push(d);
             }
 
-            let view =
-                Viewport::from_bounded_entities(drawables.iter(), SideLength::Long(2000)).unwrap();
+            let bb1 = BoundingBox::from_bounded_entities(drawables.iter()).unwrap();
+            let bb2 = params.bounding_box(&winding, true);
+            assert!(bb1.approx_eq(&bb2, 1e-10));
+
+            let view = Viewport::from_bounding_box(&bb1, SideLength::Long(2000));
             let path = std::path::Path::new("tests/img/end_winding_ca_12_1_a.png");
             let callback = |path: &std::path::Path| {
                 return view.write_to_file(path, |cr| {

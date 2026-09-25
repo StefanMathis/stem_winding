@@ -151,6 +151,7 @@ pub struct CoilDrawablesParameters {
     pub axial_length: f64,
     pub start_height: f64,
     pub arrow_head_height: f64,
+    pub axial_coil_overhang: f64,
     /**
     Relative margin between the border of an empty zone and the tooth.
     The absolute margin is calculated as `delta_empty_zone * slot_width / layers`.
@@ -190,6 +191,7 @@ impl Default for CoilDrawablesParameters {
             slot_width: 1.0,
             tooth_width: 1.0,
             axial_length: 4.0,
+            axial_coil_overhang: 0.8,
             start_height: 0.0,
             arrow_head_height: 1.0,
             delta_empty_zone: 0.1,
@@ -222,6 +224,7 @@ impl From<CoreRef<'_>> for CoilDrawablesParameters {
             slot_width,
             tooth_width,
             axial_length: core.axial_length().get::<meter>(),
+            axial_coil_overhang: 1.2 * core.axial_length().get::<meter>(),
             arrow_head_height: 0.25 * core.axial_length().get::<meter>(),
             start_height: 0.0,
             delta_empty_zone: 0.1,
@@ -236,6 +239,70 @@ impl From<CoreRef<'_>> for CoilDrawablesParameters {
 }
 
 impl CoilDrawablesParameters {
+    pub fn max_coil_height(&self, winding: &dyn Winding) -> f64 {
+        let layers = winding.layers();
+        match self.end_winding_style {
+            EndWindingStyle::Pointed {
+                end_winding_coil_angle,
+            } => {
+                let total_len = f64::from(winding.slots().get()) * self.slot_and_tooth_width();
+
+                // Find the coil with the largest throw; it determines the
+                // height of the end winding
+                let max_dist = winding.coils().fold(0.0f64, |acc, c| match c {
+                    Coil::Full(full_coil) => {
+                        let x1 = self.horizontal_coil_position(full_coil.positive_zone(), layers);
+                        let x2 = self.horizontal_coil_position(full_coil.negative_zone(), layers);
+
+                        let zone_dist = if self.cyclic {
+                            if full_coil.positive_slot_direction() {
+                                if full_coil.positive_zone() < full_coil.negative_zone() {
+                                    x2 - x1
+                                } else {
+                                    total_len - (x1 - x2)
+                                }
+                            } else {
+                                if full_coil.positive_zone() < full_coil.negative_zone() {
+                                    total_len - (x2 - x1)
+                                } else {
+                                    x1 - x2
+                                }
+                            }
+                        } else {
+                            (x1 - x2).abs()
+                        };
+                        acc.max(zone_dist)
+                    }
+                    Coil::Half(_) => acc,
+                });
+                let height = 0.5 * max_dist * end_winding_coil_angle.sin();
+                return height + 0.5 * self.axial_coil_length();
+            }
+            EndWindingStyle::Layered => {
+                // Find the highest rank
+                let highest_rank = EndWindingLayouter::new(winding, self.cyclic)
+                    .fold(0usize, |acc, car| acc.max(car.winding_head_layer));
+
+                let layer_dist = self.slot_width / (layers.get() + 1) as f64;
+                return 0.5 * self.axial_coil_length() + layer_dist * (highest_rank + 1) as f64;
+            }
+        }
+    }
+
+    pub fn bounding_box(&self, winding: &dyn Winding, with_teeth: bool) -> BoundingBox {
+        let ymax = self.max_coil_height(winding);
+        let ymin = if self.draw_both_sides { -ymax } else { 0.0 };
+        let mut xmin = 0.0;
+        let mut xmax =
+            self.slot_and_tooth_width() * f64::from(winding.slots().get()) + self.tooth_width;
+        if !with_teeth {
+            xmin += 0.5 * self.tooth_width;
+            xmax -= 0.5 * self.tooth_width;
+        }
+
+        BoundingBox::try_new(xmin, xmax, ymin, ymax).unwrap_or(BoundingBox::new(0.0, 0.0, 0.0, 0.0))
+    }
+
     pub fn validate(&self) -> Result<(), Comparison<f64>> {
         compare_variables!(self.arrowhead_length >= 0.0)?;
         compare_variables!(self.line_width >= 0.0)?;
@@ -623,7 +690,7 @@ impl CoilDrawablesParameters {
     ) -> [Option<Polysegment>; 2] {
         let mut polysegments = [None, None];
         let layer_dist = self.slot_width / (layers.get() + 1) as f64;
-        let layer_height = 0.5 * self.axial_length + layer_dist * winding_head_layer as f64;
+        let layer_height = 0.5 * self.axial_coil_length() + layer_dist * winding_head_layer as f64;
 
         let [x_left, x_right] = if x_outward < x_return {
             [x_outward, x_return]
@@ -643,7 +710,7 @@ impl CoilDrawablesParameters {
             if let Ok(arc) = ArcSegment::from_start_center_angle(
                 [x_left - layer_dist, layer_height + layer_dist],
                 [x_left - layer_dist, layer_height],
-                FRAC_PI_2,
+                -FRAC_PI_2,
             ) {
                 ps1.push_back(arc.into());
             }
@@ -683,7 +750,7 @@ impl CoilDrawablesParameters {
             if let Ok(arc) = ArcSegment::from_start_center_angle(
                 [x_left, layer_height],
                 [x_left + layer_dist, layer_height],
-                FRAC_PI_2,
+                -FRAC_PI_2,
             ) {
                 ps.push_back(arc.into());
             }
@@ -696,7 +763,7 @@ impl CoilDrawablesParameters {
             if let Ok(arc) = ArcSegment::from_start_center_angle(
                 [x_right - layer_dist, layer_height + layer_dist],
                 [x_right - layer_dist, layer_height],
-                FRAC_PI_2,
+                -FRAC_PI_2,
             ) {
                 ps.push_back(arc.into());
             }
@@ -825,7 +892,7 @@ impl CoilDrawablesParameters {
     }
 
     pub fn axial_coil_length(&self) -> f64 {
-        return self.axial_length * 1.2;
+        return self.axial_length + self.axial_coil_overhang;
     }
 
     pub fn clamp_x(&self, x: f64, slots: NonZeroU16) -> f64 {
@@ -882,8 +949,8 @@ impl AnnotationInfo {
 
         let anchors_and_slots = if center_annotations {
             [
-                (Anchor::Right, right_zone.slot),
-                (Anchor::Left, left_zone.slot),
+                (Anchor::Left, right_zone.slot),
+                (Anchor::Right, left_zone.slot),
             ]
         } else {
             if self.slots.get() == left_zone.slot + right_zone.slot + 1 {
