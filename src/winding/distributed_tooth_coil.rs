@@ -154,18 +154,13 @@ impl DistributedToothCoilWinding {
 
     fn create_coils(&mut self, winding_table: &WindingTable) -> Result<(), Error> {
         for slot in 0..self.slots.get() {
-            for layer in 0..self.layers.get() {
+            for layer in 0..self.layers().get() {
                 let zone = Zone { slot, layer };
-
-                // Check if the zone is already occupied
-                if self.coils.0.contains_key(&zone) {
+                if self.coils.occupied(zone) {
                     continue;
                 }
-
-                // Insert the coil
                 if let Some(coil) = self.create_single_coil(zone, winding_table) {
-                    let zones: Vec<Zone> = coil.zones().collect();
-                    self.coils.0.insert_many(zones, coil).map_err(Error::from)?;
+                    self.coils.insert(coil).map_err(Error::from)?;
                 }
             }
         }
@@ -186,7 +181,7 @@ impl DistributedToothCoilWinding {
         for k in 1..(self.coils_per_coil_group() + 1) {
             let search_slot = (k + slot).rem_euclid(self.slots().get());
 
-            if self.coils.0.contains_key(&Zone::new(search_slot, layer)) {
+            if self.coils.occupied(Zone::new(search_slot, layer)) {
                 break;
             }
 
@@ -310,7 +305,7 @@ impl Winding for DistributedToothCoilWinding {
     }
 
     fn coil_at(&self, zone: Zone) -> Option<&Coil> {
-        return self.coils.0.get(&zone);
+        return self.coils.get(zone);
     }
 
     /**
@@ -401,7 +396,8 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
             builder.double_zone_span,
         )?;
 
-        // Create the winding
+        let num_zones = (builder.slots.get() * builder.layers.get()).into();
+        let num_coils = num_zones / 2;
         let mut winding = DistributedToothCoilWinding {
             slots: builder.slots,
             pole_pairs: builder.pole_pairs,
@@ -411,7 +407,7 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
             connection: builder.connection,
             end_winding_leakage_coefficient: builder.end_winding_leakage_coefficient,
             wires: builder.wires,
-            coils: Coils::with_capacity((builder.slots.get() * builder.layers.get() / 2).into()),
+            coils: Coils::with_capacity(num_zones, num_coils),
             base_winding_count: NonZeroU16::new(base_winding_count).expect("not zero"),
             double_zone_span: builder.double_zone_span,
         };

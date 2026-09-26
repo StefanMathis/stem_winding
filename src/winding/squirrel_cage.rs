@@ -158,7 +158,7 @@ impl Winding for SquirrelCageWinding {
     }
 
     fn coil_at(&self, zone: Zone) -> Option<&Coil> {
-        self.coils.0.get(&zone)
+        self.coils.get(zone)
     }
 
     fn as_dyn(&self) -> &dyn Winding {
@@ -408,7 +408,8 @@ impl TryFrom<SquirrelCageBuilder> for SquirrelCageWinding {
     fn try_from(builder: SquirrelCageBuilder) -> Result<Self, Self::Error> {
         compare_variables!(0.0 <= builder.end_winding_leakage_coefficient)?;
 
-        let mut coils = Coils::with_capacity(u16::from(builder.slots).into());
+        let cap = u16::from(builder.slots).into();
+        let mut coils = Coils::with_capacity(cap, cap);
         for slot in 0..u16::from(builder.slots) {
             let zone = Zone::new(slot, 0);
             let coil: Coil = HalfCoil::new(
@@ -419,7 +420,7 @@ impl TryFrom<SquirrelCageBuilder> for SquirrelCageWinding {
                 clone_box(&*builder.wire),
             )
             .into();
-            coils.0.insert(zone, coil);
+            coils.insert(coil)?;
         }
 
         return Ok(SquirrelCageWinding {
@@ -445,7 +446,8 @@ pub struct SquirrelCageMinimalBuilder {
 
 impl From<SquirrelCageMinimalBuilder> for SquirrelCageWinding {
     fn from(builder: SquirrelCageMinimalBuilder) -> Self {
-        let mut coils = Coils::with_capacity(u16::from(builder.slots).into());
+        let cap = u16::from(builder.slots).into();
+        let mut coils = Coils::with_capacity(cap, cap);
         for slot in 0..u16::from(builder.slots) {
             let zone = Zone::new(slot, 0);
             let coil: Coil = HalfCoil::new(
@@ -456,7 +458,9 @@ impl From<SquirrelCageMinimalBuilder> for SquirrelCageWinding {
                 Box::new(SffWire::default()),
             )
             .into();
-            coils.0.insert(zone, coil);
+            coils
+                .insert(coil)
+                .expect("each coil occupies individual zones");
         }
 
         SquirrelCageWinding {

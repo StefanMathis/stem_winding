@@ -1,7 +1,29 @@
+/*!
+A [`Coil`] consists of a [`Wire`] which is wound into a series of continuous
+loops which are placed next to each other so they form a single, thick loop.
+When an electric current flows through it, it creates a magnetic field.
+
+In stem, the [`Coil`] type is the fundamental building block of a
+[`Winding`](crate::winding::Winding) and occupies one or more of its [`Zone`]s.
+It consists of a [`Wire`] trait object and additional information like the
+number of loops ([`turns`](CoilExt::turns)) or the [`phase`](CoilExt::phase) it
+is connected with. Since there are multiple possible coil types ([`HalfCoil`]
+and [`FullCoil`]), common functionality is factored out in the sealed
+[`CoilExt`] trait.
+
+Any [`Zone`] of a [`Winding`](crate::winding::Winding) can be occupied by at
+most one coil. This allows using a [`Zone`] as an identifier for a [`Coil`]
+within a [`Winding`](crate::winding::Winding). The [`Coils`] hash map allows
+storing a [`Coil`] in a manner so it can be retrieved from any of its zones and
+is a useful building block when defining custom
+[`Winding`](crate::winding::Winding)s. All predefined windings within this crate
+use [`Coils`] to provide convenient access to their individual coils.
+ */
+
 use std::num::{NonZeroU16, NonZeroUsize};
 
 use crate::error::Error;
-use keyring_map::KeyringMap;
+use keyring_map::{InsertionError, KeyringMap};
 use num::Complex;
 use stem_coil_layout::Zone;
 use stem_wire::prelude::*;
@@ -9,8 +31,77 @@ use stem_wire::prelude::*;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+/**
+A convenience wrapper around a [`KeyringMap<Zone, Coil>`] for storing the
+[`Coil`]s of a [`Winding`](crate::winding::Winding).
+
+A [`Zone`] of a [`Winding`](crate::winding::Winding) can contain at most one
+[`Coil`] (it can also be empty). Since a [`Coil`] can occupy multiple zones,
+a multi-key hash map provides a convenient way to access the same coil using any
+of its [`Zone`]s as a key. [`Coils`] is a thin wrapper around that map which
+exposes a subset of the functionality of [`KeyringMap<Zone, Coil>`] to prevent
+"illegal" operations (like inserting a [`Coil`] with a [`Zone`] it doesn't
+occupy).
+
+# Serialization and deserialization
+
+[`Coils`] provides a very convenient serialization and
+deserialization model: Since a [`Coil`] already knows which zones it occupies,
+[`Coils`] can be serialized into and deserialized from a simple sequence of
+coils, it is not necessary to use the map representation of the serialization
+format:
+
+```
+use indoc::indoc;
+use stem_winding::prelude::*;
+use yaml_serde;
+
+ let yaml = indoc! {"
+- !Full
+    positive_zone:
+      slot: 0
+      layer: 0
+    negative_zone:
+      slot: 1
+      layer: 0
+    positive_slot_direction: true
+    turns: 1
+    phase: 1
+    wire:
+      RoundWire:
+        outer_diameter: 1 mm
+        inner_diameter: 0 mm
+        insulation_thickness: 0 mm
+        conductor_material:
+          name: Copper
+          relative_permeability: 1
+- !Full
+    positive_zone:
+      slot: 3
+      layer: 0
+    negative_zone:
+      slot: 2
+      layer: 0
+    positive_slot_direction: false
+    turns: 1
+    phase: 2
+    wire:
+      RoundWire:
+        outer_diameter: 1 mm
+        inner_diameter: 0 mm
+        insulation_thickness: 0 mm
+        conductor_material:
+          name: Copper
+          relative_permeability: 1
+"};
+
+let coils: Coils = yaml_serde::from_str(yaml).unwrap();
+assert_eq!(coils.num_coils(), 2);
+assert_eq!(coils.num_zones(), 4);
+```
+*/
 #[derive(Clone, Debug)]
-pub struct Coils(pub KeyringMap<Zone, Coil>);
+pub struct Coils(KeyringMap<Zone, Coil>);
 
 impl Default for Coils {
     fn default() -> Self {
@@ -19,23 +110,229 @@ impl Default for Coils {
 }
 
 impl Coils {
+    /// Creates a new [`Coils`] container. This doesn't allocate before a
+    /// [`Coil`] is inserted.
     pub fn new() -> Self {
         return Self(KeyringMap::new());
     }
 
-    pub fn with_capacity(capacity: usize) -> Self {
-        return Self(KeyringMap::with_capacity(capacity, capacity));
+    /// Creates a new empty [`Coils`] container which preallocates space for the
+    /// specified number of zones and coils.
+    pub fn with_capacity(num_zones: usize, num_coils: usize) -> Self {
+        return Self(KeyringMap::with_capacity(num_zones, num_coils));
     }
 
-    /**
-    Convenience function which inserts the given coil with its zones.
-     */
-    pub fn insert_coil(
-        &mut self,
-        coil: Coil,
-    ) -> Result<(), keyring_map::InsertionError<(Vec<Zone>, Coil)>> {
+    /// Returns the number of zones stored in the map.
+    pub fn num_zones(&self) -> usize {
+        self.0.num_keys()
+    }
+
+    /// Returns the number of coils stored in the map.
+    pub fn num_coils(&self) -> usize {
+        self.0.num_values()
+    }
+
+    /// Returns a reference to the [`Coil`] occupying this [`Zone`], if present.
+    pub fn get(&self, zone: Zone) -> Option<&Coil> {
+        self.0.get(&zone)
+    }
+
+    /// Returns a mutable reference to the [`Coil`] occupying this [`Zone`], if
+    /// present, else `None`.
+    pub fn get_mut(&mut self, zone: Zone) -> Option<&mut Coil> {
+        self.0.get_mut(&zone)
+    }
+
+    /// Returns `true` if the given [`Zone`] is occupied by a [`Coil`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::{NonZeroU16, NonZeroUsize};
+    /// use stem_winding::prelude::*;
+    ///
+    /// let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    ///
+    /// let coil = FullCoil::new(
+    ///     Zone::new(0, 0),
+    ///     Zone::new(1, 0),
+    ///     true,
+    ///     NonZeroUsize::MIN,
+    ///     NonZeroU16::MIN,
+    ///     wire,
+    /// ).expect("zones not identical");
+    ///
+    /// let mut coils = Coils::new();
+    /// assert!(coils.insert(coil.into()).is_ok());
+    /// assert!(coils.occupied(Zone::new(0, 0)));
+    /// assert!(coils.occupied(Zone::new(1, 0)));
+    /// assert!(!coils.occupied(Zone::new(2, 0)));
+    /// ```
+    pub fn occupied(&self, zone: Zone) -> bool {
+        self.0.contains_key(&zone)
+    }
+
+    /// Removes all [`Coil`]s and their [`Zone`]s from the map while preserving
+    /// its capacity.
+    pub fn clear(&mut self) {
+        self.0.clear();
+    }
+
+    /// Inserts a [`Coil`], using all of its [`Zone`]s as keys. If any of the
+    /// zones is already occupied by another [`Coil`], an [`InsertionError`] is
+    /// returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::{NonZeroU16, NonZeroUsize};
+    /// use stem_winding::prelude::*;
+    ///
+    /// let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    ///
+    /// let coil = FullCoil::new(
+    ///     Zone::new(0, 0),
+    ///     Zone::new(1, 0),
+    ///     true,
+    ///     NonZeroUsize::MIN,
+    ///     NonZeroU16::MIN,
+    ///     wire,
+    /// ).expect("zones not identical");
+    ///
+    /// let mut coils = Coils::new();
+    /// assert_eq!(coils.num_zones(), 0);
+    /// assert_eq!(coils.num_coils(), 0);
+    ///
+    /// assert!(coils.insert(coil.clone().into()).is_ok());
+    /// assert_eq!(coils.num_zones(), 2);
+    /// assert_eq!(coils.num_coils(), 1);
+    ///
+    /// // Attempt to insert another coil occupying the same zones. This fails because
+    /// // the zones are already occupied.
+    /// assert!(coils.insert(coil.into()).is_err());
+    /// ```
+    pub fn insert(&mut self, coil: Coil) -> Result<(), InsertionError<(Vec<Zone>, Coil)>> {
         let zones: Vec<Zone> = coil.zones().collect();
         return self.0.insert_many(zones, coil);
+    }
+
+    /// Removes the [`Coil`] occupying the given `zone` and all of its zones
+    /// from the map and returns it. If no [`Coil`] occupies the given
+    /// `zone`, this method returns `None`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::{NonZeroU16, NonZeroUsize};
+    /// use stem_winding::prelude::*;
+    ///
+    /// let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    ///
+    /// let coil = FullCoil::new(
+    ///     Zone::new(0, 0),
+    ///     Zone::new(1, 0),
+    ///     true,
+    ///     NonZeroUsize::MIN,
+    ///     NonZeroU16::MIN,
+    ///     wire,
+    /// ).expect("zones not identical");
+    ///
+    /// let mut coils = Coils::new();
+    /// assert_eq!(coils.num_zones(), 0);
+    /// assert_eq!(coils.num_coils(), 0);
+    ///
+    /// assert!(coils.insert(coil.into()).is_ok());
+    /// assert_eq!(coils.num_zones(), 2);
+    /// assert_eq!(coils.num_coils(), 1);
+    ///
+    /// assert!(coils.remove(Zone::new(1, 0)).is_some());
+    /// assert_eq!(coils.num_zones(), 0);
+    /// assert_eq!(coils.num_coils(), 0);
+    /// ```
+    pub fn remove(&mut self, zone: Zone) -> Option<Coil> {
+        self.0.remove(&zone)
+    }
+
+    /// Returns an iterator over all coils.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::{NonZeroU16, NonZeroUsize};
+    /// use stem_winding::prelude::*;
+    ///
+    /// let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    ///
+    /// let coil = FullCoil::new(
+    ///     Zone::new(0, 0),
+    ///     Zone::new(1, 0),
+    ///     true,
+    ///     NonZeroUsize::MIN,
+    ///     NonZeroU16::MIN,
+    ///     wire,
+    /// ).expect("zones not identical");
+    ///
+    /// let mut coils = Coils::new();
+    /// assert!(coils.insert(coil.into()).is_ok());
+    /// assert_eq!(coils.iter_coils().count(), 1);
+    pub fn iter_coils(&self) -> impl Iterator<Item = &Coil> {
+        self.0.values()
+    }
+
+    /// Returns an iterator over all zones and the coils occupying them.
+    ///
+    /// Since multiple zones can point to the same coil, some cois can be
+    /// returned multiple times and the total number of returned pairs is equal
+    /// to the number of zones.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::{NonZeroU16, NonZeroUsize};
+    /// use stem_winding::prelude::*;
+    ///
+    /// let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    ///
+    /// let coil = FullCoil::new(
+    ///     Zone::new(0, 0),
+    ///     Zone::new(1, 0),
+    ///     true,
+    ///     NonZeroUsize::MIN,
+    ///     NonZeroU16::MIN,
+    ///     wire,
+    /// ).expect("zones not identical");
+    ///
+    /// let mut coils = Coils::new();
+    /// assert!(coils.insert(coil.into()).is_ok());
+    /// assert_eq!(coils.iter().count(), 2);
+    pub fn iter(&self) -> impl Iterator<Item = (&Zone, &Coil)> {
+        self.0.iter()
+    }
+
+    /// Returns an iterator over all zones.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::{NonZeroU16, NonZeroUsize};
+    /// use stem_winding::prelude::*;
+    ///
+    /// let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    ///
+    /// let coil = FullCoil::new(
+    ///     Zone::new(0, 0),
+    ///     Zone::new(1, 0),
+    ///     true,
+    ///     NonZeroUsize::MIN,
+    ///     NonZeroU16::MIN,
+    ///     wire,
+    /// ).expect("zones not identical");
+    ///
+    /// let mut coils = Coils::new();
+    /// assert!(coils.insert(coil.into()).is_ok());
+    /// assert_eq!(coils.iter_zones().count(), 2);
+    pub fn iter_zones(&self) -> impl Iterator<Item = &Zone> {
+        self.0.keys()
     }
 }
 
@@ -79,7 +376,7 @@ mod serde_impl {
                     A: serde::de::SeqAccess<'de>,
                 {
                     let mut map = match seq.size_hint() {
-                        Some(capacity) => Coils::with_capacity(capacity),
+                        Some(capacity) => Coils::with_capacity(capacity, capacity),
                         None => Coils::new(),
                     };
 
@@ -103,28 +400,114 @@ mod serde_impl {
     }
 }
 
+/// An enum representing all possible coil variants.
+///
+/// See the [module-level docs](crate::coils) for more.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Coil {
+    /// A [`FullCoil`].
     Full(FullCoil),
+    /// A [`HalfCoil`].
     Half(HalfCoil),
 }
 
 impl Coil {
-    /**
-    Iterate through all zones occupied by the coil, ordered in the sequence of their occurence.
-    This means that the zone "slot 3, layer 2" will always be returned before "slot 4, layer 1", regardless
-    whether the zone is positive or negative. If two zones have the same slot, then the one with the lower layer is returned first.
-    This ordering corresponds to the implementation of `PartialOrd` for `Zone`.
-     */
+    /// Returns an iterator over all [`Zone`]s of the coil.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::{NonZeroU16, NonZeroUsize};
+    /// use stem_winding::prelude::*;
+    ///
+    /// let full_coil_wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let full_coil: Coil = FullCoil::new(
+    ///     Zone::new(0, 0),
+    ///     Zone::new(1, 0),
+    ///     true,
+    ///     NonZeroUsize::MIN,
+    ///     NonZeroU16::MIN,
+    ///     full_coil_wire,
+    /// ).expect("zones not identical").into();
+    ///
+    /// let mut zones = full_coil.zones();
+    /// assert_eq!(zones.next(), Some(Zone::new(0, 0)));
+    /// assert_eq!(zones.next(), Some(Zone::new(1, 0)));
+    /// assert_eq!(zones.next(), None);
+    ///
+    /// let half_coil_wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let half_coil: Coil = HalfCoil::new(
+    ///     Zone::new(0, 0),
+    ///     true,
+    ///     NonZeroUsize::MIN,
+    ///     NonZeroU16::MIN,
+    ///     half_coil_wire,
+    /// ).into();
+    ///
+    /// let mut zones = half_coil.zones();
+    /// assert_eq!(zones.next(), Some(Zone::new(0, 0)));
+    /// assert_eq!(zones.next(), None);
+    /// ```
     pub fn zones<'a>(&'a self) -> ZoneIterator<'a> {
         return ZoneIterator::new(self);
     }
 
+    /// Returns an iterator over all [`Zone`]s occupied by the coil and their
+    /// phase polarities. The iterator produces [`ZoneAndPolarity`] instances;
+    /// see its documentation for more information.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::{NonZeroU16, NonZeroUsize};
+    /// use stem_winding::prelude::*;
+    ///
+    /// let full_coil_wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let full_coil: Coil = FullCoil::new(
+    ///     Zone::new(0, 0),
+    ///     Zone::new(1, 0),
+    ///     true,
+    ///     NonZeroUsize::MIN,
+    ///     NonZeroU16::MIN,
+    ///     full_coil_wire,
+    /// ).expect("zones not identical").into();
+    ///
+    /// let zones: Vec<_> = full_coil.zones_and_polarities().collect();
+    ///
+    /// assert_eq!(zones.len(), 2);
+    /// assert!(zones.contains(&ZoneAndPolarity {
+    ///    zone: Zone::new(0, 0),
+    ///    is_positive: true,
+    /// }));
+    /// assert!(zones.contains(&ZoneAndPolarity {
+    ///    zone: Zone::new(1, 0),
+    ///    is_positive: false,
+    /// }));
+    ///
+    /// let half_coil_wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let half_coil: Coil = HalfCoil::new(
+    ///     Zone::new(0, 0),
+    ///     false,
+    ///     NonZeroUsize::MIN,
+    ///     NonZeroU16::MIN,
+    ///     half_coil_wire,
+    /// ).into();
+    ///
+    /// let zones: Vec<_> = half_coil.zones_and_polarities().collect();
+    ///
+    /// assert_eq!(zones.len(), 2);
+    /// assert!(zones.contains(&ZoneAndPolarity {
+    ///    zone: Zone::new(0, 0),
+    ///    is_positive: false,
+    /// }));
+    /// ```
     pub fn zones_and_polarities<'a>(&'a self) -> ZoneAndPolarityIterator<'a> {
         return ZoneAndPolarityIterator::new(self);
     }
 
+    /// Returns a reference to the wrapped [`FullCoil`], if the enum variant is
+    /// [`Coil::Full`].
     pub fn full(&self) -> Option<&FullCoil> {
         match self {
             Coil::Full(full_coil) => Some(full_coil),
@@ -132,6 +515,8 @@ impl Coil {
         }
     }
 
+    /// Returns a reference to the wrapped [`HalfCoil`], if the enum variant is
+    /// [`Coil::Half`].
     pub fn half(&self) -> Option<&HalfCoil> {
         match self {
             Coil::Full(_) => None,
@@ -140,7 +525,20 @@ impl Coil {
     }
 }
 
-pub trait CoilExt {
+mod private {
+    /// Sealed trait for [`CoilExt`](super::CoilExt).
+    pub trait Sealed {}
+}
+
+/**
+A trait for functionality which is shared between the different [`Coil`]
+variants.
+
+This trait provides functionality common to [`Coil`] and its variants such as
+accessing or changing the number of turns or the coil phase. It is not meant to
+be implemented by external types and is therefore sealed.
+ */
+pub trait CoilExt: private::Sealed {
     fn turns(&self) -> NonZeroUsize;
 
     fn set_turns(&mut self, turns: NonZeroUsize);
@@ -184,6 +582,8 @@ pub trait CoilExt {
             * usize::from(self.turns()) as f64
     }
 }
+
+impl private::Sealed for Coil {}
 
 impl CoilExt for Coil {
     fn turns(&self) -> NonZeroUsize {
@@ -470,6 +870,8 @@ impl Iterator for CoveredSlots {
     }
 }
 
+impl private::Sealed for FullCoil {}
+
 impl CoilExt for FullCoil {
     fn turns(&self) -> NonZeroUsize {
         return self.turns;
@@ -643,6 +1045,8 @@ impl HalfCoil {
         self.is_positive
     }
 }
+
+impl private::Sealed for HalfCoil {}
 
 impl CoilExt for HalfCoil {
     fn turns(&self) -> NonZeroUsize {

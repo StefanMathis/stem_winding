@@ -83,7 +83,7 @@ impl TryFrom<CoilAssemblyBuilder> for CoilAssembly {
         };
 
         // Check all coils of the winding
-        for coil in winding.coils.0.values() {
+        for coil in winding.coils.iter_coils() {
             winding.coil_is_valid(coil)?;
         }
 
@@ -114,7 +114,7 @@ impl CoilAssembly {
         };
 
         // Check all coils of the winding
-        for coil in winding.coils.0.values() {
+        for coil in winding.coils.iter_coils() {
             winding.coil_is_valid(coil)?;
         }
 
@@ -144,18 +144,17 @@ impl CoilAssembly {
     pub fn insert<C: Into<Coil>>(&mut self, coil: C) -> Result<(), Error> {
         let coil: Coil = coil.into();
         self.coil_is_valid(&coil)?;
-        let zones: Vec<Zone> = coil.zones().collect();
-        return self.coils.0.insert_many(zones, coil).map_err(Error::from);
+        return self.coils.insert(coil).map_err(Error::from);
     }
 
     /// Try to remove the coil occupying the given zone
     pub fn remove(&mut self, zone: Zone) -> Option<Coil> {
-        return self.coils.0.remove(&zone);
+        return self.coils.remove(zone);
     }
 
     /// Remove all coils from the coil assembly
     pub fn clear_coils(&mut self) {
-        self.coils.0.clear();
+        self.coils.clear();
     }
 
     pub fn set_pole_pairs(&mut self, pole_pairs: NonZeroU16) {
@@ -166,7 +165,7 @@ impl CoilAssembly {
     Mutably access a coil
      */
     pub fn coil_at_mut(&mut self, zone: Zone) -> Option<&mut Coil> {
-        self.coils.0.get_mut(&zone)
+        self.coils.get_mut(zone)
     }
 
     /// Check if the given coil collection corresponds to the defined number of
@@ -205,7 +204,7 @@ impl Winding for CoilAssembly {
     }
 
     fn coil_at(&self, zone: Zone) -> Option<&Coil> {
-        return self.coils.0.get(&zone);
+        return self.coils.get(zone);
     }
 
     fn coil_layout(&self) -> CoilLayout {
@@ -272,12 +271,10 @@ impl Winding for CoilAssembly {
 impl<W: Winding + ?Sized> From<&W> for CoilAssembly {
     fn from(winding: &W) -> Self {
         // Build the hashmap
-        let mut coils = Coils::with_capacity(winding.number_coils());
+        let mut coils = Coils::with_capacity(winding.number_coils(), winding.number_coils());
         for coil in winding.coils() {
-            let zones: Vec<Zone> = coil.zones().collect();
             coils
-                .0
-                .insert_many(zones, coil.clone())
+                .insert(coil.clone())
                 .expect("two coils occupy the same zone. This is a bug.")
         }
 

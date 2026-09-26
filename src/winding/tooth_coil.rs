@@ -62,16 +62,11 @@ impl ToothCoilWinding {
         for slot in 0..self.slots.get() {
             for layer in 0..self.layers.get() {
                 let zone = Zone { slot, layer };
-
-                // Check if the zone is already occupied
-                if self.coils.0.contains_key(&zone) {
+                if self.coils.occupied(zone) {
                     continue;
                 }
-
-                // Insert the coil
                 if let Some(coil) = self.create_single_coil(zone, winding_table) {
-                    let zones: Vec<Zone> = coil.zones().collect();
-                    self.coils.0.insert_many(zones, coil).map_err(Error::from)?;
+                    self.coils.insert(coil).map_err(Error::from)?;
                 }
             }
         }
@@ -80,7 +75,7 @@ impl ToothCoilWinding {
         if all_zones_must_be_used {
             for (zone, _) in winding_table.iter_slots() {
                 // Check if the zone is already occupied
-                if !self.coils.0.contains_key(&zone) {
+                if !self.coils.occupied(zone) {
                     return Err(WindingTableCreationError::EmptyZone(Some(zone)).into());
                 }
             }
@@ -232,7 +227,7 @@ impl Winding for ToothCoilWinding {
     }
 
     fn coil_at(&self, zone: Zone) -> Option<&Coil> {
-        return self.coils.0.get(&zone);
+        return self.coils.get(zone);
     }
 
     /**
@@ -328,6 +323,8 @@ impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
             1, // Equals 1 by definition
         )?;
 
+        let num_zones = (builder.slots.get() * builder.layers.get()).into();
+        let num_coils = num_zones / 2;
         let mut winding = ToothCoilWinding {
             slots: builder.slots,
             pole_pairs: builder.pole_pairs,
@@ -338,7 +335,7 @@ impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
             connection: builder.connection,
             end_winding_leakage_coefficient: builder.end_winding_leakage_coefficient,
             wire: builder.wire,
-            coils: Coils::with_capacity((builder.slots.get() * builder.layers.get() / 2).into()),
+            coils: Coils::with_capacity(num_zones, num_coils),
             winding_table_method: builder.winding_table_method,
         };
         winding.create_coils(&winding_table, true)?;

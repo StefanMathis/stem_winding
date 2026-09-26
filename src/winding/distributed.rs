@@ -159,7 +159,7 @@ impl DistributedWinding {
         let winding_table = self.winding_table(false);
 
         // Clear all coils
-        self.coils.0.clear();
+        self.coils.clear();
 
         // Rebuild the coils with the zone plan
         self.create_coils(&winding_table).expect(
@@ -224,10 +224,7 @@ impl DistributedWinding {
                                     NonZeroU16::new(pos.phase as u16).expect("cannot be zero"),
                                     clone_box(&*self.wire),
                                 )?;
-                                self.coils.0.insert_many(
-                                    vec![positive_zone, negative_zone],
-                                    Coil::Full(coil),
-                                )?;
+                                self.coils.insert(Coil::Full(coil))?;
                             }
                         } else {
                             // Connect pos.start to neg.start and pos.stop to neg.stop
@@ -247,10 +244,7 @@ impl DistributedWinding {
                                     NonZeroU16::new(pos.phase as u16).expect("cannot be zero"),
                                     clone_box(&*self.wire),
                                 )?;
-                                self.coils.0.insert_many(
-                                    vec![positive_zone, negative_zone],
-                                    Coil::Full(coil),
-                                )?;
+                                self.coils.insert(Coil::Full(coil))?;
                             }
                         }
                     }
@@ -261,7 +255,7 @@ impl DistributedWinding {
         // Check if all zones are filled.
         for (zone, _) in winding_table.iter_slots() {
             // Check if the zone is already occupied
-            if !self.coils.0.contains_key(&zone) {
+            if !self.coils.occupied(zone) {
                 return Err(crate::error::WindingTableCreationError::EmptyZone(Some(zone)).into());
             }
         }
@@ -294,7 +288,7 @@ impl AvailableSlotsForCoilGroup {
         slots: u16,
     ) -> Option<AvailableSlotsForCoilGroup> {
         // If the "seed" is already occupied, abort.
-        if coils.0.contains_key(&zone) {
+        if coils.occupied(zone) {
             return None;
         }
 
@@ -304,7 +298,7 @@ impl AvailableSlotsForCoilGroup {
         let mut start = zone.slot;
         for slot in (zone.slot..(zone.slot + slots)).rev() {
             let new_zone = Zone::new(slot.rem_euclid(slots), zone.layer);
-            if coils.0.contains_key(&new_zone) || winding_table.get_cyclic(new_zone) != phase {
+            if coils.occupied(new_zone) || winding_table.get_cyclic(new_zone) != phase {
                 break;
             } else {
                 start = new_zone.slot;
@@ -315,7 +309,7 @@ impl AvailableSlotsForCoilGroup {
         let mut stop = zone.slot;
         for slot in (zone.slot + 1)..(zone.slot + slots) {
             let new_zone = Zone::new(slot.rem_euclid(slots), zone.layer);
-            if coils.0.contains_key(&new_zone) || winding_table.get_cyclic(new_zone) != phase {
+            if coils.occupied(new_zone) || winding_table.get_cyclic(new_zone) != phase {
                 break;
             } else {
                 stop = new_zone.slot;
@@ -447,7 +441,7 @@ impl Winding for DistributedWinding {
     }
 
     fn coil_at(&self, zone: Zone) -> Option<&Coil> {
-        return self.coils.0.get(&zone);
+        return self.coils.get(zone);
     }
 
     fn as_dyn(&self) -> &dyn Winding {
@@ -539,8 +533,8 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
         // Modify the zone span accordingly
         winding_table.shift_zones(builder.zone_span_variation as i32);
 
-        // First, the winding is constructed with a placeholder coil hashmap. Then, it
-        // is used to create the actual hashmap
+        let num_zones = (builder.slots.get() * builder.layers.get()).into();
+        let num_coils = num_zones / 2;
         let mut winding = DistributedWinding {
             slots: builder.slots,
             pole_pairs: builder.pole_pairs,
@@ -553,7 +547,7 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
             connection: builder.connection,
             end_winding_leakage_coefficient: builder.end_winding_leakage_coefficient,
             wire: builder.wire,
-            coils: Coils::with_capacity((slots * layers / 2).into()),
+            coils: Coils::with_capacity(num_zones, num_coils),
             winding_table_method: builder.winding_table_method,
             concentric_coils: builder.concentric_coils,
         };

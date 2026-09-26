@@ -278,33 +278,35 @@ mod cairo_tests {
     #[test]
     fn test_double_layer_multi_vs_double_vertical() {
         // Create a coil assembly which is used to derive the shapes
-        let mut coils = Coils::with_capacity(4);
+        let mut coils = Coils::with_capacity(4, 4);
 
         let wire = Box::new(RoundWire::default());
 
         // First slot
-        coils.0.insert(
-            Zone::new(0, 0),
-            HalfCoil::new(
-                Zone::new(0, 0),
-                true,
-                3.try_into().expect("not zero"),
-                2.try_into().expect("not zero"),
-                wire.clone(),
+        coils
+            .insert(
+                HalfCoil::new(
+                    Zone::new(0, 0),
+                    true,
+                    3.try_into().expect("not zero"),
+                    2.try_into().expect("not zero"),
+                    wire.clone(),
+                )
+                .into(),
             )
-            .into(),
-        );
-        coils.0.insert(
-            Zone::new(0, 1),
-            HalfCoil::new(
-                Zone::new(0, 1),
-                true,
-                1.try_into().expect("not zero"),
-                1.try_into().expect("not zero"),
-                wire.clone(),
+            .unwrap();
+        coils
+            .insert(
+                HalfCoil::new(
+                    Zone::new(0, 1),
+                    true,
+                    1.try_into().expect("not zero"),
+                    1.try_into().expect("not zero"),
+                    wire.clone(),
+                )
+                .into(),
             )
-            .into(),
-        );
+            .unwrap();
 
         {
             // CoilLayout::DoubleVertical
@@ -394,45 +396,48 @@ mod cairo_tests {
     #[test]
     fn test_four_layer_multi_vertical() {
         // Create a coil assembly which is used to derive the shapes
-        let mut coils = Coils::with_capacity(4);
+        let mut coils = Coils::with_capacity(4, 4);
 
         // Left-most coil
         let wire = Box::new(RoundWire::default());
 
         // First slot
-        coils.0.insert(
-            Zone::new(0, 0),
-            HalfCoil::new(
-                Zone::new(0, 0),
-                true,
-                1.try_into().expect("not zero"),
-                1.try_into().expect("not zero"),
-                wire.clone(),
+        coils
+            .insert(
+                HalfCoil::new(
+                    Zone::new(0, 0),
+                    true,
+                    1.try_into().expect("not zero"),
+                    1.try_into().expect("not zero"),
+                    wire.clone(),
+                )
+                .into(),
             )
-            .into(),
-        );
-        coils.0.insert(
-            Zone::new(0, 1),
-            HalfCoil::new(
-                Zone::new(0, 1),
-                true,
-                1.try_into().expect("not zero"),
-                2.try_into().expect("not zero"),
-                wire.clone(),
+            .unwrap();
+        coils
+            .insert(
+                HalfCoil::new(
+                    Zone::new(0, 1),
+                    true,
+                    1.try_into().expect("not zero"),
+                    2.try_into().expect("not zero"),
+                    wire.clone(),
+                )
+                .into(),
             )
-            .into(),
-        );
-        coils.0.insert(
-            Zone::new(0, 3),
-            HalfCoil::new(
-                Zone::new(0, 3),
-                true,
-                1.try_into().expect("not zero"),
-                3.try_into().expect("not zero"),
-                wire.clone(),
+            .unwrap();
+        coils
+            .insert(
+                HalfCoil::new(
+                    Zone::new(0, 3),
+                    true,
+                    1.try_into().expect("not zero"),
+                    3.try_into().expect("not zero"),
+                    wire.clone(),
+                )
+                .into(),
             )
-            .into(),
-        );
+            .unwrap();
 
         let coil_assembly = CoilAssembly::new_minimal(
             1.try_into().expect("not zero"),

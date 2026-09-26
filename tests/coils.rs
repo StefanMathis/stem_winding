@@ -555,3 +555,61 @@ fn test_coil_orientation_linear() {
     .unwrap();
     assert_eq!(coil.throw(None), 0);
 }
+
+#[cfg(feature = "serde")]
+mod serde_tests {
+
+    use super::*;
+    use indoc::indoc;
+
+    #[test]
+    fn test_serde_coils() {
+        let yaml = indoc! {"
+            - !Full
+              positive_zone:
+                slot: 0
+                layer: 0
+              negative_zone:
+                slot: 1
+                layer: 0
+              positive_slot_direction: true
+              turns: 1
+              phase: 1
+              wire:
+                RoundWire:
+                  outer_diameter: 1 mm
+                  inner_diameter: 0 mm
+                  insulation_thickness: 0 mm
+                  conductor_material:
+                    name: Copper
+                    relative_permeability: 1
+            - !Full
+              positive_zone:
+                slot: 3
+                layer: 0
+              negative_zone:
+                slot: 2
+                layer: 0
+              positive_slot_direction: false
+              turns: 1
+              phase: 2
+              wire:
+                RoundWire:
+                  outer_diameter: 1 mm
+                  inner_diameter: 0 mm
+                  insulation_thickness: 0 mm
+                  conductor_material:
+                    name: Copper
+                    relative_permeability: 1
+            "};
+
+        let coils: Coils = yaml_serde::from_str(yaml).unwrap();
+        assert_eq!(coils.num_coils(), 2);
+        assert_eq!(coils.num_zones(), 4);
+
+        let string = yaml_serde::to_string(&coils).unwrap();
+        let de_coils: Coils = yaml_serde::from_str(&string).unwrap();
+        assert_eq!(de_coils.num_coils(), 2);
+        assert_eq!(de_coils.num_zones(), 4);
+    }
+}

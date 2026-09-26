@@ -238,16 +238,11 @@ impl QuadrupleLayerToothCoilWinding {
         for slot in 0..self.slots.get() {
             for layer in 0..self.layers().get() {
                 let zone = Zone { slot, layer };
-
-                // Check if the zone is already occupied
-                if self.coils.0.contains_key(&zone) {
+                if self.coils.occupied(zone) {
                     continue;
                 }
-
-                // Insert the coil
                 if let Some(coil) = self.create_single_coil(zone, winding_table) {
-                    let zones: Vec<Zone> = coil.zones().collect();
-                    self.coils.0.insert_many(zones, coil).map_err(Error::from)?;
+                    self.coils.insert(coil).map_err(Error::from)?;
                 }
             }
         }
@@ -256,7 +251,7 @@ impl QuadrupleLayerToothCoilWinding {
         if all_zones_must_be_used {
             for (zone, _) in winding_table.iter_slots() {
                 // Check if the zone is already occupied
-                if !self.coils.0.contains_key(&zone) {
+                if !self.coils.occupied(zone) {
                     return Err(WindingTableCreationError::EmptyZone(Some(zone)).into());
                 }
             }
@@ -384,7 +379,7 @@ impl Winding for QuadrupleLayerToothCoilWinding {
     }
 
     fn coil_at(&self, zone: Zone) -> Option<&Coil> {
-        self.coils.0.get(&zone)
+        self.coils.get(zone)
     }
 
     fn as_dyn(&self) -> &dyn Winding {
@@ -504,7 +499,10 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
             end_winding_leakage_coefficient: builder.end_winding_leakage_coefficient,
             wire: builder.wire,
             winding_table_method: builder.winding_table_method,
-            coils: Coils::with_capacity(usize::from(builder.slots.get()) * 2),
+            coils: Coils::with_capacity(
+                usize::from(builder.slots.get()) * 4,
+                usize::from(builder.slots.get()) * 2,
+            ),
         };
 
         /*

@@ -457,7 +457,7 @@ mod cairo_tests {
             )
             .unwrap();
 
-            coils.insert_coil(coil.into()).unwrap();
+            coils.insert(coil.into()).unwrap();
             let coil = FullCoil::new(
                 Zone::new(1, 1),
                 Zone::new(10, 1),
@@ -467,7 +467,7 @@ mod cairo_tests {
                 Box::new(RoundWire::default()),
             )
             .unwrap();
-            coils.insert_coil(coil.into()).unwrap();
+            coils.insert(coil.into()).unwrap();
 
             let coil = FullCoil::new(
                 Zone::new(2, 0),
@@ -478,7 +478,7 @@ mod cairo_tests {
                 Box::new(RoundWire::default()),
             )
             .unwrap();
-            coils.insert_coil(coil.into()).unwrap();
+            coils.insert(coil.into()).unwrap();
 
             let coil = FullCoil::new(
                 Zone::new(2, 1),
@@ -489,7 +489,7 @@ mod cairo_tests {
                 Box::new(RoundWire::default()),
             )
             .unwrap();
-            coils.insert_coil(coil.into()).unwrap();
+            coils.insert(coil.into()).unwrap();
             let winding = CoilAssembly::new_minimal(
                 12.try_into().unwrap(),
                 5.try_into().unwrap(),
