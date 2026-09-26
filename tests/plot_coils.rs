@@ -163,6 +163,41 @@ mod cairo_tests {
         }
     }
 
+    fn check<W: Winding>(winding: &W, params: &CoilDrawablesParameters, name: &str) {
+        let mut drawables: Vec<Drawable> = (0..(winding.slots().get() + 1))
+            .map(|slot| params.tooth_drawable(slot))
+            .collect();
+        for d in winding.coil_drawables(&params).map(|t| t.1) {
+            drawables.push(d);
+        }
+
+        let bb1 = BoundingBox::from_bounded_entities(drawables.iter()).unwrap();
+        let bb2 = params.bounding_box(winding, true);
+        assert!(bb1.approx_eq(&bb2, 1e-10));
+
+        let view = Viewport::from_bounding_box(&bb1, SideLength::Long(2000));
+        let path = std::path::Path::new(&name);
+        let callback = |path: &std::path::Path| {
+            return view.write_to_file(path, |cr| {
+                cr.set_source_rgb(1.0, 1.0, 1.0);
+                cr.paint()?;
+
+                for drawable in drawables.iter() {
+                    drawable.draw(cr)?;
+                }
+                return Ok(());
+            });
+        };
+        assert!(compare_or_create(path, &callback, 0.99).is_ok());
+
+        // Test increasing zone index
+        let mut current_zone = Zone { slot: 0, layer: 0 };
+        for (zone, _) in winding.coil_drawables(&params) {
+            assert!(zone >= current_zone);
+            current_zone = zone;
+        }
+    }
+
     #[test]
     fn test_distributed_winding_pointed() {
         distributed_winding_impl(EndWindingStyle::Pointed {
@@ -176,34 +211,6 @@ mod cairo_tests {
     }
 
     fn distributed_winding_impl(end_winding_style: EndWindingStyle) {
-        fn check<W: Winding>(winding: &W, params: &CoilDrawablesParameters, name: &str) {
-            let mut drawables: Vec<Drawable> = (0..(winding.slots().get() + 1))
-                .map(|slot| params.tooth_drawable(slot))
-                .collect();
-            for d in winding.coil_drawables(&params).map(|t| t.1) {
-                drawables.push(d);
-            }
-
-            let bb1 = BoundingBox::from_bounded_entities(drawables.iter()).unwrap();
-            let bb2 = params.bounding_box(winding, true);
-            assert!(bb1.approx_eq(&bb2, 1e-10));
-
-            let view = Viewport::from_bounding_box(&bb1, SideLength::Long(2000));
-            let path = std::path::Path::new(&name);
-            let callback = |path: &std::path::Path| {
-                return view.write_to_file(path, |cr| {
-                    cr.set_source_rgb(1.0, 1.0, 1.0);
-                    cr.paint()?;
-
-                    for drawable in drawables.iter() {
-                        drawable.draw(cr)?;
-                    }
-                    return Ok(());
-                });
-            };
-            assert!(compare_or_create(path, &callback, 0.99).is_ok());
-        }
-
         let axial_coil_overhang = match end_winding_style {
             EndWindingStyle::Pointed {
                 end_winding_coil_angle: _,
@@ -376,46 +383,7 @@ mod cairo_tests {
             }
             .try_into()
             .unwrap();
-            let mut drawables: Vec<Drawable> = (0..(winding.slots().get() + 1))
-                .map(|slot| params.tooth_drawable(slot))
-                .collect();
-            for d in winding.coil_drawables(&params).map(|t| t.1) {
-                drawables.push(d);
-            }
-
-            let bb1 = BoundingBox::from_bounded_entities(drawables.iter()).unwrap();
-            let bb2 = params.bounding_box(&winding, true);
-            assert!(bb1.approx_eq(&bb2, 1e-10));
-
-            let view = Viewport::from_bounding_box(&bb1, SideLength::Long(2000));
-            let path = std::path::Path::new("tests/img/end_winding_12_5_DL.png");
-            let callback = |path: &std::path::Path| {
-                return view.write_to_file(path, |cr| {
-                    cr.set_source_rgb(1.0, 1.0, 1.0);
-                    cr.paint()?;
-
-                    for drawable in drawables.iter() {
-                        drawable.draw(cr)?;
-                    }
-                    return Ok(());
-                });
-            };
-            assert!(compare_or_create(path, &callback, 0.99).is_ok());
-
-            // Test strictly increasing zone index
-            let mut current_zone = Zone { slot: 0, layer: 0 };
-            for (zone, _) in winding.coil_drawables(&params) {
-                println!("{:?}", zone);
-                // if zone != current_zone {
-                //     if current_zone.layer == 1 {
-                //         current_zone.slot = current_zone.slot + 1;
-                //         current_zone.layer = 0;
-                //     } else {
-                //         current_zone.layer += 1;
-                //     }
-                //     assert_eq!(current_zone, zone);
-                // }
-            }
+            check(&winding, &params, "tests/img/end_winding_12_5_DL.png");
         }
     }
 
@@ -449,31 +417,11 @@ mod cairo_tests {
             }
             .try_into()
             .unwrap();
-            let mut drawables: Vec<Drawable> = (0..(winding.slots().get() + 1))
-                .map(|slot| params.tooth_drawable(slot))
-                .collect();
-            for d in winding.coil_drawables(&params).map(|t| t.1) {
-                drawables.push(d);
-            }
-
-            let bb1 = BoundingBox::from_bounded_entities(drawables.iter()).unwrap();
-            let bb2 = params.bounding_box(&winding, true);
-            assert!(bb1.approx_eq(&bb2, 1e-10));
-
-            let view = Viewport::from_bounding_box(&bb1, SideLength::Long(2000));
-            let path = std::path::Path::new("tests/img/end_winding_12_5_DL_halfed.png");
-            let callback = |path: &std::path::Path| {
-                return view.write_to_file(path, |cr| {
-                    cr.set_source_rgb(1.0, 1.0, 1.0);
-                    cr.paint()?;
-
-                    for drawable in drawables.iter() {
-                        drawable.draw(cr)?;
-                    }
-                    return Ok(());
-                });
-            };
-            assert!(compare_or_create(path, &callback, 0.99).is_ok());
+            check(
+                &winding,
+                &params,
+                "tests/img/end_winding_12_5_DL_halfed.png",
+            );
         }
     }
 
@@ -550,33 +498,7 @@ mod cairo_tests {
                 coils,
             )
             .unwrap();
-
-            let mut drawables: Vec<Drawable> = (0..(winding.slots().get() + 1))
-                .map(|slot| params.tooth_drawable(slot))
-                .collect();
-            for d in winding.coil_drawables(&params).map(|t| t.1) {
-                drawables.push(d);
-            }
-
-            let bb1 = BoundingBox::from_bounded_entities(drawables.iter()).unwrap();
-            let bb2 = params.bounding_box(&winding, true);
-            assert!(bb1.approx_eq(&bb2, 1e-10));
-
-            let view = Viewport::from_bounding_box(&bb1, SideLength::Long(2000));
-            let path = std::path::Path::new("tests/img/end_winding_ca_12_1_a.png");
-            let callback = |path: &std::path::Path| {
-                return view.write_to_file(path, |cr| {
-                    cr.set_source_rgb(1.0, 1.0, 1.0);
-                    cr.paint()?;
-
-                    for drawable in drawables.iter() {
-                        drawable.draw(cr)?;
-                    }
-
-                    return Ok(());
-                });
-            };
-            assert!(compare_or_create(path, &callback, 0.99).is_ok());
+            check(&winding, &params, "tests/img/end_winding_ca_12_1_a.png");
         }
     }
 }

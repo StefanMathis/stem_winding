@@ -155,6 +155,9 @@ pub trait CoilExt {
 
     fn voltage_phasor_at(&self, zone: Zone, phasor_angle: f64, ordinal: f64) -> Complex<f64>;
 
+    /// Arbitrary - but not random - zone of the coil. Since each zone is
+    /// occupied by exactly one coil, this is a unique identifier / "hash" for
+    /// the coil.
     fn any_zone(&self) -> Zone;
 
     fn wire(&self) -> &dyn Wire;

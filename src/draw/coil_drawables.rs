@@ -23,6 +23,10 @@ const BLACK: Color = Color {
     a: 1.0,
 };
 
+/// Iterator over the coil drawables and one of the coil zones:
+/// - Coil lines itself
+/// - arrows
+/// - Annotations, if the coil wraps around
 pub struct CoilDrawables<'a> {
     winding: &'a dyn Winding,
     parameters: &'a CoilDrawablesParameters,
