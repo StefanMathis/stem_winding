@@ -52,7 +52,7 @@ fn test_parallel_paths() {
 }
 
 #[test]
-fn test_harmonic_ordinals() {
+fn test_harmonic_orders() {
     {
         let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
             slots: NonZeroU16::new(24).expect("not zero"),
@@ -64,14 +64,13 @@ fn test_harmonic_ordinals() {
         .try_into()
         .unwrap();
 
-        let ordinals: Vec<num::rational::Ratio<i32>> =
-            winding.harmonic_ordinals().take(5).collect();
-        assert_eq!(ordinals[0], num::rational::Ratio::new(-1, 5));
-        assert_eq!(ordinals[1], num::rational::Ratio::new(5, 5));
-        assert_eq!(ordinals[2], num::rational::Ratio::new(-7, 5));
-        assert_eq!(ordinals[3], num::rational::Ratio::new(11, 5));
-        assert_eq!(ordinals[4], num::rational::Ratio::new(-13, 5));
-        assert_eq!(winding.harmonic_ordinals().coupling(), -1);
+        let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
+        assert_eq!(orders[0], num::rational::Ratio::new(-1, 5));
+        assert_eq!(orders[1], num::rational::Ratio::new(5, 5));
+        assert_eq!(orders[2], num::rational::Ratio::new(-7, 5));
+        assert_eq!(orders[3], num::rational::Ratio::new(11, 5));
+        assert_eq!(orders[4], num::rational::Ratio::new(-13, 5));
+        assert_eq!(winding.harmonic_orders().coupling(), -1);
     }
 
     {
@@ -85,14 +84,13 @@ fn test_harmonic_ordinals() {
         .try_into()
         .unwrap();
 
-        let ordinals: Vec<num::rational::Ratio<i32>> =
-            winding.harmonic_ordinals().take(5).collect();
-        assert_eq!(ordinals[0], num::rational::Ratio::new(-1, 2));
-        assert_eq!(ordinals[1], num::rational::Ratio::new(2, 2));
-        assert_eq!(ordinals[2], num::rational::Ratio::new(-4, 2));
-        assert_eq!(ordinals[3], num::rational::Ratio::new(5, 2));
-        assert_eq!(ordinals[4], num::rational::Ratio::new(-7, 2));
-        assert_eq!(winding.harmonic_ordinals().coupling(), -1);
+        let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
+        assert_eq!(orders[0], num::rational::Ratio::new(-1, 2));
+        assert_eq!(orders[1], num::rational::Ratio::new(2, 2));
+        assert_eq!(orders[2], num::rational::Ratio::new(-4, 2));
+        assert_eq!(orders[3], num::rational::Ratio::new(5, 2));
+        assert_eq!(orders[4], num::rational::Ratio::new(-7, 2));
+        assert_eq!(winding.harmonic_orders().coupling(), -1);
     }
 
     {
@@ -106,14 +104,13 @@ fn test_harmonic_ordinals() {
         .try_into()
         .unwrap();
 
-        let ordinals: Vec<num::rational::Ratio<i32>> =
-            winding.harmonic_ordinals().take(5).collect();
-        assert_eq!(ordinals[0], num::rational::Ratio::new(1, 4));
-        assert_eq!(ordinals[1], num::rational::Ratio::new(-2, 4));
-        assert_eq!(ordinals[2], num::rational::Ratio::new(4, 4));
-        assert_eq!(ordinals[3], num::rational::Ratio::new(-5, 4));
-        assert_eq!(ordinals[4], num::rational::Ratio::new(7, 4));
-        assert_eq!(winding.harmonic_ordinals().coupling(), 1);
+        let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
+        assert_eq!(orders[0], num::rational::Ratio::new(1, 4));
+        assert_eq!(orders[1], num::rational::Ratio::new(-2, 4));
+        assert_eq!(orders[2], num::rational::Ratio::new(4, 4));
+        assert_eq!(orders[3], num::rational::Ratio::new(-5, 4));
+        assert_eq!(orders[4], num::rational::Ratio::new(7, 4));
+        assert_eq!(winding.harmonic_orders().coupling(), 1);
     }
 
     // From trait object
@@ -129,14 +126,13 @@ fn test_harmonic_ordinals() {
         .unwrap();
 
         let winding: &dyn Winding = &winding_org;
-        let ordinals: Vec<num::rational::Ratio<i32>> =
-            winding.harmonic_ordinals().take(5).collect();
-        assert_eq!(ordinals[0], num::rational::Ratio::new(1, 4));
-        assert_eq!(ordinals[1], num::rational::Ratio::new(-2, 4));
-        assert_eq!(ordinals[2], num::rational::Ratio::new(4, 4));
-        assert_eq!(ordinals[3], num::rational::Ratio::new(-5, 4));
-        assert_eq!(ordinals[4], num::rational::Ratio::new(7, 4));
-        assert_eq!(winding.harmonic_ordinals().coupling(), 1);
+        let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
+        assert_eq!(orders[0], num::rational::Ratio::new(1, 4));
+        assert_eq!(orders[1], num::rational::Ratio::new(-2, 4));
+        assert_eq!(orders[2], num::rational::Ratio::new(4, 4));
+        assert_eq!(orders[3], num::rational::Ratio::new(-5, 4));
+        assert_eq!(orders[4], num::rational::Ratio::new(7, 4));
+        assert_eq!(winding.harmonic_orders().coupling(), 1);
     }
 }
 
@@ -155,7 +151,10 @@ fn test_coils_per_coil_group() {
         .try_into()
         .unwrap();
 
-        assert_eq!(wdg.base_winding_count(), NonZeroU16::new(1).expect("not zero"));
+        assert_eq!(
+            wdg.base_winding_count(),
+            NonZeroU16::new(1).expect("not zero")
+        );
         assert_eq!(
             wdg.coil_groups_per_phase(),
             NonZeroU16::new(1).expect("not zero")
@@ -174,7 +173,10 @@ fn test_coils_per_coil_group() {
         .try_into()
         .unwrap();
 
-        assert_eq!(wdg.base_winding_count(), NonZeroU16::new(2).expect("not zero"));
+        assert_eq!(
+            wdg.base_winding_count(),
+            NonZeroU16::new(2).expect("not zero")
+        );
         assert_eq!(
             wdg.coil_groups_per_phase(),
             NonZeroU16::new(2).expect("not zero")
@@ -195,7 +197,10 @@ fn test_coils_per_coil_group() {
         .try_into()
         .unwrap();
 
-        assert_eq!(wdg.base_winding_count(), NonZeroU16::new(1).expect("not zero"));
+        assert_eq!(
+            wdg.base_winding_count(),
+            NonZeroU16::new(1).expect("not zero")
+        );
         assert_eq!(
             wdg.coil_groups_per_phase(),
             NonZeroU16::new(1).expect("not zero")
@@ -216,7 +221,10 @@ fn test_coils_per_coil_group() {
         .try_into()
         .unwrap();
 
-        assert_eq!(wdg.base_winding_count(), NonZeroU16::new(1).expect("not zero"));
+        assert_eq!(
+            wdg.base_winding_count(),
+            NonZeroU16::new(1).expect("not zero")
+        );
         assert_eq!(
             wdg.coil_groups_per_phase(),
             NonZeroU16::new(2).expect("not zero")
@@ -235,7 +243,10 @@ fn test_coils_per_coil_group() {
         .try_into()
         .unwrap();
 
-        assert_eq!(wdg.base_winding_count(), NonZeroU16::new(1).expect("not zero"));
+        assert_eq!(
+            wdg.base_winding_count(),
+            NonZeroU16::new(1).expect("not zero")
+        );
         assert_eq!(
             wdg.coil_groups_per_phase(),
             NonZeroU16::new(2).expect("not zero")
@@ -252,7 +263,10 @@ fn test_coils_per_coil_group() {
         .try_into()
         .unwrap();
 
-        assert_eq!(wdg.base_winding_count(), NonZeroU16::new(1).expect("not zero"));
+        assert_eq!(
+            wdg.base_winding_count(),
+            NonZeroU16::new(1).expect("not zero")
+        );
         assert_eq!(
             wdg.coil_groups_per_phase(),
             NonZeroU16::new(2).expect("not zero")
@@ -269,7 +283,10 @@ fn test_coils_per_coil_group() {
         .try_into()
         .unwrap();
 
-        assert_eq!(wdg.base_winding_count(), NonZeroU16::new(4).expect("not zero"));
+        assert_eq!(
+            wdg.base_winding_count(),
+            NonZeroU16::new(4).expect("not zero")
+        );
         assert_eq!(
             wdg.coil_groups_per_phase(),
             NonZeroU16::new(4).expect("not zero")

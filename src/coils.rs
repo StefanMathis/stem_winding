@@ -20,7 +20,10 @@ is a useful building block when defining custom
 use [`Coils`] to provide convenient access to their individual coils.
  */
 
-use std::num::{NonZeroU16, NonZeroUsize};
+use std::{
+    f64::consts::{PI, TAU},
+    num::{NonZeroU16, NonZeroUsize},
+};
 
 use crate::error::Error;
 use keyring_map::{InsertionError, KeyringMap};
@@ -160,7 +163,7 @@ impl Coils {
     ///     NonZeroUsize::MIN,
     ///     NonZeroU16::MIN,
     ///     wire,
-    /// ).expect("zones not identical");
+    /// ).expect("zones identical");
     ///
     /// let mut coils = Coils::new();
     /// assert!(coils.insert(coil.into()).is_ok());
@@ -197,7 +200,7 @@ impl Coils {
     ///     NonZeroUsize::MIN,
     ///     NonZeroU16::MIN,
     ///     wire,
-    /// ).expect("zones not identical");
+    /// ).expect("zones identical");
     ///
     /// let mut coils = Coils::new();
     /// assert_eq!(coils.num_zones(), 0);
@@ -235,7 +238,7 @@ impl Coils {
     ///     NonZeroUsize::MIN,
     ///     NonZeroU16::MIN,
     ///     wire,
-    /// ).expect("zones not identical");
+    /// ).expect("zones identical");
     ///
     /// let mut coils = Coils::new();
     /// assert_eq!(coils.num_zones(), 0);
@@ -270,7 +273,7 @@ impl Coils {
     ///     NonZeroUsize::MIN,
     ///     NonZeroU16::MIN,
     ///     wire,
-    /// ).expect("zones not identical");
+    /// ).expect("zones identical");
     ///
     /// let mut coils = Coils::new();
     /// assert!(coils.insert(coil.into()).is_ok());
@@ -300,7 +303,7 @@ impl Coils {
     ///     NonZeroUsize::MIN,
     ///     NonZeroU16::MIN,
     ///     wire,
-    /// ).expect("zones not identical");
+    /// ).expect("zones identical");
     ///
     /// let mut coils = Coils::new();
     /// assert!(coils.insert(coil.into()).is_ok());
@@ -326,7 +329,7 @@ impl Coils {
     ///     NonZeroUsize::MIN,
     ///     NonZeroU16::MIN,
     ///     wire,
-    /// ).expect("zones not identical");
+    /// ).expect("zones identical");
     ///
     /// let mut coils = Coils::new();
     /// assert!(coils.insert(coil.into()).is_ok());
@@ -429,7 +432,7 @@ impl Coil {
     ///     NonZeroUsize::MIN,
     ///     NonZeroU16::MIN,
     ///     full_coil_wire,
-    /// ).expect("zones not identical").into();
+    /// ).expect("zones identical").into();
     ///
     /// let mut zones = full_coil.zones();
     /// assert_eq!(zones.next(), Some(Zone::new(0, 0)));
@@ -471,7 +474,7 @@ impl Coil {
     ///     NonZeroUsize::MIN,
     ///     NonZeroU16::MIN,
     ///     full_coil_wire,
-    /// ).expect("zones not identical").into();
+    /// ).expect("zones identical").into();
     ///
     /// let zones: Vec<_> = full_coil.zones_and_polarities().collect();
     ///
@@ -539,47 +542,283 @@ accessing or changing the number of turns or the coil phase. It is not meant to
 be implemented by external types and is therefore sealed.
  */
 pub trait CoilExt: private::Sealed {
+    /// Returns the number of turns.
+    ///
+    /// As mentioned in the [module-level documentation](crate::coils), a coil
+    /// is a series of continuous wire loops placed next to each other. The
+    /// number of turns is the number of such loops.
+    ///
+    /// The magnetomotive force produced by a coil is proportional to the number
+    /// of turns multiplied by the current. This product is called the
+    /// ampere-turns. Hence, for the same coil geometry and magnetic conditions,
+    /// a coil with 10 turns carrying 10 amperes produces the same
+    /// magnetomotive force as a coil with 100 turns carrying 1 ampere.
     fn turns(&self) -> NonZeroUsize;
 
+    /// Set a new number of turns for the coil. See [`CoilExt::turns`] for more.
     fn set_turns(&mut self, turns: NonZeroUsize);
 
+    /// Inverts the direction of the coil. In particular, zones with a positive
+    /// phase polarity become negative, and zones with a negative phase polarity
+    /// become positive.
+    ///
+    /// See [`ZoneAndPolarity`] for details on zone polarity.
     fn invert(&mut self);
 
+    /// Returns the phase of the coil.
+    ///
+    /// Phases are numbered starting at 1, with 1 representing phase A, 2
+    /// representing phase B, and so on. For example, the phases of a
+    /// three-phase motor are numbered 1, 2, and 3.
+    ///
+    /// Phase numbering starts at 1 rather than 0 because 0 in a
+    /// [`WindingTable`](crate::winding_table::WindingTable) represents an
+    /// empty zone. This also provides a convenient symmetry for
+    /// representing phase polarity: a zone with positive polarity for phase
+    /// A is represented by `1`, while a zone with negative polarity
+    /// is represented by `-1`.
     fn phase(&self) -> NonZeroU16;
 
+    /// Set a new phase for the coil. See [`CoilExt::phase`] for more.
     fn set_phase(&mut self, phase: NonZeroU16);
 
-    fn voltage_phasor(&self, phasor_angle: f64, ordinal: f64) -> Complex<f64>;
+    /// Returns the voltage phasor induced in the coil by a magnetic field of
+    /// the given electrical `order`, normalized to the voltage induced by
+    /// one turn.
+    ///
+    /// A voltage phasor represents the magnitude and phase of the voltage
+    /// induced in the coil by a sinusoidally varying magnetic field. Each
+    /// zone of the coil contributes an individual voltage phasor. The total
+    /// voltage phasor induced in the coil is the complex sum of the phasors
+    /// of all its zones.
+    ///
+    /// For a coil with `N` turns and zones with electrical angles `αᵢ`, the
+    /// returned phasor is
+    ///
+    /// `N · Σ exp(j · αᵢ)`
+    ///
+    /// where zones with negative polarity contribute an additional phase shift
+    /// of `π`. Each individual zone phasor therefore has unit magnitude,
+    /// while the magnitude and phase of the resulting complex number
+    /// describe the combined voltage induced in the coil.
+    ///
+    /// The `order` specifies the spatial order of the sinusoidal magnetic field
+    /// in electrical coordinates, i.e. the number of sinusoidal periods per
+    /// pole pair. The electrical angle of a zone is calculated as
+    ///
+    /// `α = order · 2π · pole_pairs / slots`
+    ///
+    /// where `slots` is the number of slots and `pole_pairs` is the number of
+    /// pole pairs.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use approxim::assert_abs_diff_eq;
+    /// use std::num::{NonZeroU16, NonZeroUsize};
+    /// use stem_winding::prelude::*;
+    ///
+    /// let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let mut coil: Coil = FullCoil::new(
+    ///     Zone::new(0, 0),
+    ///     Zone::new(3, 0),
+    ///     true,
+    ///     NonZeroUsize::new(10).expect("not zero"),
+    ///     NonZeroU16::MIN,
+    ///     wire,
+    /// ).expect("zones identical").into();
+    ///
+    /// let slots = NonZeroU16::new(6).expect("not zero");
+    /// let pole_pairs = NonZeroU16::new(1).expect("not zero");
+    ///
+    /// let phasor = coil.voltage_phasor(slots, pole_pairs, 1.0);
+    /// approxim::assert_abs_diff_eq!(phasor.re, 20.0, epsilon = 1e-6);
+    /// approxim::assert_abs_diff_eq!(phasor.im, 0.0, epsilon = 1e-6);
+    ///
+    /// coil.set_turns(NonZeroUsize::new(5).expect("not zero"));
+    /// let phasor = coil.voltage_phasor(slots, pole_pairs, 1.0);
+    /// approxim::assert_abs_diff_eq!(phasor.re, 10.0, epsilon = 1e-6);
+    /// approxim::assert_abs_diff_eq!(phasor.im, 0.0, epsilon = 1e-6);
+    /// ```
+    fn voltage_phasor(&self, slots: NonZeroU16, pole_pairs: NonZeroU16, order: f64)
+    -> Complex<f64>;
 
-    fn voltage_phasor_at(&self, zone: Zone, phasor_angle: f64, ordinal: f64) -> Complex<f64>;
+    /// Returns the voltage phasor induced in the coil by the specified `zone`.
+    ///
+    /// Unlike [`CoilExt::voltage_phasor`], which returns the combined voltage
+    /// phasor induced by all zones of the coil, this method returns only the
+    /// contribution of the specified zone. If the zone is not occupied by the
+    /// coil, the returned phasor is `0 + 0j`. For an occupied zone, the
+    /// magnitude of the returned phasor equals the number of turns of the
+    /// coil. Its angle is determined by the electrical position of the zone
+    /// and its polarity. See [`CoilExt::voltage_phasor`] for details.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use approxim::assert_abs_diff_eq;
+    /// use std::num::{NonZeroU16, NonZeroUsize};
+    /// use stem_winding::prelude::*;
+    ///
+    /// let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let mut coil: Coil = FullCoil::new(
+    ///     Zone::new(0, 0),
+    ///     Zone::new(3, 0),
+    ///     true,
+    ///     NonZeroUsize::new(10).expect("not zero"),
+    ///     NonZeroU16::MIN,
+    ///     wire,
+    /// ).expect("zones identical").into();
+    ///
+    /// let slots = NonZeroU16::new(6).expect("not zero");
+    /// let pole_pairs = NonZeroU16::new(1).expect("not zero");
+    ///
+    /// let phasor = coil.voltage_phasor_at(Zone::new(0, 0), slots, pole_pairs, 1.0);
+    /// approxim::assert_abs_diff_eq!(phasor.re, 10.0, epsilon = 1e-6);
+    /// approxim::assert_abs_diff_eq!(phasor.im, 0.0, epsilon = 1e-6);
+    ///
+    /// let phasor = coil.voltage_phasor_at(Zone::new(1, 0), slots, pole_pairs, 1.0);
+    /// approxim::assert_abs_diff_eq!(phasor.re, 0.0, epsilon = 1e-6);
+    /// approxim::assert_abs_diff_eq!(phasor.im, 0.0, epsilon = 1e-6);
+    /// ```
+    fn voltage_phasor_at(
+        &self,
+        zone: Zone,
+        slots: NonZeroU16,
+        pole_pairs: NonZeroU16,
+        order: f64,
+    ) -> Complex<f64>;
 
-    /// Arbitrary - but not random - zone of the coil. Since each zone is
-    /// occupied by exactly one coil, this is a unique identifier / "hash" for
-    /// the coil.
+    /// Returns an arbitrary, but not random, [`Zone`] occupied by the coil.
+    ///
+    /// The returned [`Zone`] is guaranteed to be the same for every call on the
+    /// same coil, but which [`Zone`] is returned is unspecified and may depend
+    /// on the implementation.
+    ///
+    /// Since each [`Zone`] can be occupied by at most one coil, any zone of a
+    /// coil can be used to uniquely identify it within a [`Coils`] container.
     fn any_zone(&self) -> Zone;
 
+    /// Returns a reference to the underlying [`Wire`] trait object.
     fn wire(&self) -> &dyn Wire;
 
+    /// Sets a new wire for the coil. See [`CoilExt::wire`] for more.
     fn set_wire(&mut self, wire: Box<dyn Wire>);
 
+    /// Returns the underlying [`Wire`] trait object, consuming the coil.
     fn into_wire(self) -> Box<dyn Wire>;
 
-    /// Returns the coil throw in slot pitches.
-    ///
-    /// slots specifies the number of slots for a cyclic winding structure. If
-    /// None, a linear winding structure is assumed and no wrapping around the
-    /// slot sequence is possible.
+    /**
+    Returns the coil throw in slot pitches.
+
+    The throw is the number of slot pitches between the two ends of a coil,
+    measured along the slot direction. For a [`FullCoil`], this is the number of
+    teeth / slot separators crossed when moving from the positive zone to the
+    negative zone. For a [`HalfCoil`], the throw is always 0.
+
+    In the following example, the throw of coil (a) is 2, that of coil (b) is 0,
+    and that of coil (c) is 1.
+
+    ```text
+    slot | 0 | 1 | 2 | 3 | 4 | 5
+
+           ┌───────┐       ┌───┐
+           │       │   │   │   │
+    coil   ▲       ▼   ▼   ▼   ▲
+           │       │   │   │   |
+           └───────┘       └───┘
+              (a)     (b)   (c)
+    ```
+
+    A cyclic winding mounted on a [`RotCore`](stem_core::prelude::RotCore) can
+    have coils that wrap around the end of the slot sequence. In this case,
+    `slots` must be provided so that the throw can be calculated modulo the
+    number of slots.
+
+    If `slots` is `None`, a [`LinCore`](stem_core::prelude::LinCore) is assumed,
+    and the slot indices are treated as non-cyclic. This is only relevant for a
+    [`FullCoil`], as the throw of a [`HalfCoil`] is 0 by definition.
+
+    For a [`FullCoil`], [`FullCoil::positive_slot_direction`] determines whether
+    the slot index increases or decreases when moving from the
+    [`FullCoil::positive_zone`] to the [`FullCoil::negative_zone`].
+
+    For a rotary core, a decreasing slot index can wrap around from slot 0 to the
+    last slot. For a linear core, wrapping is not possible, so the throw is
+    calculated without wrapping.
+
+    **Rotary core (`slots` given)**
+    ```text
+    slot | 0 | 1 | 2 | 3 | 4 | 5
+
+        ──┐                   ┌──
+          │                   │
+    coil  ▲                   ▼
+          │                   │
+        ──┘                   └──
+    ```
+    Resulting throw is 1.
+
+    **Linear core (`slots` not given)**
+    ```text
+    slot | 0 | 1 | 2 | 3 | 4 | 5
+
+          ┌───────────────────┐
+          │                   │
+    coil  ▲                   ▼
+          │                   │
+          └───────────────────┘
+    ```
+    Even though the slot index should decrease, this is not possible because
+    a linear core does not wrap around. Hence, the throw is 5.
+
+    # Examples
+
+    ```
+    use std::num::{NonZeroU16, NonZeroUsize};
+    use stem_winding::prelude::*;
+
+    let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    let coil = FullCoil::new(
+        Zone::new(0, 0),
+        Zone::new(5, 0),
+        false, // positive_slot_direction
+        NonZeroUsize::new(10).expect("not zero"),
+        NonZeroU16::MIN,
+        wire,
+    )
+    .expect("zones identical");
+
+    // Rotary core with 6 slots
+    assert_eq!(coil.throw(Some(NonZeroUsize::new(6).expect("not zero"))), 1);
+
+    // Linear core with 6 slots
+    assert_eq!(coil.throw(None), 5);
+    ```
+    */
     fn throw(&self, slots: Option<NonZeroU16>) -> u16;
 
+    /// Returns the resistance of the coil.
+    ///
+    /// The resistance of the wire forming a single turn is calculated using
+    /// [`Wire::resistance`] with the given `zone_area`, `turn_length`, the
+    /// number of turns, and `conditions`. The resulting resistance is then
+    /// multiplied by the number of turns because the turns of a coil are
+    /// connected in series.
+    ///
+    /// `zone_area` is the cross-sectional area available to the wire in each
+    /// zone, `turn_length` is the length of one turn, and `conditions`
+    /// specifies the physical conditions used to calculate the wire
+    /// resistance. See [`Wire::resistance`] for details.
     fn resistance(
         &self,
         zone_area: Area,
-        length: Length,
+        turn_length: Length,
         conditions: &[DynQuantity<f64>],
     ) -> ElectricalResistance {
         self.wire()
-            .resistance(length, zone_area, self.turns(), conditions)
-            * usize::from(self.turns()) as f64
+            .resistance(turn_length, zone_area, self.turns(), conditions)
+            * self.turns().get() as f64
     }
 }
 
@@ -621,17 +860,28 @@ impl CoilExt for Coil {
         }
     }
 
-    fn voltage_phasor(&self, phasor_angle: f64, ordinal: f64) -> Complex<f64> {
+    fn voltage_phasor(
+        &self,
+        slots: NonZeroU16,
+        pole_pairs: NonZeroU16,
+        order: f64,
+    ) -> Complex<f64> {
         match self {
-            Coil::Full(coil) => coil.voltage_phasor(phasor_angle, ordinal),
-            Coil::Half(coil) => coil.voltage_phasor(phasor_angle, ordinal),
+            Coil::Full(coil) => coil.voltage_phasor(slots, pole_pairs, order),
+            Coil::Half(coil) => coil.voltage_phasor(slots, pole_pairs, order),
         }
     }
 
-    fn voltage_phasor_at(&self, zone: Zone, phasor_angle: f64, ordinal: f64) -> Complex<f64> {
+    fn voltage_phasor_at(
+        &self,
+        zone: Zone,
+        slots: NonZeroU16,
+        pole_pairs: NonZeroU16,
+        order: f64,
+    ) -> Complex<f64> {
         match self {
-            Coil::Full(coil) => coil.voltage_phasor_at(zone, phasor_angle, ordinal),
-            Coil::Half(coil) => coil.voltage_phasor_at(zone, phasor_angle, ordinal),
+            Coil::Full(coil) => coil.voltage_phasor_at(zone, slots, pole_pairs, order),
+            Coil::Half(coil) => coil.voltage_phasor_at(zone, slots, pole_pairs, order),
         }
     }
 
@@ -741,7 +991,6 @@ pub struct FullCoil {
 }
 
 impl FullCoil {
-    /// Returns an instance of `Coil`
     pub fn new(
         positive_zone: Zone,
         negative_zone: Zone,
@@ -768,47 +1017,55 @@ impl FullCoil {
         self.positive_slot_direction
     }
 
+    /// Returns the positive zone of `self`.
     pub fn positive_zone(&self) -> Zone {
         self.positive_zone
     }
 
+    /// Returns the negative zone of `self`.
     pub fn negative_zone(&self) -> Zone {
         self.negative_zone
     }
 
-    /**
-    Calculates the normalized voltage phasor of the outward coil side for the given harmonic ordinal.
-
-    See the documentation of `voltage_phasor` for examples.
-    */
-    pub fn voltage_phasor_positive_zone(&self, phasor_angle: f64, ordinal: f64) -> Complex<f64> {
-        // Get the angle of the ρ-th zone. The reference is the first zone
-        // of phase 1, which always equals the first beam of the phasor star
-        // (alpha_rho=0 = 0°) If the zone is negative, the beam direction needs
-        // to be inverted (sign-function)
-        let slot_angle = self.positive_zone().slot as f64 * phasor_angle * ordinal;
-        return usize::from(self.turns()) as f64 * (Complex::new(0.0, slot_angle)).exp();
+    /// Returns the voltage phasor for the
+    /// [`positive_zone`](FullCoil::positive_zone) of `self`.
+    ///
+    /// Conceptually, this method uses [`CoilExt::voltage_phasor_at`] with the
+    /// zone being the [`positive_zone`](FullCoil::positive_zone) of `self`. See
+    /// the docstring of [`CoilExt::voltage_phasor_at`] for details.
+    pub fn voltage_phasor_positive_zone(
+        &self,
+        slots: NonZeroU16,
+        pole_pairs: NonZeroU16,
+        order: f64,
+    ) -> Complex<f64> {
+        let slot_angle = f64::from(self.positive_zone().slot) / f64::from(slots.get())
+            * f64::from(pole_pairs.get())
+            * order
+            * TAU;
+        return Complex::from_polar(self.turns().get() as f64, slot_angle);
     }
 
-    /**
-    Calculates the normalized voltage phasor of the return coil side for the given harmonic ordinal.
-    If the coil is a half-coil, this value is zero by definition.
-
-    See the documentation of `voltage_phasor` for examples.
-    */
-    pub fn voltage_phasor_negative_zone(&self, phasor_angle: f64, ordinal: f64) -> Complex<f64> {
-        // Get the angle of the ρ-th zone. The reference is the first zone
-        // of phase 1, which always equals the first beam of the phasor star
-        // (alpha_rho=0 = 0°) If the zone is negative, the beam direction needs
-        // to be inverted (sign-function)
-        let slot_angle = self.positive_zone().slot as f64 * phasor_angle * ordinal;
-        return usize::from(self.turns()) as f64 * (Complex::new(0.0, slot_angle)).exp();
+    /// Returns the voltage phasor for the
+    /// [`negative_zone`](FullCoil::negative_zone) of `self`.
+    ///
+    /// Conceptually, this method uses [`CoilExt::negative_zone`] with the
+    /// zone being the [`negative_zone`](FullCoil::negative_zone) of `self`. See
+    /// the docstring of [`CoilExt::voltage_phasor_at`] for details.
+    pub fn voltage_phasor_negative_zone(
+        &self,
+        slots: NonZeroU16,
+        pole_pairs: NonZeroU16,
+        order: f64,
+    ) -> Complex<f64> {
+        let slot_angle = f64::from(self.negative_zone().slot) / f64::from(slots.get())
+            * f64::from(pole_pairs.get())
+            * order
+            * TAU
+            + PI;
+        return Complex::from_polar(self.turns().get() as f64, slot_angle);
     }
 
-    /**
-    Returns an iterator over the slots "covered" by the end winding of the coil,
-    starting at the first zone slot and stopping at the second zone slot.
-     */
     pub fn covered_slots(&self, slots: Option<NonZeroU16>) -> CoveredSlots {
         return CoveredSlots {
             second_slot: self.negative_zone.slot,
@@ -889,47 +1146,14 @@ impl CoilExt for FullCoil {
         self.phase = phase;
     }
 
-    /**
-    Calculates the normalized voltage phasor of the given coil for the given harmonic ordinal.
-
-    The winding topology is defined by the phasor angle, which can be calculated with the free function `phasor_angle` or the winding method of the same name.
-
-    The term "normalized phasor voltage" means that the induced voltage is assumed to have an amplitude of 1 V per turn.
-
-    ```
-    use winding::{FullCoil, CoilExt, Zone, phasor_angle};
-    use wire::RoundWire;
-    use approxim;
-
-    let outward_side = Zone {slot: 1, layer: 0};
-    let return_side = Zone {slot: 7, layer: 0};
-    let coil = FullCoil::new(outward_side, return_side, true, true, 10, 1, Box::new(RoundWire::default())).unwrap();
-
-    // Calculate the electrical phasor angle between two slots for a 6-slot winding with one pole pair.
-    let angle = phasor_angle(6, 1);
-
-    // Calculate the phasor of the fundamental harmonic
-    let phasor = coil.voltage_phasor(angle, 1.0);
-    approxim::assert_abs_diff_eq!(phasor.norm(), 20.0);
-    approxim::assert_abs_diff_eq!(phasor.to_polar().0, 20.0); // Radius
-    approxim::assert_abs_diff_eq!(phasor.to_polar().1, 1.047197, epsilon = 1e-6); // Angle
-
-    // Look at the coil sides
-    let phasor_outward = coil.voltage_phasor_positive_zone(angle, 1.0);
-    approxim::assert_abs_diff_eq!(phasor_outward.re, 5.0, epsilon = 1e-6);
-    approxim::assert_abs_diff_eq!(phasor_outward.im, 8.660254, epsilon = 1e-6);
-    approxim::assert_abs_diff_eq!(phasor_outward.to_polar().1, 1.047197, epsilon = 1e-6);
-
-    let phasor_return = coil.voltage_phasor_negative_zone(angle, 1.0);
-    approxim::assert_abs_diff_eq!(phasor_return.re, 5.0, epsilon = 1e-6);
-    approxim::assert_abs_diff_eq!(phasor_return.im, 8.660254, epsilon = 1e-6);
-    approxim::assert_abs_diff_eq!(phasor_return.to_polar().1, 1.047197, epsilon = 1e-6);
-
-    ```
-    */
-    fn voltage_phasor(&self, phasor_angle: f64, ordinal: f64) -> Complex<f64> {
-        return self.voltage_phasor_positive_zone(phasor_angle, ordinal)
-            + self.voltage_phasor_negative_zone(phasor_angle, ordinal);
+    fn voltage_phasor(
+        &self,
+        slots: NonZeroU16,
+        pole_pairs: NonZeroU16,
+        order: f64,
+    ) -> Complex<f64> {
+        return self.voltage_phasor_positive_zone(slots, pole_pairs, order)
+            + self.voltage_phasor_negative_zone(slots, pole_pairs, order);
     }
 
     fn any_zone(&self) -> Zone {
@@ -984,11 +1208,17 @@ impl CoilExt for FullCoil {
         (slots + minuend).wrapping_sub(subtrahend) % slots
     }
 
-    fn voltage_phasor_at(&self, zone: Zone, phasor_angle: f64, ordinal: f64) -> Complex<f64> {
+    fn voltage_phasor_at(
+        &self,
+        zone: Zone,
+        slots: NonZeroU16,
+        pole_pairs: NonZeroU16,
+        order: f64,
+    ) -> Complex<f64> {
         if self.positive_zone() == zone {
-            return self.voltage_phasor_positive_zone(phasor_angle, ordinal);
+            return self.voltage_phasor_positive_zone(slots, pole_pairs, order);
         } else if self.negative_zone() == zone {
-            return self.voltage_phasor_negative_zone(phasor_angle, ordinal);
+            return self.voltage_phasor_negative_zone(slots, pole_pairs, order);
         } else {
             return Complex::new(0.0, 0.0);
         }
@@ -1037,10 +1267,12 @@ impl HalfCoil {
         }
     }
 
+    /// Returns the zone occupied by `self`.
     pub fn zone(&self) -> Zone {
         return self.zone;
     }
 
+    /// Returns whether `self` has positive polarity.
     pub fn is_positive(&self) -> bool {
         self.is_positive
     }
@@ -1069,14 +1301,22 @@ impl CoilExt for HalfCoil {
         self.zone
     }
 
-    fn voltage_phasor(&self, phasor_angle: f64, ordinal: f64) -> Complex<f64> {
-        let slot_angle = self.zone().slot as f64 * phasor_angle * ordinal;
+    fn voltage_phasor(
+        &self,
+        slots: NonZeroU16,
+        pole_pairs: NonZeroU16,
+        order: f64,
+    ) -> Complex<f64> {
+        let slot_angle = f64::from(self.zone().slot) / f64::from(slots.get())
+            * f64::from(pole_pairs.get())
+            * order
+            * TAU;
         let slot_angle = if self.is_positive {
             slot_angle
         } else {
             -slot_angle
         };
-        return usize::from(self.turns()) as f64 * (Complex::new(0.0, slot_angle)).exp();
+        return Complex::from_polar(self.turns().get() as f64, slot_angle);
     }
 
     fn wire(&self) -> &dyn Wire {
@@ -1095,9 +1335,15 @@ impl CoilExt for HalfCoil {
         return 0;
     }
 
-    fn voltage_phasor_at(&self, zone: Zone, phasor_angle: f64, ordinal: f64) -> Complex<f64> {
+    fn voltage_phasor_at(
+        &self,
+        zone: Zone,
+        slots: NonZeroU16,
+        pole_pairs: NonZeroU16,
+        order: f64,
+    ) -> Complex<f64> {
         if self.zone == zone {
-            return self.voltage_phasor(phasor_angle, ordinal);
+            return self.voltage_phasor(slots, pole_pairs, order);
         } else {
             return Complex::new(0.0, 0.0);
         }
@@ -1114,23 +1360,29 @@ impl From<HalfCoil> for Box<dyn Wire> {
     }
 }
 
-// ================================================================
-
+/**
+TODO
+ */
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ZoneAndPolarity {
     pub zone: Zone,
     pub is_positive: bool,
 }
 
+/// The iterator created from [`Coil::zones_and_polarities`]. See the method
+/// documentation for details.
 pub struct ZoneAndPolarityIterator<'a> {
     coil: &'a Coil,
     counter: usize,
 }
+
 impl<'a> ZoneAndPolarityIterator<'a> {
-    fn new(coil: &'a Coil) -> Self {
+    /// Returns a new [`ZoneAndPolarityIterator`] for the given coil.
+    pub fn new(coil: &'a Coil) -> Self {
         return ZoneAndPolarityIterator { coil, counter: 0 };
     }
 }
+
 impl<'a> Iterator for ZoneAndPolarityIterator<'a> {
     type Item = ZoneAndPolarity;
     fn next(&mut self) -> Option<ZoneAndPolarity> {
@@ -1164,10 +1416,13 @@ impl<'a> Iterator for ZoneAndPolarityIterator<'a> {
     }
 }
 
+/// The iterator created from [`Coil::zones`]. See the method documentation for
+/// details.
 pub struct ZoneIterator<'a>(ZoneAndPolarityIterator<'a>);
 
 impl<'a> ZoneIterator<'a> {
-    fn new(coil: &'a Coil) -> Self {
+    /// Returns a new [`ZoneIterator`] for the given coil.
+    pub fn new(coil: &'a Coil) -> Self {
         return ZoneIterator(ZoneAndPolarityIterator::new(coil));
     }
 }

@@ -344,10 +344,10 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     use winding::{ToothCoilWinding, Winding, WindingTableMethod};
 
     let winding = ToothCoilWinding::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
-    assert_eq!(winding.lowest_torque_ripple_ordinal(), 30); // Poles times phases: 10 * 3 = 60
+    assert_eq!(winding.lowest_torque_ripple_order(), 30); // Poles times phases: 10 * 3 = 60
     ```
      */
-    fn lowest_torque_ripple_ordinal(&self) -> usize {
+    fn lowest_torque_ripple_order(&self) -> usize {
         return 2 * (self.pole_pairs().get() * self.phases().get()) as usize;
     }
 
@@ -360,10 +360,10 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     use winding::{ToothCoilWinding, Winding, WindingTableMethod};
 
     let winding = ToothCoilWinding::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
-    assert_eq!(winding.lowest_cogging_torque_ordinal(), 60); // Least common multiple of poles and slots: lcm(12, 10) = 60
+    assert_eq!(winding.lowest_cogging_torque_order(), 60); // Least common multiple of poles and slots: lcm(12, 10) = 60
     ```
      */
-    fn lowest_cogging_torque_ordinal(&self) -> usize {
+    fn lowest_cogging_torque_order(&self) -> usize {
         return num::integer::lcm(2 * self.pole_pairs().get(), self.slots().get()) as usize;
     }
 
@@ -416,13 +416,13 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return crate::iterators::ParallelPathIterator::new(self.coil_groups_per_phase());
     }
 
-    /// Returns the winding factor for the given phase and harmonic ordinal.
+    /// Returns the winding factor for the given phase and harmonic order.
     /// Note that the phase counting starts with 1 as it usually does in
     /// scientific literature regarding electrical machines. If the phase is
     /// set to 0 or to a number larger than the number of phases, this functions
     /// returns zero. The winding factor is calculated with the voltage
     /// phasor method as described in e.g. [Pyr08].
-    fn winding_factor(&self, phase: NonZeroU16, ordinal: f64) -> f64 {
+    fn winding_factor(&self, phase: NonZeroU16, order: f64) -> f64 {
         if phase > self.phases() && phase.get() == 0 {
             return 0.0;
         }
@@ -443,7 +443,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
                 let mut phasor_sum_geo = Complex::new(0.0f64, 0.0);
                 let mut phasor_sum_abs = 0;
 
-                let slot_angle = slot as f64 * alpha_u * ordinal;
+                let slot_angle = slot as f64 * alpha_u * order;
 
                 for layer in 0..layers.get() {
                     // Check if the current slot and layer is assigned to the phase
@@ -696,8 +696,8 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     }
 
     /**
-    Returns a `HarmonicOrdinalsIterator` which gives the harmonic ordinals of the field excitation curve created by the winding.
-    For further details, see the documentation on `HarmonicOrdinalsIterator`.
+    Returns a `HarmonicOrdersIterator` which gives the harmonic orders of the field excitation curve created by the winding.
+    For further details, see the documentation on `HarmonicOrdersIterator`.
 
     The returned iterator has an infinite length, because the number of harmonics is infinite as well.
     Therefore, this iterator should not be used directly in e.g. a loop. Instead, a subset of the iterator
@@ -708,25 +708,25 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     use num::rational::Ratio;
 
     let winding = DistributedWinding::default(); // This is a 6/2 single-layer integer-slot winding
-    let ho_iter = winding.harmonic_ordinals();
+    let ho_iter = winding.harmonic_orders();
 
-    let ordinals: Vec<Ratio<i32>> = winding.harmonic_ordinals().take(5).collect();
-    assert_eq!(ordinals[0], Ratio::new(1, 1));
-    assert_eq!(ordinals[1], Ratio::new(-5, 1));
-    assert_eq!(ordinals[2], Ratio::new(7, 1));
-    assert_eq!(ordinals[3], Ratio::new(-11, 1));
-    assert_eq!(ordinals[4], Ratio::new(13, 1));
+    let orders: Vec<Ratio<i32>> = winding.harmonic_orders().take(5).collect();
+    assert_eq!(orders[0], Ratio::new(1, 1));
+    assert_eq!(orders[1], Ratio::new(-5, 1));
+    assert_eq!(orders[2], Ratio::new(7, 1));
+    assert_eq!(orders[3], Ratio::new(-11, 1));
+    assert_eq!(orders[4], Ratio::new(13, 1));
     ```
     A default implementation exists.
     */
-    fn harmonic_ordinals(&self) -> HarmonicOrdinalsIterator<'_> {
-        return HarmonicOrdinalsIterator::new(self.as_dyn());
+    fn harmonic_orders(&self) -> HarmonicOrdersIterator<'_> {
+        return HarmonicOrdersIterator::new(self.as_dyn());
     }
 
     /**
     Return an iterator over the normalized air gap flux density / induction |B_v / B_p| and the
-    associated harmonic ordinal (calculated by [`harmonic_ordinals`](Winding::harmonic_ordinals)).
-    for each harmonic ordinal returned by [`harmonic_ordinals`](Winding::harmonic_ordinals)
+    associated harmonic order (calculated by [`harmonic_orders`](Winding::harmonic_orders)).
+    for each harmonic order returned by [`harmonic_orders`](Winding::harmonic_orders)
     The formula is based on [Hut18a], page 25.x
      */
     fn harmonic_inductions(&self) -> NormalizedInductionIterator<'_> {
@@ -770,7 +770,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
     /// Assert the symmetry of the winding. If true, the following is also true:
     /// * The winding factor is identical for all phases (this holds true for
-    ///   all ordinals individually).
+    ///   all orders individually).
     /// * The phase resistance of all phases is identical
     /// * The number of turns per phase is identical for all phases.
     /// * All wires have the same material
@@ -1175,7 +1175,7 @@ pub fn curvature_factor(
     pole_pairs: NonZeroU16,
     air_gap_radius: Length,
     air_gap_width: Length,
-    ordinal: f64,
+    order: f64,
     is_outer: bool,
 ) -> f64 {
     let other_radius = air_gap_radius
@@ -1184,7 +1184,7 @@ pub fn curvature_factor(
         } else {
             air_gap_width
         };
-    let v_times_p = (ordinal * pole_pairs.get() as f64).abs();
+    let v_times_p = (order * pole_pairs.get() as f64).abs();
     let a = f64::from(air_gap_radius / other_radius).powf(2.0 * v_times_p);
     return f64::from(air_gap_width * v_times_p / air_gap_radius * (a + 1.0) / (a - 1.0));
 }

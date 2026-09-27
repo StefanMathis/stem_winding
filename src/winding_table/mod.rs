@@ -10,6 +10,7 @@ use std::{marker::PhantomData, num::NonZeroU16};
 mod builders;
 pub use builders::WindingTableMethod;
 
+/// WindingTable -> Coils is done by the individual windings!
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct WindingTable {

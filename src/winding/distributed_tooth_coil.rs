@@ -19,7 +19,7 @@ use crate::core_support::*;
 use crate::{
     coils::{Coil, Coils, FullCoil},
     error::{Error, WindingTableCreationError},
-    iterators::HarmonicOrdinalsIterator,
+    iterators::HarmonicOrdersIterator,
     winding::{Connection, Winding},
     winding_table::{WindingTable, WindingTableMethod},
 };
@@ -415,7 +415,7 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
         // Create the coils from the zone plan
         winding.create_coils(&winding_table)?;
 
-        // Invert the zone plan if the first harmonic ordinal is negative. The reasoning
+        // Invert the zone plan if the first harmonic order is negative. The reasoning
         // for this is: The distributed tooth-coil windings are created from
         // very short-pitched integer slot windings. If the pole pair harmonic
         // wave wanders in the opposite direction as the harmonic of the integer
@@ -424,8 +424,8 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
         // Because distributed tooth-coil windings operate on a super harmonic of the
         // integer winding they are based on, the zone plan direction must be
         // reversed if the first harmonic is negative.
-        let harmonic_ordinals = HarmonicOrdinalsIterator::new(&winding);
-        match harmonic_ordinals.coupling_with_pole_pairs() {
+        let harmonic_orders = HarmonicOrdersIterator::new(&winding);
+        match harmonic_orders.coupling_with_pole_pairs() {
             Some(coupling) => {
                 if coupling < 0 {
                     for layer in 0..usize::from(winding_table.layers()) {

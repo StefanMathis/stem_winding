@@ -236,7 +236,7 @@ fn test_base_winding_count() {
 }
 
 #[test]
-fn test_harmonic_ordinal_and_amplitude() {
+fn test_harmonic_order_and_amplitude() {
     {
         let coil_assembly = {
             let mut coil_assembly = CoilAssembly::new(

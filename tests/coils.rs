@@ -556,6 +556,40 @@ fn test_coil_orientation_linear() {
     assert_eq!(coil.throw(None), 0);
 }
 
+#[test]
+fn test_voltage_phasor() {
+    let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    let mut coil = FullCoil::new(
+        Zone::new(0, 0),
+        Zone::new(3, 0),
+        true,
+        NonZeroUsize::new(10).expect("not zero"),
+        NonZeroU16::MIN,
+        wire,
+    )
+    .expect("zones identical");
+
+    let slots = NonZeroU16::new(6).expect("not zero");
+    let pole_pairs = NonZeroU16::new(1).expect("not zero");
+
+    let phasor = coil.voltage_phasor_positive_zone(slots, pole_pairs, 1.0);
+    approxim::assert_abs_diff_eq!(phasor.re, 10.0, epsilon = 1e-6);
+    approxim::assert_abs_diff_eq!(phasor.im, 0.0, epsilon = 1e-6);
+
+    let phasor = coil.voltage_phasor_negative_zone(slots, pole_pairs, 1.0);
+    approxim::assert_abs_diff_eq!(phasor.re, 10.0, epsilon = 1e-6);
+    approxim::assert_abs_diff_eq!(phasor.im, 0.0, epsilon = 1e-6);
+
+    let phasor = coil.voltage_phasor(slots, pole_pairs, 1.0);
+    approxim::assert_abs_diff_eq!(phasor.re, 20.0, epsilon = 1e-6);
+    approxim::assert_abs_diff_eq!(phasor.im, 0.0, epsilon = 1e-6);
+
+    coil.set_turns(NonZeroUsize::new(5).expect("not zero"));
+    let phasor = coil.voltage_phasor(slots, pole_pairs, 1.0);
+    approxim::assert_abs_diff_eq!(phasor.re, 10.0, epsilon = 1e-6);
+    approxim::assert_abs_diff_eq!(phasor.im, 0.0, epsilon = 1e-6);
+}
+
 #[cfg(feature = "serde")]
 mod serde_tests {
 

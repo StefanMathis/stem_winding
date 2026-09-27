@@ -114,23 +114,23 @@ impl FecSpectralAnalysis {
     // Assert the length of the output
     assert_eq!(output.len(), 513);
 
-    // All even ordinals are zero. Since the field is a pure 2D field, no constant component exists.
+    // All even orders are zero. Since the field is a pure 2D field, no constant component exists.
     let (val, _) = output[0].to_polar(); // Constant component
     assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
 
-    let (val, _) = output[1].to_polar(); // First ordinal
+    let (val, _) = output[1].to_polar(); // First order
     assert_abs_diff_eq!(val, 1.8453, epsilon = 1e-3);
 
-    let (val, _) = output[2].to_polar(); // Second ordinal
+    let (val, _) = output[2].to_polar(); // Second order
     assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
 
-    let (val, _) = output[3].to_polar(); // Third ordinal
+    let (val, _) = output[3].to_polar(); // Third order
     assert_abs_diff_eq!(val, 0.0028, epsilon = 1e-3);
 
-    let (val, _) = output[4].to_polar(); // Fourth ordinal
+    let (val, _) = output[4].to_polar(); // Fourth order
     assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
 
-    let (val, _) = output[5].to_polar(); // Fifth ordinal
+    let (val, _) = output[5].to_polar(); // Fifth order
     assert_abs_diff_eq!(val, 0.0967, epsilon = 1e-3);
 
     ```
@@ -220,24 +220,24 @@ mod tests {
             // Assert the length of the output
             assert_eq!(output.len(), 513);
 
-            // All even ordinals are zero. Since the field is a pure 2D field, no constant
+            // All even orders are zero. Since the field is a pure 2D field, no constant
             // component exists.
             let (val, _) = output[0].to_polar(); // Constant component
             assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
 
-            let (val, _) = output[1].to_polar(); // First ordinal
+            let (val, _) = output[1].to_polar(); // First order
             assert_abs_diff_eq!(val, 1.8453, epsilon = 1e-3);
 
-            let (val, _) = output[2].to_polar(); // Second ordinal
+            let (val, _) = output[2].to_polar(); // Second order
             assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
 
-            let (val, _) = output[3].to_polar(); // Third ordinal
+            let (val, _) = output[3].to_polar(); // Third order
             assert_abs_diff_eq!(val, 0.00276, epsilon = 1e-5);
 
-            let (val, _) = output[4].to_polar(); // Fourth ordinal
+            let (val, _) = output[4].to_polar(); // Fourth order
             assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
 
-            let (val, _) = output[5].to_polar(); // Fifth ordinal
+            let (val, _) = output[5].to_polar(); // Fifth order
             assert_abs_diff_eq!(val, 0.0967, epsilon = 1e-3);
         }
         {
@@ -258,18 +258,18 @@ mod tests {
             // Assert the length of the output
             assert_eq!(output.len(), 513);
 
-            // All even ordinals are zero. Since the field is a pure 2D field, no constant
+            // All even orders are zero. Since the field is a pure 2D field, no constant
             // component exists.
             let (val, _) = output[0].to_polar(); // Constant component
             assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
 
-            let (val, _) = output[1].to_polar(); // First ordinal
+            let (val, _) = output[1].to_polar(); // First order
             assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
 
-            let (val, _) = output[2].to_polar(); // Second ordinal
+            let (val, _) = output[2].to_polar(); // Second order
             assert_abs_diff_eq!(val, 1.8453, epsilon = 1e-3);
 
-            let (val, _) = output[3].to_polar(); // Third ordinal
+            let (val, _) = output[3].to_polar(); // Third order
             assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
         }
     }
@@ -294,24 +294,24 @@ mod tests {
         // Assert the length of the output
         assert_eq!(output.len(), 513);
 
-        // All even ordinals are zero. Since the field is a pure 2D field, no constant
+        // All even orders are zero. Since the field is a pure 2D field, no constant
         // component exists.
         let (val, _) = output[0].to_polar(); // Constant component
         assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
 
-        let (val, _) = output[1].to_polar(); // First ordinal
+        let (val, _) = output[1].to_polar(); // First order
         assert_abs_diff_eq!(val, 1.8453, epsilon = 1e-3);
 
-        let (val, _) = output[2].to_polar(); // Second ordinal
+        let (val, _) = output[2].to_polar(); // Second order
         assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
 
-        let (val, _) = output[3].to_polar(); // Third ordinal
+        let (val, _) = output[3].to_polar(); // Third order
         assert_abs_diff_eq!(val, 0.0028, epsilon = 1e-3);
 
-        let (val, _) = output[4].to_polar(); // Fourth ordinal
+        let (val, _) = output[4].to_polar(); // Fourth order
         assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
 
-        let (val, _) = output[5].to_polar(); // Fifth ordinal
+        let (val, _) = output[5].to_polar(); // Fifth order
         assert_abs_diff_eq!(val, 0.0967, epsilon = 1e-3);
     }
 
@@ -334,24 +334,24 @@ mod tests {
         // Assert the length of the output
         assert_eq!(output.len(), 513);
 
-        // All even ordinals are zero. Since the field is a pure 2D field, no constant
+        // All even orders are zero. Since the field is a pure 2D field, no constant
         // component exists.
         let (val, _) = output[0].to_polar(); // Constant component
         assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
 
-        let (val, _) = output[1].to_polar(); // First ordinal
+        let (val, _) = output[1].to_polar(); // First order
         assert_abs_diff_eq!(val, 1.7820, epsilon = 1e-3);
 
-        let (val, _) = output[2].to_polar(); // Second ordinal
+        let (val, _) = output[2].to_polar(); // Second order
         assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
 
-        let (val, _) = output[3].to_polar(); // Third ordinal
+        let (val, _) = output[3].to_polar(); // Third order
         assert_abs_diff_eq!(val, 0.0028, epsilon = 1e-3);
 
-        let (val, _) = output[4].to_polar(); // Fourth ordinal
+        let (val, _) = output[4].to_polar(); // Fourth order
         assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
 
-        let (val, _) = output[5].to_polar(); // Fifth ordinal
+        let (val, _) = output[5].to_polar(); // Fifth order
         assert_abs_diff_eq!(val, 0.0246, epsilon = 1e-3);
     }
 
@@ -373,24 +373,24 @@ mod tests {
         // Assert the length of the output
         assert_eq!(output.len(), 513);
 
-        // All even ordinals are zero. Since the field is a pure 2D field, no constant
+        // All even orders are zero. Since the field is a pure 2D field, no constant
         // component exists.
         let (val, _) = output[0].to_polar(); // Constant component
         assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
 
-        let (val, _) = output[1].to_polar(); // First ordinal
+        let (val, _) = output[1].to_polar(); // First order
         assert_abs_diff_eq!(val, 0.2580, epsilon = 1e-3);
 
-        let (val, _) = output[2].to_polar(); // Second ordinal
+        let (val, _) = output[2].to_polar(); // Second order
         assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
 
-        let (val, _) = output[3].to_polar(); // Third ordinal
+        let (val, _) = output[3].to_polar(); // Third order
         assert_abs_diff_eq!(val, 0.0043, epsilon = 1e-3);
 
-        let (val, _) = output[4].to_polar(); // Fourth ordinal
+        let (val, _) = output[4].to_polar(); // Fourth order
         assert_abs_diff_eq!(val, 0.0, epsilon = 1e-3);
 
-        let (val, _) = output[5].to_polar(); // Fifth ordinal
+        let (val, _) = output[5].to_polar(); // Fifth order
         assert_abs_diff_eq!(val, 0.7126, epsilon = 1e-3);
     }
 }

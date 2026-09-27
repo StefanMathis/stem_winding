@@ -203,14 +203,13 @@ fn test_three_zones_single_layer() {
         let winding_table = winding.winding_table(false);
         assert_eq!(winding_table, winding_table_expected);
 
-        // Check the winding ordinals
-        let ordinals: Vec<num::rational::Ratio<i32>> =
-            winding.harmonic_ordinals().take(5).collect();
-        assert_eq!(ordinals[0], num::rational::Ratio::new(-1, 2));
-        assert_eq!(ordinals[1], num::rational::Ratio::new(2, 2));
-        assert_eq!(ordinals[2], num::rational::Ratio::new(-4, 2));
-        assert_eq!(ordinals[3], num::rational::Ratio::new(5, 2));
-        assert_eq!(ordinals[4], num::rational::Ratio::new(-7, 2));
+        // Check the winding orders
+        let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
+        assert_eq!(orders[0], num::rational::Ratio::new(-1, 2));
+        assert_eq!(orders[1], num::rational::Ratio::new(2, 2));
+        assert_eq!(orders[2], num::rational::Ratio::new(-4, 2));
+        assert_eq!(orders[3], num::rational::Ratio::new(5, 2));
+        assert_eq!(orders[4], num::rational::Ratio::new(-7, 2));
 
         // Check the winding factor
         approxim::assert_abs_diff_eq!(0.4830, winding.winding_factor(ONE, -0.5), epsilon = 0.0001);
@@ -242,14 +241,13 @@ fn test_three_zones_single_layer() {
         let winding_table = winding.winding_table(false);
         assert_eq!(winding_table, winding_table_expected);
 
-        // Check the winding ordinals
-        let ordinals: Vec<num::rational::Ratio<i32>> =
-            winding.harmonic_ordinals().take(5).collect();
-        assert_eq!(ordinals[0], num::rational::Ratio::new(1, 4));
-        assert_eq!(ordinals[1], num::rational::Ratio::new(-2, 4));
-        assert_eq!(ordinals[2], num::rational::Ratio::new(4, 4));
-        assert_eq!(ordinals[3], num::rational::Ratio::new(-5, 4));
-        assert_eq!(ordinals[4], num::rational::Ratio::new(7, 4));
+        // Check the winding orders
+        let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
+        assert_eq!(orders[0], num::rational::Ratio::new(1, 4));
+        assert_eq!(orders[1], num::rational::Ratio::new(-2, 4));
+        assert_eq!(orders[2], num::rational::Ratio::new(4, 4));
+        assert_eq!(orders[3], num::rational::Ratio::new(-5, 4));
+        assert_eq!(orders[4], num::rational::Ratio::new(7, 4));
 
         // Check the winding factor
         approxim::assert_abs_diff_eq!(0.4830, winding.winding_factor(ONE, 0.25), epsilon = 0.0001);
@@ -324,14 +322,13 @@ fn test_six_zones_single_layer() {
         let winding_table = winding.winding_table(false);
         assert_eq!(winding_table, winding_table_expected);
 
-        // Check the winding ordinals
-        let ordinals: Vec<num::rational::Ratio<i32>> =
-            winding.harmonic_ordinals().take(5).collect();
-        assert_eq!(ordinals[0], num::rational::Ratio::new(-1, 5));
-        assert_eq!(ordinals[1], num::rational::Ratio::new(5, 5));
-        assert_eq!(ordinals[2], num::rational::Ratio::new(-7, 5));
-        assert_eq!(ordinals[3], num::rational::Ratio::new(11, 5));
-        assert_eq!(ordinals[4], num::rational::Ratio::new(-13, 5));
+        // Check the winding orders
+        let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
+        assert_eq!(orders[0], num::rational::Ratio::new(-1, 5));
+        assert_eq!(orders[1], num::rational::Ratio::new(5, 5));
+        assert_eq!(orders[2], num::rational::Ratio::new(-7, 5));
+        assert_eq!(orders[3], num::rational::Ratio::new(11, 5));
+        assert_eq!(orders[4], num::rational::Ratio::new(-13, 5));
 
         // Check the winding factor
         approxim::assert_abs_diff_eq!(0.2566, winding.winding_factor(ONE, -0.2), epsilon = 0.0001);
@@ -363,14 +360,13 @@ fn test_six_zones_single_layer() {
         let winding_table = winding.winding_table(false);
         assert_eq!(winding_table, winding_table_expected);
 
-        // Check the winding ordinals
-        let ordinals: Vec<num::rational::Ratio<i32>> =
-            winding.harmonic_ordinals().take(5).collect();
-        assert_eq!(ordinals[0], num::rational::Ratio::new(1, 7));
-        assert_eq!(ordinals[1], num::rational::Ratio::new(-5, 7));
-        assert_eq!(ordinals[2], num::rational::Ratio::new(7, 7));
-        assert_eq!(ordinals[3], num::rational::Ratio::new(-11, 7));
-        assert_eq!(ordinals[4], num::rational::Ratio::new(13, 7));
+        // Check the winding orders
+        let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
+        assert_eq!(orders[0], num::rational::Ratio::new(1, 7));
+        assert_eq!(orders[1], num::rational::Ratio::new(-5, 7));
+        assert_eq!(orders[2], num::rational::Ratio::new(7, 7));
+        assert_eq!(orders[3], num::rational::Ratio::new(-11, 7));
+        assert_eq!(orders[4], num::rational::Ratio::new(13, 7));
 
         // Check the winding factor
         approxim::assert_abs_diff_eq!(
@@ -475,13 +471,13 @@ fn test_double_layer_24_2() {
     );
     assert_eq!(winding_table, expected_result);
 
-    // Check the winding ordinals
-    let ordinals: Vec<num::rational::Ratio<i32>> = winding.harmonic_ordinals().take(5).collect();
-    assert_eq!(ordinals[0], num::rational::Ratio::new(1, 1));
-    assert_eq!(ordinals[1], num::rational::Ratio::new(-5, 1));
-    assert_eq!(ordinals[2], num::rational::Ratio::new(7, 1));
-    assert_eq!(ordinals[3], num::rational::Ratio::new(-11, 1));
-    assert_eq!(ordinals[4], num::rational::Ratio::new(13, 1));
+    // Check the winding orders
+    let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
+    assert_eq!(orders[0], num::rational::Ratio::new(1, 1));
+    assert_eq!(orders[1], num::rational::Ratio::new(-5, 1));
+    assert_eq!(orders[2], num::rational::Ratio::new(7, 1));
+    assert_eq!(orders[3], num::rational::Ratio::new(-11, 1));
+    assert_eq!(orders[4], num::rational::Ratio::new(13, 1));
 
     // Check the winding factor
     approxim::assert_abs_diff_eq!(0.4830, winding.winding_factor(ONE, 1.0), epsilon = 0.0001);
@@ -620,7 +616,7 @@ fn test_double_layer_differing_number_of_coils_24_2_dl() {
 }
 
 /**
-Tests for an overflow which could occur in the harmonic ordinals iterator
+Tests for an overflow which could occur in the harmonic orders iterator
  */
 #[test]
 fn test_overflow_iterator_bug() {

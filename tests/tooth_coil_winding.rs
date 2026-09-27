@@ -170,13 +170,13 @@ fn test_winding_12_8_dl() {
     // Assert that the winding is symmetric
     assert!(winding.equal_winding_factors());
 
-    // Check the winding ordinals
-    let ordinals: Vec<num::rational::Ratio<i32>> = winding.harmonic_ordinals().take(5).collect();
-    assert_eq!(ordinals[0], num::rational::Ratio::new(1, 1));
-    assert_eq!(ordinals[1], num::rational::Ratio::new(-2, 1));
-    assert_eq!(ordinals[2], num::rational::Ratio::new(4, 1));
-    assert_eq!(ordinals[3], num::rational::Ratio::new(-5, 1));
-    assert_eq!(ordinals[4], num::rational::Ratio::new(7, 1));
+    // Check the winding orders
+    let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
+    assert_eq!(orders[0], num::rational::Ratio::new(1, 1));
+    assert_eq!(orders[1], num::rational::Ratio::new(-2, 1));
+    assert_eq!(orders[2], num::rational::Ratio::new(4, 1));
+    assert_eq!(orders[3], num::rational::Ratio::new(-5, 1));
+    assert_eq!(orders[4], num::rational::Ratio::new(7, 1));
 
     // Check the winding factor
     approxim::assert_abs_diff_eq!(0.866, winding.winding_factor(ONE, 1.0), epsilon = 0.0001);
@@ -208,13 +208,13 @@ fn test_winding_12_10_dl() {
     // Assert that the winding is symmetric
     assert!(winding.equal_winding_factors());
 
-    // Check the winding ordinals
-    let ordinals: Vec<num::rational::Ratio<i32>> = winding.harmonic_ordinals().take(5).collect();
-    assert_eq!(ordinals[0], num::rational::Ratio::new(-1, 5));
-    assert_eq!(ordinals[1], num::rational::Ratio::new(5, 5));
-    assert_eq!(ordinals[2], num::rational::Ratio::new(-7, 5));
-    assert_eq!(ordinals[3], num::rational::Ratio::new(11, 5));
-    assert_eq!(ordinals[4], num::rational::Ratio::new(-13, 5));
+    // Check the winding orders
+    let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
+    assert_eq!(orders[0], num::rational::Ratio::new(-1, 5));
+    assert_eq!(orders[1], num::rational::Ratio::new(5, 5));
+    assert_eq!(orders[2], num::rational::Ratio::new(-7, 5));
+    assert_eq!(orders[3], num::rational::Ratio::new(11, 5));
+    assert_eq!(orders[4], num::rational::Ratio::new(-13, 5));
 
     // Check the winding factor
     approxim::assert_abs_diff_eq!(0.933, winding.winding_factor(ONE, 1.0), epsilon = 0.0001);
@@ -246,13 +246,13 @@ fn test_winding_12_10_sl() {
     // Assert that the winding is symmetric
     assert!(winding.equal_winding_factors());
 
-    // Check the winding ordinals
-    let ordinals: Vec<num::rational::Ratio<i32>> = winding.harmonic_ordinals().take(5).collect();
-    assert_eq!(ordinals[0], num::rational::Ratio::new_raw(-1, 5));
-    assert_eq!(ordinals[1], num::rational::Ratio::new_raw(5, 5));
-    assert_eq!(ordinals[2], num::rational::Ratio::new_raw(-7, 5));
-    assert_eq!(ordinals[3], num::rational::Ratio::new_raw(11, 5));
-    assert_eq!(ordinals[4], num::rational::Ratio::new_raw(-13, 5));
+    // Check the winding orders
+    let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
+    assert_eq!(orders[0], num::rational::Ratio::new_raw(-1, 5));
+    assert_eq!(orders[1], num::rational::Ratio::new_raw(5, 5));
+    assert_eq!(orders[2], num::rational::Ratio::new_raw(-7, 5));
+    assert_eq!(orders[3], num::rational::Ratio::new_raw(11, 5));
+    assert_eq!(orders[4], num::rational::Ratio::new_raw(-13, 5));
 
     // Check the winding factor
     approxim::assert_abs_diff_eq!(0.9659, winding.winding_factor(ONE, 1.0), epsilon = 0.0001);
