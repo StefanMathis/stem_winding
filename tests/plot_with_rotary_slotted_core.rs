@@ -38,7 +38,7 @@ mod cairo_tests {
         .unwrap();
         let core = RotCore::from_winding(&winding);
 
-        let zone_config = ZoneConfig::new(
+        let zone_config = ZoneDrawablesConfig::new(
             ZoneBackgroundColor::Phase,
             Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
                 false, 0.8, None,
@@ -80,7 +80,7 @@ mod cairo_tests {
         .unwrap();
         let core = RotCore::from_winding(&winding);
 
-        let zone_config = ZoneConfig::new(
+        let zone_config = ZoneDrawablesConfig::new(
             ZoneBackgroundColor::Phase,
             Some(ZoneCenterConfig::AmpereTurns(15.0)),
             true,
@@ -121,7 +121,7 @@ mod cairo_tests {
             .unwrap();
             let core = RotCore::from_winding(&winding);
 
-            let zone_config = ZoneConfig::new(
+            let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::Phase,
                 Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
                     false, 0.8, None,
@@ -164,7 +164,7 @@ mod cairo_tests {
             .unwrap();
             let core = RotCore::from_winding(&winding);
 
-            let zone_config = ZoneConfig::new(
+            let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::Phase,
                 Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
                     false, 0.8, None,
@@ -208,7 +208,7 @@ mod cairo_tests {
 
         {
             // Test with ampere turns
-            let zone_config = ZoneConfig::new(
+            let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::Phase,
                 Some(ZoneCenterConfig::AmpereTurns(15.0)),
                 true,
@@ -249,7 +249,7 @@ mod cairo_tests {
         let core = RotCore::from_winding(&winding);
 
         {
-            let zone_config = ZoneConfig::new(
+            let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::Phase,
                 Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
                     false,
@@ -278,7 +278,7 @@ mod cairo_tests {
             assert!(compare_or_create(path, &callback, 0.99).is_ok());
         }
         {
-            let zone_config = ZoneConfig::new(
+            let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::None,
                 Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
                     true,

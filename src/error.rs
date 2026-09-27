@@ -38,6 +38,8 @@ impl std::fmt::Display for Error {
     }
 }
 
+impl std::error::Error for Error {}
+
 impl From<InsertionError<(Vec<Zone>, Coil)>> for Error {
     fn from(value: InsertionError<(Vec<Zone>, Coil)>) -> Self {
         Error::CoilInsertionFailed(value)
@@ -113,3 +115,5 @@ impl std::fmt::Display for WindingTableCreationError {
         write!(f, "placeholder")
     }
 }
+
+impl std::error::Error for WindingTableCreationError {}

@@ -78,8 +78,8 @@ impl<W: Winding> FromWinding<W> for RotCore {
         return RotCoreBuilder {
             air_gap_radius,
             yoke_radius,
-            axial_length: Length::new::<millimeter>(1.0),
-            axial_coil_overhang: Length::new::<millimeter>(0.0),
+            axial_length: 4.0 * bottom_width,
+            axial_coil_overhang: bottom_width,
             iron_fill_factor: 1.0,
             material: Arc::new(Material::default()),
             pole_pairs: winding.pole_pairs(),
@@ -132,8 +132,8 @@ impl<W: Winding> FromWinding<W> for LinCore {
         return LinCoreBuilder {
             height: core_height,
             width: core_width,
-            axial_length: Length::new::<millimeter>(1.0),
-            axial_coil_overhang: Length::new::<millimeter>(0.0),
+            axial_length: 4.0 * bottom_width,
+            axial_coil_overhang: bottom_width,
             skew_angle: 0.0,
             iron_fill_factor: 1.0,
             material: Arc::new(Material::default()),

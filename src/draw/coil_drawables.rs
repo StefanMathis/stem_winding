@@ -12,9 +12,10 @@ use stem_core::prelude::*;
 
 use crate::{
     coils::{Coil, CoilExt},
-    draw::{EndWindingLayouter, get_phase_color},
     winding::Winding,
 };
+
+use super::{DrawableType, EndWindingLayouter, get_phase_color};
 
 const BLACK: Color = Color {
     r: 0.0,
@@ -22,6 +23,12 @@ const BLACK: Color = Color {
     b: 0.0,
     a: 1.0,
 };
+
+#[derive(Debug, Copy, Clone)]
+pub enum CoilOrAnnotation {
+    Coil,
+    Annotation,
+}
 
 /// Iterator over the coil drawables and one of the coil zones:
 /// - Coil lines itself
@@ -32,8 +39,8 @@ pub struct CoilDrawables<'a> {
     parameters: &'a CoilDrawablesParameters,
     layer_winding_head_map: Option<HashMap<Zone, usize>>,
     colors: Vec<Color>,
-    drawables: [Option<Drawable>; 8],
-    index: u16,
+    drawables: [Option<(DrawableType, Drawable)>; 8],
+    index: usize,
     zone: Zone,
 }
 
@@ -74,24 +81,33 @@ impl<'a> CoilDrawables<'a> {
 }
 
 impl<'a> Iterator for CoilDrawables<'a> {
-    type Item = (Zone, Drawable);
+    type Item = (DrawableType, Drawable);
 
     fn next(&mut self) -> Option<Self::Item> {
+        // First draw the teeth
+        let slots = self.winding.slots();
+        if self.index <= usize::from(slots.get()) {
+            let drawable = self.parameters.tooth_drawable(self.index as u16, slots);
+            self.index += 1;
+            return Some((DrawableType::Tooth(self.index as u16), drawable));
+        }
+
         for drawable in self.drawables.iter_mut() {
             if let Some(d) = drawable.take() {
-                return Some((self.zone, d));
+                return Some(d);
             }
         }
 
+        let corrected_index = self.index - usize::from(slots.get()) - 1;
+        self.index += 1;
+
         let layers = self.winding.layers().get();
-        if self.index >= self.winding.slots().get() * layers {
+        if corrected_index >= usize::from(self.winding.slots().get()) * usize::from(layers) {
             return None;
         }
-        let layer = self.index.rem_euclid(layers);
-        let slot = self.index / layers;
+        let layer = corrected_index.rem_euclid(usize::from(layers)) as u16;
+        let slot = (corrected_index / usize::from(layers)) as u16;
         self.zone = Zone { slot, layer };
-
-        self.index += 1;
 
         match self.winding.coil_at(self.zone) {
             Some(coil) => {
@@ -116,7 +132,13 @@ impl<'a> Iterator for CoilDrawables<'a> {
                     );
                     let offset = coil_drawables.len();
                     for (i, d) in coil_drawables.into_iter().enumerate() {
-                        self.drawables[i] = d;
+                        self.drawables[i] = d.map(|(comp, drawable)| {
+                            let drawable_type = match comp {
+                                CoilOrAnnotation::Coil => DrawableType::Coil(self.zone),
+                                CoilOrAnnotation::Annotation => DrawableType::Annotation(self.zone),
+                            };
+                            (drawable_type, drawable)
+                        });
                     }
 
                     if let Ok(arrowheads) = self.parameters.arrowhead_drawables(
@@ -128,7 +150,10 @@ impl<'a> Iterator for CoilDrawables<'a> {
                         let color_idx = usize::from(coil.phase().get()) - 1;
                         let style = self.parameters.coil_style(self.colors[color_idx]);
                         for (i, c) in arrowheads.into_iter().enumerate() {
-                            self.drawables[offset + i] = Some(Drawable::new(c, style.clone()));
+                            self.drawables[offset + i] = Some((
+                                DrawableType::Arrow(self.zone),
+                                Drawable::new(c, style.clone()),
+                            ));
                         }
                     }
                 }
@@ -136,7 +161,10 @@ impl<'a> Iterator for CoilDrawables<'a> {
             None => {
                 let contour = self.parameters.empty_zone(self.zone, layers);
                 let style = self.parameters.empty_zone_style();
-                self.drawables[0] = Some(Drawable::new(contour, style));
+                self.drawables[0] = Some((
+                    DrawableType::EmptyZone(self.zone),
+                    Drawable::new(contour, style),
+                ));
             }
         }
         return self.next();
@@ -209,8 +237,12 @@ impl Default for CoilDrawablesParameters {
     }
 }
 
-impl From<CoreRef<'_>> for CoilDrawablesParameters {
-    fn from(core: CoreRef<'_>) -> CoilDrawablesParameters {
+impl<'a, T> From<T> for CoilDrawablesParameters
+where
+    T: Into<CoreRef<'a>>,
+{
+    fn from(core: T) -> CoilDrawablesParameters {
+        let core: CoreRef = core.into();
         let mut tooth_width = core
             .tooth_width_at(0.5 * core.tooth_height())
             .get::<meter>();
@@ -293,16 +325,12 @@ impl CoilDrawablesParameters {
         }
     }
 
-    pub fn bounding_box(&self, winding: &dyn Winding, with_teeth: bool) -> BoundingBox {
+    pub fn bounding_box(&self, winding: &dyn Winding) -> BoundingBox {
         let ymax = self.max_coil_height(winding);
         let ymin = if self.draw_both_sides { -ymax } else { 0.0 };
-        let mut xmin = 0.0;
-        let mut xmax =
-            self.slot_and_tooth_width() * f64::from(winding.slots().get()) + self.tooth_width;
-        if !with_teeth {
-            xmin += 0.5 * self.tooth_width;
-            xmax -= 0.5 * self.tooth_width;
-        }
+        let xmin = 0.5 * self.tooth_width;
+        let xmax =
+            self.slot_and_tooth_width() * f64::from(winding.slots().get()) + 0.5 * self.tooth_width;
 
         BoundingBox::try_new(xmin, xmax, ymin, ymax).unwrap_or(BoundingBox::new(0.0, 0.0, 0.0, 0.0))
     }
@@ -316,16 +344,35 @@ impl CoilDrawablesParameters {
         return Ok(());
     }
 
-    pub fn tooth_drawable(&self, slot: u16) -> Drawable {
+    fn tooth_drawable(&self, slot: u16, slots: NonZeroU16) -> Drawable {
         let lower = if self.draw_both_sides {
             -0.5 * self.axial_length
         } else {
             0.0
         };
 
-        // Top-left coordinates
-        let lower_left = [self.slot_and_tooth_width() * f64::from(slot), lower];
-        let upper_right = [lower_left[0] + self.tooth_width, 0.5 * self.axial_length];
+        let (lower_left, upper_right) = if slot == 0 {
+            (
+                [0.5 * self.tooth_width, lower],
+                [self.tooth_width, 0.5 * self.axial_length],
+            )
+        } else if slot == slots.get() {
+            (
+                [self.slot_and_tooth_width() * f64::from(slot), lower],
+                [
+                    self.slot_and_tooth_width() * f64::from(slot) + 0.5 * self.tooth_width,
+                    0.5 * self.axial_length,
+                ],
+            )
+        } else {
+            (
+                [self.slot_and_tooth_width() * f64::from(slot), lower],
+                [
+                    self.slot_and_tooth_width() * f64::from(slot) + self.tooth_width,
+                    0.5 * self.axial_length,
+                ],
+            )
+        };
 
         return Drawable::new(
             Contour::rectangle(lower_left, upper_right),
@@ -341,7 +388,7 @@ impl CoilDrawablesParameters {
         );
     }
 
-    pub fn coil_style(&self, color: Color) -> Style {
+    fn coil_style(&self, color: Color) -> Style {
         Style {
             line_color: color,
             background_color: color,
@@ -353,7 +400,7 @@ impl CoilDrawablesParameters {
         }
     }
 
-    pub fn empty_zone_style(&self) -> Style {
+    fn empty_zone_style(&self) -> Style {
         Style {
             line_color: BLACK,
             background_color: Color {
@@ -378,7 +425,7 @@ impl CoilDrawablesParameters {
     Create a drawable for the given empty zone. The total number of layers is also needed
     in order to set the correct zone width.
      */
-    pub fn empty_zone(&self, zone: Zone, layers: u16) -> Contour {
+    fn empty_zone(&self, zone: Zone, layers: u16) -> Contour {
         // Calculate the width of a layer
         let layer_width = self.slot_width / (layers as f64);
         let zone_delta = self.delta_empty_zone * layer_width;
@@ -416,7 +463,7 @@ impl CoilDrawablesParameters {
         layers: NonZeroU16,
         colors: &[Color],
         winding_head_layer: usize,
-    ) -> [Option<Drawable>; 6] {
+    ) -> [Option<(CoilOrAnnotation, Drawable)>; 6] {
         // Cannot underflow, since phase is NonZeroU16, i.e. larger than 0.
         let color_idx = usize::from(coil.phase().get()) - 1;
         let phase_color = colors.get(color_idx).cloned().unwrap_or(BLACK);
@@ -482,7 +529,7 @@ impl CoilDrawablesParameters {
         positive_slot_direction: bool,
         winding_head_layer: usize,
         annotation_info: Option<AnnotationInfo>,
-    ) -> [Option<Drawable>; 6] {
+    ) -> [Option<(CoilOrAnnotation, Drawable)>; 6] {
         let separated_coil = (positive_slot_direction && x_return < x_outward)
             || (!positive_slot_direction && x_return > x_outward);
 
@@ -539,11 +586,13 @@ impl CoilDrawablesParameters {
                         .into_iter()
                         .enumerate()
                     {
-                        drawables[i + 2] = Some(Drawable::from(annotation));
+                        drawables[i + 2] =
+                            Some((CoilOrAnnotation::Annotation, Drawable::from(annotation)));
                     }
                 } else {
                     for (i, annotation) in annotations.into_iter().enumerate() {
-                        drawables[i + 2] = Some(Drawable::from(annotation));
+                        drawables[i + 2] =
+                            Some((CoilOrAnnotation::Annotation, Drawable::from(annotation)));
                     }
                 }
             }
@@ -551,9 +600,8 @@ impl CoilDrawablesParameters {
 
         for (i, mut line) in pos_lines.into_iter().enumerate() {
             if let Some(mut pos_line) = line.take() {
-                let mut neg_line = pos_line.clone();
-
                 if self.draw_both_sides {
+                    let mut neg_line = pos_line.clone();
                     neg_line.line_reflection([0.0, 0.0], [1.0, 0.0]);
                     neg_line.reverse();
                     pos_line.append(&mut neg_line);
@@ -561,7 +609,10 @@ impl CoilDrawablesParameters {
                         pos_line.close();
                     }
                 }
-                drawables[i] = Some(Drawable::new(pos_line, coil_style.clone()));
+                drawables[i] = Some((
+                    CoilOrAnnotation::Coil,
+                    Drawable::new(pos_line, coil_style.clone()),
+                ));
             }
         }
 

@@ -1,6 +1,7 @@
 use std::num::NonZeroU16;
 
 use colorgrad::Gradient;
+use stem_coil_layout::Zone;
 use stem_core::planar_geo::draw::Color;
 
 pub mod winding_zones_drawables;
@@ -11,6 +12,27 @@ pub use end_winding_layouter::*;
 
 pub mod coil_drawables;
 pub use coil_drawables::*;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum DrawableType {
+    Tooth(u16),
+    Annotation(Zone),
+    Coil(Zone),
+    Arrow(Zone),
+    EmptyZone(Zone),
+}
+
+impl DrawableType {
+    pub fn zone(&self) -> Option<Zone> {
+        match self {
+            DrawableType::Tooth(_) => None,
+            DrawableType::Annotation(zone) => Some(*zone),
+            DrawableType::Coil(zone) => Some(*zone),
+            DrawableType::Arrow(zone) => Some(*zone),
+            DrawableType::EmptyZone(zone) => Some(*zone),
+        }
+    }
+}
 
 /**
 Returns the color for a phase

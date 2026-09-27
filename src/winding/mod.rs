@@ -18,7 +18,9 @@ use crate::core_support::{Overrides, ResistanceComponents};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "cairo")]
-use crate::draw::{CoilDrawables, CoilDrawablesParameters, WindingZoneDrawables, ZoneConfig};
+use crate::draw::{
+    CoilDrawables, CoilDrawablesParameters, WindingZoneDrawables, ZoneDrawablesConfig,
+};
 
 use stem_coil_layout::{CoilLayout, Zone};
 use stem_wire::{stem_material::si::Length, wire::Wire};
@@ -1063,7 +1065,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     fn zone_drawables<'a>(
         &'a self,
         core: CoreRef<'_>,
-        zone_config: &'a ZoneConfig,
+        zone_config: &'a ZoneDrawablesConfig,
     ) -> WindingZoneDrawables<'a> {
         WindingZoneDrawables::new(self.as_dyn(), core, zone_config)
     }

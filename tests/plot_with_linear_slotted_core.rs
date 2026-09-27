@@ -55,7 +55,7 @@ mod cairo_tests {
         .try_into()
         .unwrap();
 
-        let zone_config = ZoneConfig::new(
+        let zone_config = ZoneDrawablesConfig::new(
             ZoneBackgroundColor::Phase,
             Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
                 false, 0.8, None,
@@ -95,7 +95,7 @@ mod cairo_tests {
         .try_into()
         .unwrap();
 
-        let zone_config = ZoneConfig::new(
+        let zone_config = ZoneDrawablesConfig::new(
             ZoneBackgroundColor::Phase,
             Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
                 false, 0.8, None,
@@ -136,7 +136,7 @@ mod cairo_tests {
         .try_into()
         .unwrap();
 
-        let zone_config = ZoneConfig::new(
+        let zone_config = ZoneDrawablesConfig::new(
             ZoneBackgroundColor::Phase,
             Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
                 false, 0.8, None,
@@ -177,7 +177,7 @@ mod cairo_tests {
         .try_into()
         .unwrap();
 
-        let zone_config = ZoneConfig::new(
+        let zone_config = ZoneDrawablesConfig::new(
             ZoneBackgroundColor::Phase,
             Some(ZoneCenterConfig::AmpereTurns(15.0)),
             true,
@@ -217,7 +217,7 @@ mod cairo_tests {
         .try_into()
         .unwrap();
 
-        let zone_config = ZoneConfig::new(
+        let zone_config = ZoneDrawablesConfig::new(
             ZoneBackgroundColor::Phase,
             Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
                 false, 0.8, None,
@@ -321,7 +321,7 @@ mod cairo_tests {
 
             let core = LinCore::from_winding(&coil_assembly);
 
-            let zone_config = ZoneConfig::new(
+            let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::Phase,
                 Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
                     false, 0.8, None,
@@ -363,7 +363,7 @@ mod cairo_tests {
 
             let core = LinCore::from_winding(&coil_assembly);
 
-            let zone_config = ZoneConfig::new(
+            let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::Phase,
                 Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
                     false, 0.8, None,
@@ -451,7 +451,7 @@ mod cairo_tests {
         let core = LinCore::from_winding(&coil_assembly);
 
         {
-            let zone_config = ZoneConfig::new(
+            let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::Phase,
                 Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
                     false, 0.9, None,
@@ -481,7 +481,7 @@ mod cairo_tests {
             assert!(compare_or_create(path, &callback, 0.99).is_ok());
         }
         {
-            let zone_config = ZoneConfig::new(
+            let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::Phase,
                 Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
                     false, 0.9, None,

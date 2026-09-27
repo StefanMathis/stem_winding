@@ -3,7 +3,8 @@ use std::{f64::consts::SQRT_2, num::NonZeroU16};
 use stem_coil_layout::Zone;
 use stem_core::prelude::*;
 
-use crate::{draw::get_phase_color, winding::Winding};
+use super::{DrawableType, get_phase_color};
+use crate::winding::Winding;
 
 const INVISIBLE: Color = Color {
     r: 0.0,
@@ -15,16 +16,20 @@ const INVISIBLE: Color = Color {
 pub struct WindingZoneDrawables<'a> {
     winding: &'a dyn Winding,
     winding_zones: WindingZones,
-    zone_config: &'a ZoneConfig,
+    zone_config: &'a ZoneDrawablesConfig,
     zone: Zone,
     phase: i32,
-    drawables: [Option<Drawable>; 4],
+    drawables: [Option<(DrawableType, Drawable)>; 4],
     arrow_circle_diameter: f64,
     arrow_tip_diameter: f64,
 }
 
 impl<'a> WindingZoneDrawables<'a> {
-    pub fn new(winding: &'a dyn Winding, core: CoreRef<'_>, zone_config: &'a ZoneConfig) -> Self {
+    pub fn new(
+        winding: &'a dyn Winding,
+        core: CoreRef<'_>,
+        zone_config: &'a ZoneDrawablesConfig,
+    ) -> Self {
         let [arrow_circle_diameter, arrow_tip_diameter] = match &zone_config.center_config {
             Some(c) => match c {
                 ZoneCenterConfig::AmpereTurns(_) => [0.0, 0.0],
@@ -52,25 +57,26 @@ impl<'a> WindingZoneDrawables<'a> {
 }
 
 impl<'a> Iterator for WindingZoneDrawables<'a> {
-    type Item = (Zone, Drawable);
+    type Item = (DrawableType, Drawable);
 
     fn next(&mut self) -> Option<Self::Item> {
         for drawable in self.drawables.iter_mut() {
             if let Some(d) = drawable.take() {
-                return Some((self.zone, d));
+                return Some((d.0, d.1));
             }
         }
 
         // Populate self.drawables for the next zone
-        let pos_contour = self.winding_zones.next()?;
-        self.zone = pos_contour.zone;
-        self.phase = self.winding.phase_at(pos_contour.zone);
+        let positioned_contour = self.winding_zones.next()?;
+        self.zone = positioned_contour.zone;
+        self.phase = self.winding.phase_at(positioned_contour.zone);
 
-        let turns = self.winding.turns_at(pos_contour.zone);
+        let turns = self.winding.turns_at(positioned_contour.zone);
         self.drawables = self.zone_config.drawables(
-            pos_contour.contour,
+            positioned_contour.contour,
             self.phase,
             turns,
+            self.zone,
             self.winding.phases(),
             self.arrow_circle_diameter,
             self.arrow_tip_diameter,
@@ -83,13 +89,13 @@ impl<'a> Iterator for WindingZoneDrawables<'a> {
 This struct describes the options for creating the winding shapes.
  */
 #[derive(Clone, Debug)]
-pub struct ZoneConfig {
+pub struct ZoneDrawablesConfig {
     pub background_color: ZoneBackgroundColor,
     pub center_config: Option<ZoneCenterConfig>,
     pub show_empty_zones: bool,
 }
 
-impl ZoneConfig {
+impl ZoneDrawablesConfig {
     pub fn new(
         background_color: ZoneBackgroundColor,
         center_config: Option<ZoneCenterConfig>,
@@ -107,10 +113,11 @@ impl ZoneConfig {
         contour: Contour,
         phase: i32,
         turns: usize,
+        zone: Zone,
         phases: NonZeroU16,
         arrow_circle_diameter: f64,
         arrow_tip_diameter: f64,
-    ) -> [Option<Drawable>; 4] {
+    ) -> [Option<(DrawableType, Drawable)>; 4] {
         let mut drawables = [None, None, None, None];
 
         if phase == 0 && !self.show_empty_zones {
@@ -120,8 +127,10 @@ impl ZoneConfig {
         // Zone contour
         let mut zone_style = stem_core::stem_slot::SLOT_STYLE;
         zone_style.background_color = self.background_color.color(phase.abs() as u16, phases);
-        if phase == 0 && self.show_empty_zones {
+        let mut drawable_type = DrawableType::Coil(zone);
+        if phase == 0 {
             zone_style.line_style = LineStyle::default_dashed();
+            drawable_type = DrawableType::EmptyZone(zone)
         }
 
         let centroid = contour.centroid();
@@ -148,11 +157,14 @@ impl ZoneConfig {
                         *font_size,
                         0.0,
                     )));
-                    drawables[0] = Some(Drawable::new(contour, zone_style));
+                    drawables[0] = Some((
+                        DrawableType::Annotation(zone),
+                        Drawable::new(contour, zone_style),
+                    ));
                 }
                 ZoneCenterConfig::Arrow(zone_arrow_config) => {
                     if !zone_arrow_config.color_by_phase {
-                        drawables[0] = Some(Drawable::new(contour, zone_style));
+                        drawables[0] = Some((drawable_type, Drawable::new(contour, zone_style)));
                     }
 
                     let arrow_drawables = zone_arrow_config.arrow(
@@ -166,19 +178,19 @@ impl ZoneConfig {
                         if let Some(d) = drawable.as_mut() {
                             d.translate(centroid);
                         }
-                        drawables[idx + offset] = drawable;
+                        drawables[idx + offset] = drawable.map(|d| (DrawableType::Arrow(zone), d));
                     }
                 }
             }
         } else {
-            drawables[0] = Some(Drawable::new(contour, zone_style));
+            drawables[0] = Some((drawable_type, Drawable::new(contour, zone_style)));
         }
 
         return drawables;
     }
 }
 
-impl Default for ZoneConfig {
+impl Default for ZoneDrawablesConfig {
     fn default() -> Self {
         Self {
             background_color: Default::default(),
@@ -342,7 +354,6 @@ fn positive_current_arrow(
 
     // Arrow circle
     let arc = Contour::circle([0.0, 0.0], diameter_arrow / 2.0);
-    style.line_width = 1.0;
     let outline = Drawable::new(arc, style.clone());
 
     // Tip circle
@@ -363,7 +374,6 @@ fn negative_current_arrow(diameter_arrow: f64, color: Color) -> Option<[Drawable
 
     // Arrow circle
     let arc = Contour::circle([0.0, 0.0], diameter_arrow / 2.0);
-    style.line_width = 1.0;
     let shape = Shape::try_from(arc).ok()?;
     let outline = Drawable::new(shape, style.clone());
 

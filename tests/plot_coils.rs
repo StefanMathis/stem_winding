@@ -3,7 +3,7 @@ mod cairo_tests {
 
     use std::{f64::consts::PI, num::NonZeroU16};
 
-    use cairo_viewport::*;
+    use cairo_viewport::{bounding_box::ToBoundingBox, *};
     use stem_core::planar_geo::draw::{Drawable, Style};
     use stem_winding::prelude::*;
 
@@ -44,7 +44,7 @@ mod cairo_tests {
             );
 
             let view = Viewport::from_bounded_entities(
-                drawables.iter().filter_map(|d| d.as_ref()),
+                drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.1)),
                 SideLength::Long(500),
             )
             .unwrap();
@@ -54,7 +54,7 @@ mod cairo_tests {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
-                    for drawable in drawables.iter().filter_map(|d| d.as_ref()) {
+                    for drawable in drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.1)) {
                         drawable.draw(cr)?;
                     }
                     return Ok(());
@@ -77,7 +77,7 @@ mod cairo_tests {
             );
 
             let view = Viewport::from_bounded_entities(
-                drawables.iter().filter_map(|d| d.as_ref()),
+                drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.1)),
                 SideLength::Long(500),
             )
             .unwrap();
@@ -87,7 +87,7 @@ mod cairo_tests {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
-                    for drawable in drawables.iter().filter_map(|d| d.as_ref()) {
+                    for drawable in drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.1)) {
                         drawable.draw(cr)?;
                     }
                     return Ok(());
@@ -110,7 +110,7 @@ mod cairo_tests {
             );
 
             let view = Viewport::from_bounded_entities(
-                drawables.iter().filter_map(|d| d.as_ref()),
+                drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.1)),
                 SideLength::Long(500),
             )
             .unwrap();
@@ -120,7 +120,7 @@ mod cairo_tests {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
-                    for drawable in drawables.iter().filter_map(|d| d.as_ref()) {
+                    for drawable in drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.1)) {
                         drawable.draw(cr)?;
                     }
                     return Ok(());
@@ -143,7 +143,7 @@ mod cairo_tests {
             );
 
             let view = Viewport::from_bounded_entities(
-                drawables.iter().filter_map(|d| d.as_ref()),
+                drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.1)),
                 SideLength::Long(500),
             )
             .unwrap();
@@ -153,7 +153,7 @@ mod cairo_tests {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
-                    for drawable in drawables.iter().filter_map(|d| d.as_ref()) {
+                    for drawable in drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.1)) {
                         drawable.draw(cr)?;
                     }
                     return Ok(());
@@ -164,18 +164,28 @@ mod cairo_tests {
     }
 
     fn check<W: Winding>(winding: &W, params: &CoilDrawablesParameters, name: &str) {
-        let mut drawables: Vec<Drawable> = (0..(winding.slots().get() + 1))
-            .map(|slot| params.tooth_drawable(slot))
-            .collect();
+        let mut drawables: Vec<Drawable> = Vec::new();
         for d in winding.coil_drawables(&params).map(|t| t.1) {
             drawables.push(d);
         }
 
-        let bb1 = BoundingBox::from_bounded_entities(drawables.iter()).unwrap();
-        let bb2 = params.bounding_box(winding, true);
+        let bb1 = BoundingBox::from_bounded_entities(winding.coil_drawables(&params).filter_map(
+            |(t, d)| match t {
+                stem_winding::draw::DrawableType::Annotation(_) => None,
+                _ => Some(d.bounding_box()),
+            },
+        ))
+        .unwrap();
+        let bb2 = params.bounding_box(winding);
         assert!(bb1.approx_eq(&bb2, 1e-10));
 
-        let view = Viewport::from_bounding_box(&bb1, SideLength::Long(2000));
+        let bb = BoundingBox::new(
+            bb2.xmin() - 0.5,
+            bb2.xmax() + 0.5,
+            bb2.ymin() - 0.5,
+            bb2.ymax() + 0.5,
+        );
+        let view = Viewport::from_bounding_box(&bb, SideLength::Long(2000));
         let path = std::path::Path::new(&name);
         let callback = |path: &std::path::Path| {
             return view.write_to_file(path, |cr| {
@@ -192,9 +202,11 @@ mod cairo_tests {
 
         // Test increasing zone index
         let mut current_zone = Zone { slot: 0, layer: 0 };
-        for (zone, _) in winding.coil_drawables(&params) {
-            assert!(zone >= current_zone);
-            current_zone = zone;
+        for (dt, _) in winding.coil_drawables(&params) {
+            if let Some(zone) = dt.zone() {
+                assert!(zone >= current_zone);
+                current_zone = zone;
+            }
         }
     }
 

@@ -933,8 +933,6 @@ impl From<HalfCoil> for Coil {
     }
 }
 
-// =========================================
-
 /**
 # End winding geometry / coil orientation
 
@@ -976,16 +974,17 @@ coil   ▲   ▲   ▼   ▼   ▲   ▼
 (c): positive_slot_direction = false
 
 In the example, coil (a) connects slots 0 and 1 in the positive slot direction. Coil (b) connects slots 2 and 1 in the negative slot direction. Coil (c) connects slots 4 and 0 by wrapping around the end of the slot sequence.
+
+    // WindingTable represents phases as signed i32 values. Using u16 here
+    // ensures that every phase number, with either polarity, fits in i32.
  */
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct FullCoil {
     positive_zone: Zone,
     negative_zone: Zone,
     positive_slot_direction: bool,
     turns: NonZeroUsize,
-    // WindingTable represents phases as signed i32 values. Using u16 here
-    // ensures that every phase number, with either polarity, fits in i32.
     phase: NonZeroU16,
     wire: Box<dyn Wire>,
 }
@@ -1074,6 +1073,36 @@ impl FullCoil {
             positive_slot_direction: self.positive_slot_direction,
             exhausted: false,
         };
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for FullCoil {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct FullCoilDe {
+            positive_zone: Zone,
+            negative_zone: Zone,
+            positive_slot_direction: bool,
+            turns: NonZeroUsize,
+            phase: NonZeroU16,
+            wire: Box<dyn Wire>,
+        }
+
+        let coil = FullCoilDe::deserialize(deserializer)?;
+
+        FullCoil::new(
+            coil.positive_zone,
+            coil.negative_zone,
+            coil.positive_slot_direction,
+            coil.turns,
+            coil.phase,
+            coil.wire,
+        )
+        .map_err(serde::de::Error::custom)
     }
 }
 
@@ -1237,8 +1266,6 @@ impl From<FullCoil> for Box<dyn Wire> {
         value.wire
     }
 }
-
-// ================================================================
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
