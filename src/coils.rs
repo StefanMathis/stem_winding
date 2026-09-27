@@ -782,7 +782,7 @@ pub trait CoilExt: private::Sealed {
     let coil = FullCoil::new(
         Zone::new(0, 0),
         Zone::new(5, 0),
-        false, // positive_slot_direction
+        false, // parameter positive_slot_direction
         NonZeroUsize::new(10).expect("not zero"),
         NonZeroU16::MIN,
         wire,
@@ -934,49 +934,50 @@ impl From<HalfCoil> for Coil {
 }
 
 /**
-# End winding geometry / coil orientation
+A coil with a positive and a negative zone.
 
-The property positive_slot_direction defines the direction of the end winding
-between first_zone and second_zone for a round, closed core. Such a core
-provides two possible paths around the circumference, one following increasing
-slot indices and one following decreasing slot indices.
+This struct represents a "normal" coil where both the outgoing and the return
+conductor are part of the field-creating winding, forming a closed loop. The
+coil position is defined by its [`positive_zone`](FullCoil::positive_zone) and
+[`negative_zone`](FullCoil::negative_zone), which cannot be identical. This
+invariant is checked when building a [`FullCoil`] from [`FullCoil::new`] or by
+deserializing it.
 
-If positive_slot_direction is true, the end winding proceeds from
-first_zone to second_zone with increasing slot indices. If it is false,
-it proceeds with decreasing slot indices. In either case, the slot indices wrap
-around when crossing the end of the slot sequence.
+If the coil is wound onto a [`LinCore`](stem_core::prelude::LinCore), there is
+only one way how to close the coil between the two zones. When wound onto a
+[`RotCore`](stem_core::prelude::RotCore) however, there are two possibilities,
+as shown in the following examples. The positive zone is in slot 0, the negative
+zone in slot 1.
 
-positive_slot_direction = starting at positive_zone, does the end winding proceed in the direction of increasing slot indices?
-
-For a linear core, there is only one possible path between two zones, so
-positive_slot_direction has no geometrical significance.
-
-For a round, closed core, the two directions correspond to the two possible
-ways of routing the end winding around the core. For example, connecting slots
-0 and 1 can either take the short path directly from 0 to 1 or the long path
-wrapping around the other side of the core:
-
-Arrow going up: Positive in this diagram
-
+a) Slot indices increase along the end winding part of the coil.
 ```text
 slot | 0 | 1 | 2 | 3 | 4 | 5
 
-     ──┐   ┌───┐   ┌───┐   ┌──
-       │   │   │   │   │   │
-coil   ▲   ▲   ▼   ▼   ▲   ▼
-       │   │   │   │   |   │
-     ──┘   └───┘   └───┘   └──
-     (a)    (b)     (c)    (a)
+       ┌───────────────────┐
+       │                   │
+coil   ▲                   ▼
+       │                   │
+       └───────────────────┘
 ```
 
-(a): positive_slot_direction = false
-(b): positive_slot_direction = true
-(c): positive_slot_direction = false
+b) Slot indices decreases (and in this case, wraps around) along the end winding
+part of the coil.
+```text
+slot | 0 | 1 | 2 | 3 | 4 | 5
 
-In the example, coil (a) connects slots 0 and 1 in the positive slot direction. Coil (b) connects slots 2 and 1 in the negative slot direction. Coil (c) connects slots 4 and 0 by wrapping around the end of the slot sequence.
+     ──┐                   ┌──
+       │                   │
+coil   ▲                   ▼
+       │                   │
+     ──┘                   └──
+```
+To make the coil geometry unambiguous,
+[`positive_slot_direction`](FullCoil::positive_slot_direction) sets the end
+winding part to case a) if true and to case b) if false.
 
-    // WindingTable represents phases as signed i32 values. Using u16 here
-    // ensures that every phase number, with either polarity, fits in i32.
+When interpreting the coil to form a
+[`WindingTable`](crate::winding_table::WindingTable), the positive zone
+represents `x` and the negative zone `-x`, where `x` is [`FullCoil::phase`].
  */
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
@@ -990,6 +991,13 @@ pub struct FullCoil {
 }
 
 impl FullCoil {
+    /**
+    Creates a new [`FullCoil`] instance from its components.
+
+    This constructor returns an error if `positive_zone == negative_zone`. For
+    a detailed description of the parameters, see the documentation of
+    [`FullCoil`] and [`CoilExt`].
+     */
     pub fn new(
         positive_zone: Zone,
         negative_zone: Zone,
@@ -1012,8 +1020,21 @@ impl FullCoil {
         });
     }
 
+    /// Returns if the slot indices increase when moving along the coil end
+    /// winding from the [`positive_zone`](FullCoil::positive_zone) to the
+    /// [`negative_zone`](FullCoil::negative_zone) if the coil is mounted on a
+    /// rotary core. Has no effect if the coil is mounted on a linear core.
+    ///
+    /// See the [struct](FullCoil) documentation for details.
     pub fn positive_slot_direction(&self) -> bool {
         self.positive_slot_direction
+    }
+
+    /// Sets a new slot direction for `self`.
+    ///
+    /// See the [struct](FullCoil) documentation for details.
+    pub fn set_positive_slot_direction(&mut self, direction: bool) {
+        self.positive_slot_direction = direction;
     }
 
     /// Returns the positive zone of `self`.
@@ -1048,7 +1069,7 @@ impl FullCoil {
     /// Returns the voltage phasor for the
     /// [`negative_zone`](FullCoil::negative_zone) of `self`.
     ///
-    /// Conceptually, this method uses [`CoilExt::negative_zone`] with the
+    /// Conceptually, this method uses [`CoilExt::voltage_phasor_at`] with the
     /// zone being the [`negative_zone`](FullCoil::negative_zone) of `self`. See
     /// the docstring of [`CoilExt::voltage_phasor_at`] for details.
     pub fn voltage_phasor_negative_zone(
@@ -1065,6 +1086,46 @@ impl FullCoil {
         return Complex::from_polar(self.turns().get() as f64, slot_angle);
     }
 
+    /**
+    Returns an iterator over all the slots "covered" by the end winding,
+    including the slots of [`positive_zone`](FullCoil::positive_zone) and
+    [`negative_zone`](FullCoil::negative_zone).
+
+    As with [`CoilExt::throw`], if `slots` is given, the coil is assumed to be
+    mounted on a rotary core and can potentially "wrap around". If not given,
+    a linear core is assumed. See the [struct documentation](FullCoil) for
+    details.
+
+    # Examples
+
+    ```
+    use std::num::{NonZeroU16, NonZeroUsize};
+    use stem_winding::prelude::*;
+
+    let mut coil = FullCoil::new(
+        Zone::new(0, 0),
+        Zone::new(5, 0),
+        false, // parameter positive_slot_direction
+        NonZeroUsize::new(10).expect("not zero"),
+        NonZeroU16::MIN,
+        Box::new(RoundWire::default()),
+    )
+    .expect("zones identical");
+
+    // Linear core
+    let covered: Vec<_> = coil.covered_slots(None).collect();
+    assert_eq!(covered, vec![0, 1, 2, 3, 4, 5]);
+
+    // Rotary core
+    let covered: Vec<_> = coil.covered_slots(Some(NonZeroU16::new(6).expect("not zero"))).collect();
+    assert_eq!(covered, vec![0, 5]);
+
+    // Change direction of the end winding
+    coil.set_positive_slot_direction(true);
+    let covered: Vec<_> = coil.covered_slots(Some(NonZeroU16::new(6).expect("not zero"))).collect();
+    assert_eq!(covered, vec![0, 1, 2, 3, 4, 5]);
+    ```
+     */
     pub fn covered_slots(&self, slots: Option<NonZeroU16>) -> CoveredSlots {
         return CoveredSlots {
             second_slot: self.negative_zone.slot,
@@ -1106,6 +1167,9 @@ impl<'de> Deserialize<'de> for FullCoil {
     }
 }
 
+/// An iterator over the slots covered by the end winding of a [`FullCoil`]. Is
+/// created via the [`FullCoil::covered_slots`] method, see its docstring for
+/// more.
 pub struct CoveredSlots {
     second_slot: u16,
     slots: Option<NonZeroU16>,
@@ -1267,17 +1331,39 @@ impl From<FullCoil> for Box<dyn Wire> {
     }
 }
 
+/**
+A coil with a single zone / conductor direction.
+
+This coil represents an outgoing or a returning conductor where its counterpart
+does not exist or does not participate in the magnetic field creation. An
+example for the former would the squirrel cage of an induction motor: Each bar
+forms a "half coil" where there is no corresponding zone which transports the
+same current back. The latter case would be a yoke winding, where the coil
+actually forms a full loop, but only one of its sides is at the air gap, whereas
+the other one is on the outside of the yoke and the induced voltage / created
+magnetic field can be neglected.
+ */
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct HalfCoil {
-    zone: Zone,
-    is_positive: bool,
-    turns: NonZeroUsize,
-    phase: NonZeroU16,
-    wire: Box<dyn Wire>,
+    /// The zone occupied by the coil.
+    pub zone: Zone,
+    /// The polarity of the zone. See [`ZoneAndPolarity`] for details.
+    pub is_positive: bool,
+    /// The number of turns. For the aforementioned case of the squirrel cage
+    /// bar, this is 1.
+    pub turns: NonZeroUsize,
+    /// The phase of the coil.
+    pub phase: NonZeroU16,
+    /// The underlying wire.
+    pub wire: Box<dyn Wire>,
 }
 
 impl HalfCoil {
+    /// Returns a new [`HalfCoil`] from its components.
+    ///
+    /// This is a convenience wrapper over the struct constructor (all fields of
+    /// [`HalfCoil`] are public).
     pub fn new(
         zone: Zone,
         is_positive: bool,
@@ -1299,7 +1385,8 @@ impl HalfCoil {
         return self.zone;
     }
 
-    /// Returns whether `self` has positive polarity.
+    /// Returns whether `self` has positive polarity. See [`ZoneAndPolarity`]
+    /// for details.
     pub fn is_positive(&self) -> bool {
         self.is_positive
     }
@@ -1388,11 +1475,42 @@ impl From<HalfCoil> for Box<dyn Wire> {
 }
 
 /**
-TODO
+An item returned by the [`ZoneAndPolarityIterator`] which encodes the zone and
+its polarity.
+
+If a zone is occupied by a coil, it has a polarity which describes the direction
+the current goes through. When looking at the cross section of a core like in
+the left image below, the current going towards the observer (circle with a
+central dot) produces a counter-clockwise magnetic field and is defined to be
+positive. In the neighboring slot, the current is flowing away from the observer
+and produces a clockwise magnetic field, this is defined as a negative polarity.
+
+The right image shows the same coil, but seen from the air gap. In the zone with
+positive polarity, the current is flowing up; in the zone with negative polarity
+it is flowing down.
  */
+#[doc = ""]
+#[cfg_attr(feature = "doc-images", doc = "![Coil polarity][coil_polarity]")]
+#[cfg_attr(
+    feature = "doc-images",
+    embed_doc_image::embed_doc_image("coil_polarity", "docs/img/coil_polarity.svg")
+)]
+#[cfg_attr(
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+)]
+/**
+This struct is created by the [`ZoneAndPolarityIterator`] iterator, which
+returns the zones of a coil together with their polarity. The used definition
+is completely arbitrary, but consistent throughout the stem ecosystem.
+*/
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ZoneAndPolarity {
+    /// The zone in question.
     pub zone: Zone,
+    /// The polarity of [`ZoneAndPolarity::zone`], i.e. if the zone is positive
+    /// or negative.
     pub is_positive: bool,
 }
 

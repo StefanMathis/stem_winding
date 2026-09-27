@@ -59,7 +59,7 @@ fn zone_polarity() -> Result<(), Box<dyn std::error::Error>> {
     let yshift = 0.5 * core.height().get::<meter>();
 
     let mut params = CoilDrawablesParameters::from(&core);
-    params.axial_length = core.height().get::<meter>();
+    params.line_width = 2.0;
     drawables.extend(
         coil_assembly
             .coil_drawables(&params)
@@ -68,16 +68,19 @@ fn zone_polarity() -> Result<(), Box<dyn std::error::Error>> {
                 drawable
             }),
     );
+    drawables
+        .iter_mut()
+        .for_each(|d| d.line_reflection([0.0, 0.0], [1.0, 0.0]));
 
-    let bb =
+    let mut bb =
         BoundingBox::from_bounded_entities(drawables.iter()).expect("has at least one element");
+    bb.scale(1.02);
 
     let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!("docs/img/coil_polarity.svg"));
     let view = Viewport::from_bounding_box(&bb, SideLength::Long(800));
     view.write_to_file(&fp, |cr| {
         cr.set_source_rgb(1.0, 1.0, 1.0);
         cr.paint()?;
-        cr.scale(1.0, -1.0);
 
         for d in drawables.iter() {
             d.draw(cr)?;

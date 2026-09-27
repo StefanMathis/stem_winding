@@ -255,12 +255,12 @@ where
         let cyclic = core.rot().is_some();
 
         return Self {
-            arrowhead_length: 0.5,
+            arrowhead_length: 0.1 * core.axial_length().get::<meter>(),
             line_width: 1.0,
             slot_width,
             tooth_width,
             axial_length: core.axial_length().get::<meter>(),
-            axial_coil_overhang: 1.2 * core.axial_length().get::<meter>(),
+            axial_coil_overhang: 0.2 * core.axial_length().get::<meter>(),
             arrow_head_height: 0.25 * core.axial_length().get::<meter>(),
             start_height: 0.0,
             delta_empty_zone: 0.1,
@@ -875,13 +875,23 @@ impl CoilDrawablesParameters {
         if self.draw_both_sides {
             if positive_arrow {
                 return Contour::arrow_from_head_length_angle(
+                    [x, y],
+                    self.arrowhead_length,
+                    FRAC_PI_2,
+                    0.0,
+                    arrow_head_size,
+                );
+            } else {
+                return Contour::arrow_from_head_length_angle(
                     [x, -y],
                     self.arrowhead_length,
                     -FRAC_PI_2,
                     0.0,
                     arrow_head_size,
                 );
-            } else {
+            }
+        } else {
+            if positive_arrow {
                 return Contour::arrow_from_head_length_angle(
                     [x, y],
                     self.arrowhead_length,
@@ -889,22 +899,12 @@ impl CoilDrawablesParameters {
                     0.0,
                     arrow_head_size,
                 );
-            }
-        } else {
-            if positive_arrow {
+            } else {
                 let height = arrow_head_size.height();
                 return Contour::arrow_from_head_length_angle(
                     [x, y - height],
                     self.arrowhead_length,
                     -FRAC_PI_2,
-                    0.0,
-                    arrow_head_size,
-                );
-            } else {
-                return Contour::arrow_from_head_length_angle(
-                    [x, y],
-                    self.arrowhead_length,
-                    FRAC_PI_2,
                     0.0,
                     arrow_head_size,
                 );

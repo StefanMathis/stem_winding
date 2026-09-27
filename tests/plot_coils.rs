@@ -1,7 +1,10 @@
 #[cfg(feature = "cairo")]
 mod cairo_tests {
 
-    use std::{f64::consts::PI, num::NonZeroU16};
+    use std::{
+        f64::consts::PI,
+        num::{NonZeroU16, NonZeroUsize},
+    };
 
     use cairo_viewport::{bounding_box::ToBoundingBox, *};
     use stem_core::planar_geo::draw::{Drawable, Style};
@@ -211,18 +214,18 @@ mod cairo_tests {
     }
 
     #[test]
-    fn test_distributed_winding_pointed() {
-        distributed_winding_impl(EndWindingStyle::Pointed {
+    fn test_pointed() {
+        test_plot_impl(EndWindingStyle::Pointed {
             end_winding_coil_angle: 30.0 / 180.0 * PI,
         });
     }
 
     #[test]
-    fn test_distributed_winding_layered() {
-        distributed_winding_impl(EndWindingStyle::Layered);
+    fn test_layered() {
+        test_plot_impl(EndWindingStyle::Layered);
     }
 
-    fn distributed_winding_impl(end_winding_style: EndWindingStyle) {
+    fn test_plot_impl(end_winding_style: EndWindingStyle) {
         let axial_coil_overhang = match end_winding_style {
             EndWindingStyle::Pointed {
                 end_winding_coil_angle: _,
@@ -361,6 +364,34 @@ mod cairo_tests {
             .unwrap();
             winding.set_concentric_coils(true);
             let name = format!("tests/img/end_winding_{ew_style}_36_1_SL_concentric.png");
+            check(&winding, &params, &name);
+        }
+        {
+            let mut coils = Coils::new();
+            coils
+                .insert(
+                    FullCoil::new(
+                        Zone::new(0, 0),
+                        Zone::new(1, 0),
+                        true,
+                        NonZeroUsize::MIN,
+                        NonZeroU16::MIN,
+                        Box::new(RoundWire::default()),
+                    )
+                    .expect("zones not identical")
+                    .into(),
+                )
+                .unwrap();
+
+            let winding = CoilAssembly::new_minimal(
+                2.try_into().unwrap(),
+                NonZeroU16::MIN,
+                NonZeroU16::MIN,
+                CoilLayout::Single,
+                coils,
+            )
+            .unwrap();
+            let name = format!("tests/img/end_winding_{ew_style}_2_1_SL_single_coil.png");
             check(&winding, &params, &name);
         }
     }
