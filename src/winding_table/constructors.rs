@@ -25,7 +25,7 @@ Be aware that this method may result in incorrect configurations, so check the z
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum WindingTableMethod {
+pub enum WindingTableConstructor {
     /// Seq50
     Tingley,
     CoilSide,
@@ -34,32 +34,32 @@ pub enum WindingTableMethod {
     DistributionTable,
 }
 
-impl WindingTableMethod {
+impl WindingTableConstructor {
     /// Return a string representation of the zone plan method
     pub fn as_str(&self) -> &str {
         match self {
-            WindingTableMethod::Tingley => return "Tingley",
-            WindingTableMethod::CoilSide => return "Coil side",
-            WindingTableMethod::AlgebraicAlgorithm => return "Algebraic algorithm",
-            WindingTableMethod::StarOfSlots => return "Star of slots",
-            WindingTableMethod::DistributionTable => return "Winding distribution table",
+            WindingTableConstructor::Tingley => return "Tingley",
+            WindingTableConstructor::CoilSide => return "Coil side",
+            WindingTableConstructor::AlgebraicAlgorithm => return "Algebraic algorithm",
+            WindingTableConstructor::StarOfSlots => return "Star of slots",
+            WindingTableConstructor::DistributionTable => return "Winding distribution table",
         }
     }
 
     pub fn from_str(string: &str) -> Option<Self> {
         match string {
-            "Tingley" => return Some(WindingTableMethod::Tingley),
-            "Coil side" => return Some(WindingTableMethod::CoilSide),
-            "Algebraic algorithm" => return Some(WindingTableMethod::AlgebraicAlgorithm),
-            "Star of slots" => return Some(WindingTableMethod::StarOfSlots),
+            "Tingley" => return Some(WindingTableConstructor::Tingley),
+            "Coil side" => return Some(WindingTableConstructor::CoilSide),
+            "Algebraic algorithm" => return Some(WindingTableConstructor::AlgebraicAlgorithm),
+            "Star of slots" => return Some(WindingTableConstructor::StarOfSlots),
             "Winding distribution table" => {
-                return Some(WindingTableMethod::DistributionTable);
+                return Some(WindingTableConstructor::DistributionTable);
             }
             _ => return None,
         }
     }
 
-    pub fn iter() -> impl Iterator<Item = WindingTableMethod> {
+    pub fn iter() -> impl Iterator<Item = WindingTableConstructor> {
         return [
             Self::Tingley,
             Self::CoilSide,
@@ -72,32 +72,37 @@ impl WindingTableMethod {
 }
 
 impl WindingTable {
-    pub fn with_method(
-        winding_table_method: &WindingTableMethod,
+    /// Constructs a [`WindingTable`] using the specified
+    /// [`WindingTableConstructor`].
+    ///
+    /// Construction can fail for several reasons, which are reported through
+    /// [`WindingTableCreationError`].
+    pub fn from_constructor(
+        winding_table_constructor: &WindingTableConstructor,
         slots: NonZeroU16,
         layers: NonZeroU16,
         pole_pairs: NonZeroU16,
         phases: NonZeroU16,
         span: i32,
     ) -> Result<Self, WindingTableCreationError> {
-        return match winding_table_method {
-            WindingTableMethod::Tingley => {
+        return match winding_table_constructor {
+            WindingTableConstructor::Tingley => {
                 if u16::from(layers) == 1 && span.abs() == 1 {
                     Self::tingley_single_layer_tooth_coil(slots, pole_pairs, phases)
                 } else {
                     Self::tingley(slots, layers, pole_pairs, phases, span)
                 }
             }
-            WindingTableMethod::CoilSide => {
+            WindingTableConstructor::CoilSide => {
                 Self::coil_side(slots, layers, pole_pairs, phases, span)
             }
-            WindingTableMethod::AlgebraicAlgorithm => {
+            WindingTableConstructor::AlgebraicAlgorithm => {
                 Self::algebraic_algorithm(slots, layers, pole_pairs, phases, span)
             }
-            WindingTableMethod::StarOfSlots => {
+            WindingTableConstructor::StarOfSlots => {
                 Self::star_of_slots(slots, layers, pole_pairs, phases, span)
             }
-            WindingTableMethod::DistributionTable => {
+            WindingTableConstructor::DistributionTable => {
                 Self::distribution_table(slots, layers, pole_pairs, phases, span)
             }
         };

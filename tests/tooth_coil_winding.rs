@@ -13,7 +13,7 @@ fn test_turn_creator_regression_test() {
         pole_pairs: 1.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -27,7 +27,7 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 4.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -38,7 +38,7 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 5.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -49,7 +49,7 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 5.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -60,7 +60,7 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 5.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -71,7 +71,7 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 4.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -82,7 +82,7 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 10.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -98,7 +98,7 @@ fn test_coil_direction() {
             pole_pairs: 5.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -126,7 +126,7 @@ fn test_coil_direction() {
             pole_pairs: 5.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -155,7 +155,7 @@ fn test_winding_12_8_dl() {
         pole_pairs: 4.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -193,7 +193,7 @@ fn test_winding_12_10_dl() {
         pole_pairs: 5.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -231,7 +231,7 @@ fn test_winding_12_10_sl() {
         pole_pairs: 5.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -284,7 +284,7 @@ fn test_derive_coil_assembly_12_10_dl() {
         pole_pairs: 5.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -328,7 +328,7 @@ fn test_derive_coil_assembly_12_10_sl() {
         pole_pairs: 5.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -362,7 +362,7 @@ fn test_field_excitation_curve() {
         pole_pairs: 5.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -411,7 +411,7 @@ mod serde_tests {
                     name: Copper
                 slot_fill_factor_conductor: 0.375
                 slot_fill_factor_overall: 0.4
-        winding_table_method: Tingley
+        winding_table_constructor: Tingley
         "};
 
         let winding: ToothCoilWinding = create_dbm()
@@ -429,7 +429,7 @@ mod serde_tests {
         pole_pairs: 6
         phases: 3
         layers: 1
-        winding_table_method: Tingley
+        winding_table_constructor: Tingley
         "};
 
         let maybe_winding: Result<ToothCoilWinding, _> = yaml_serde::from_str(yaml);
@@ -445,7 +445,7 @@ mod serde_tests {
             pole_pairs: 5
             phases: 3
             layers: 1
-            winding_table_method: Tingley
+            winding_table_constructor: Tingley
             "};
 
         let winding: ToothCoilWinding = yaml_serde::from_str(yaml).unwrap();
@@ -475,7 +475,7 @@ mod serde_tests {
                     conductor_material:
                         name: Copper
                         relative_permeability: 1.0
-            winding_table_method: Tingley
+            winding_table_constructor: Tingley
             "};
 
         let winding: ToothCoilWinding = yaml_serde::from_str(yaml).unwrap();
@@ -593,7 +593,7 @@ mod stem_core_tests {
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.25,
             wire: Box::new(wire),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap()
@@ -613,7 +613,7 @@ mod stem_core_tests {
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.25,
             wire: Box::new(wire),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap()

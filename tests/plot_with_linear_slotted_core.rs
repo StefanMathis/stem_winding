@@ -50,7 +50,7 @@ mod cairo_tests {
             pole_pairs: 5.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -90,7 +90,7 @@ mod cairo_tests {
             pole_pairs: 5.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -129,7 +129,7 @@ mod cairo_tests {
             slots: 12.try_into().expect("not zero"),
             pole_pairs: 5.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
             turns_per_slot_side: 2.try_into().expect("not zero"),
             turns_upper_layer_coils: Vec::new(),
         }
@@ -170,7 +170,7 @@ mod cairo_tests {
             slots: 12.try_into().expect("not zero"),
             pole_pairs: 5.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
             turns_per_slot_side: 4.try_into().expect("not zero"),
             turns_upper_layer_coils: vec![3.try_into().expect("not zero")],
         }
@@ -212,7 +212,7 @@ mod cairo_tests {
             layers: 2.try_into().expect("not zero"),
             coil_span_reduction: 1,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -253,7 +253,7 @@ mod cairo_tests {
             layers: 1.try_into().expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();

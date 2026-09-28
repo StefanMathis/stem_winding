@@ -19,7 +19,7 @@ use crate::{
     coils::{Coil, Coils, FullCoil},
     error::{Error, WindingTableCreationError},
     winding::{Connection, Winding, base_winding_count_repeating_coil_groups, hole_number},
-    winding_table::{WindingTable, WindingTableMethod},
+    winding_table::{WindingTable, WindingTableConstructor},
 };
 
 // Shorter aliases
@@ -113,7 +113,7 @@ pub struct QuadrupleLayerToothCoilWinding {
     wire: Box<dyn Wire>,
     #[cfg_attr(feature = "serde", serde(skip))]
     coils: Coils,
-    winding_table_method: WindingTableMethod,
+    winding_table_constructor: WindingTableConstructor,
 }
 
 impl QuadrupleLayerToothCoilWinding {
@@ -141,8 +141,8 @@ impl QuadrupleLayerToothCoilWinding {
         &*self.wire
     }
 
-    pub fn winding_table_method(&self) -> &WindingTableMethod {
-        &self.winding_table_method
+    pub fn winding_table_constructor(&self) -> &WindingTableConstructor {
+        &self.winding_table_constructor
     }
 
     /**
@@ -420,7 +420,7 @@ pub struct QuadrupleLayerToothCoilBuilder {
     pub connection: Connection,
     pub end_winding_leakage_coefficient: f64,
     pub wire: Box<dyn Wire>,
-    pub winding_table_method: WindingTableMethod,
+    pub winding_table_constructor: WindingTableConstructor,
 }
 
 impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding {
@@ -456,8 +456,8 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
         let pole_pairs_basic = builder.pole_pairs.get() / t;
 
         // Create the zone plan by method
-        let winding_table_dl = WindingTable::with_method(
-            &builder.winding_table_method,
+        let winding_table_dl = WindingTable::from_constructor(
+            &builder.winding_table_constructor,
             NonZeroU16::new(slots_basic).unwrap_or(NonZeroU16::MIN),
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(pole_pairs_basic).unwrap_or(NonZeroU16::MIN),
@@ -498,7 +498,7 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
             connection: builder.connection,
             end_winding_leakage_coefficient: builder.end_winding_leakage_coefficient,
             wire: builder.wire,
-            winding_table_method: builder.winding_table_method,
+            winding_table_constructor: builder.winding_table_constructor,
             coils: Coils::with_capacity(
                 usize::from(builder.slots.get()) * 4,
                 usize::from(builder.slots.get()) * 2,
@@ -564,7 +564,7 @@ pub struct QuadrupleLayerToothCoilMinimalBuilder {
     pub phases: NonZeroU16,
     pub turns_per_slot_side: NonZeroUsize,
     pub turns_upper_layer_coils: Vec<NonZeroUsize>,
-    pub winding_table_method: WindingTableMethod,
+    pub winding_table_constructor: WindingTableConstructor,
 }
 
 impl TryFrom<QuadrupleLayerToothCoilMinimalBuilder> for QuadrupleLayerToothCoilWinding {
@@ -581,7 +581,7 @@ impl TryFrom<QuadrupleLayerToothCoilMinimalBuilder> for QuadrupleLayerToothCoilW
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
             wire: Box::new(RoundWire::default()),
-            winding_table_method: builder.winding_table_method,
+            winding_table_constructor: builder.winding_table_constructor,
         }
         .try_into()
     }

@@ -21,7 +21,7 @@ use crate::{
     error::{Error, WindingTableCreationError},
     iterators::HarmonicOrdersIterator,
     winding::{Connection, Winding},
-    winding_table::{WindingTable, WindingTableMethod},
+    winding_table::{WindingTable, WindingTableConstructor},
 };
 
 #[derive(Debug, Clone)]
@@ -567,8 +567,8 @@ fn distributed_tooth_coil_assembly(
     };
 
     // Create a double-layer zone plan with 2*m zones and a single pole pair
-    let mut winding_table = WindingTable::with_method(
-        &WindingTableMethod::DistributionTable,
+    let mut winding_table = WindingTable::from_constructor(
+        &WindingTableConstructor::DistributionTable,
         slots,
         NonZeroU16::new(2).expect("not zero"),
         pole_pairs,

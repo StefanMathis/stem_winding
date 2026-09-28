@@ -314,7 +314,7 @@ mod tests {
             layers: 2.try_into().expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();

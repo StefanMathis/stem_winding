@@ -343,9 +343,9 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     Beside the lowest order, higher orders may occur, whose order is g*o_ripple with g being an integer.
 
     ```
-    use winding::{ToothCoilWinding, Winding, WindingTableMethod};
+    use winding::{ToothCoilWinding, Winding, WindingTableConstructor};
 
-    let winding = ToothCoilWinding::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
+    let winding = ToothCoilWinding::new_minimal(12, 5, 3, 2, WindingTableConstructor::Tingley).unwrap();
     assert_eq!(winding.lowest_torque_ripple_order(), 30); // Poles times phases: 10 * 3 = 60
     ```
      */
@@ -359,9 +359,9 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     same as that of the torque ripple order.
 
     ```
-    use winding::{ToothCoilWinding, Winding, WindingTableMethod};
+    use winding::{ToothCoilWinding, Winding, WindingTableConstructor};
 
-    let winding = ToothCoilWinding::new_minimal(12, 5, 3, 2, WindingTableMethod::Tingley).unwrap();
+    let winding = ToothCoilWinding::new_minimal(12, 5, 3, 2, WindingTableConstructor::Tingley).unwrap();
     assert_eq!(winding.lowest_cogging_torque_order(), 60); // Least common multiple of poles and slots: lcm(12, 10) = 60
     ```
      */
@@ -626,9 +626,9 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
     # Example
     ```
-    use winding::{DistributedWinding, Winding, WindingTableMethod};
+    use winding::{DistributedWinding, Winding, WindingTableConstructor};
 
-    let winding = DistributedWinding::new_minimal(12, 1, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
+    let winding = DistributedWinding::new_minimal(12, 1, 3, 1, 0, 0, WindingTableConstructor::Tingley).unwrap();
     let mut buffer = vec![0.0; winding.slots() as usize];
     let currents = [1.0, -0.5, -0.5];
 

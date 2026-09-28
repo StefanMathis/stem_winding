@@ -104,10 +104,10 @@ impl FecSpectralAnalysis {
     is not equal to the number of phases or if the FFT fails.
 
     ```
-    use winding::{DistributedWinding, Winding, WindingTableMethod, FecSpectralAnalysis};
+    use winding::{DistributedWinding, Winding, WindingTableConstructor, FecSpectralAnalysis};
     use approxim::assert_abs_diff_eq;
 
-    let winding = DistributedWinding::new_minimal(12, 1, 3, 1, 0, 0, WindingTableMethod::Tingley).unwrap();
+    let winding = DistributedWinding::new_minimal(12, 1, 3, 1, 0, 0, WindingTableConstructor::Tingley).unwrap();
     let mut fec = FecSpectralAnalysis::new(1024);
     let output = fec.analyze(&winding, &[1.0, -0.5, -0.5]).unwrap();
 
@@ -194,7 +194,7 @@ mod tests {
             distributed::{DistributedMinimalBuilder, DistributedWinding},
             tooth_coil::ToothCoilMinimalBuilder,
         },
-        winding_table::WindingTableMethod,
+        winding_table::WindingTableConstructor,
     };
 
     use super::*;
@@ -210,7 +210,7 @@ mod tests {
                 layers: 2.try_into().expect("not zero"),
                 coil_span_reduction: 0,
                 zone_span_variation: 0,
-                winding_table_method: WindingTableMethod::Tingley,
+                winding_table_constructor: WindingTableConstructor::Tingley,
             }
             .try_into()
             .unwrap();
@@ -248,7 +248,7 @@ mod tests {
                 layers: 2.try_into().expect("not zero"),
                 coil_span_reduction: 0,
                 zone_span_variation: 0,
-                winding_table_method: WindingTableMethod::Tingley,
+                winding_table_constructor: WindingTableConstructor::Tingley,
             }
             .try_into()
             .unwrap();
@@ -283,7 +283,7 @@ mod tests {
             layers: 2.try_into().expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -324,7 +324,7 @@ mod tests {
             layers: 2.try_into().expect("not zero"),
             coil_span_reduction: 1,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -362,7 +362,7 @@ mod tests {
             pole_pairs: 5.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();

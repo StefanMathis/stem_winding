@@ -190,7 +190,7 @@ fn test_base_winding_count() {
             layers: 2.try_into().expect("not zero"),
             coil_span_reduction: 1,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -218,7 +218,7 @@ fn test_base_winding_count() {
             pole_pairs: 10.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -537,7 +537,7 @@ mod stem_core_tests {
             layers: 1.try_into().expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
             turns_per_coil: 31.try_into().expect("not zero"),
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,

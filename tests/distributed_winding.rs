@@ -14,7 +14,7 @@ fn test_winding_12_1_dl_coil_span_reduction() {
         layers: 2.try_into().expect("not zero"),
         coil_span_reduction: 0,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -29,7 +29,7 @@ fn test_winding_12_1_dl_coil_span_reduction() {
         layers: 2.try_into().expect("not zero"),
         coil_span_reduction: 1,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -44,7 +44,7 @@ fn test_winding_12_1_dl_coil_span_reduction() {
         layers: 2.try_into().expect("not zero"),
         coil_span_reduction: 2,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -59,7 +59,7 @@ fn test_winding_12_1_dl_coil_span_reduction() {
         layers: 2.try_into().expect("not zero"),
         coil_span_reduction: 3,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -77,7 +77,7 @@ fn test_winding_6_1_dl_coil_span_reduction() {
         layers: 2.try_into().expect("not zero"),
         coil_span_reduction: 0,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -90,7 +90,7 @@ fn test_winding_6_1_dl_coil_span_reduction() {
         layers: 2.try_into().expect("not zero"),
         coil_span_reduction: 1,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -107,7 +107,7 @@ fn test_winding_6_1_dl_coil_span_reduction() {
         layers: 2.try_into().expect("not zero"),
         coil_span_reduction: 2,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -120,7 +120,7 @@ fn test_winding_6_1_dl_coil_span_reduction() {
         layers: 2.try_into().expect("not zero"),
         coil_span_reduction: 3,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -133,7 +133,7 @@ fn test_winding_6_1_dl_coil_span_reduction() {
         layers: 2.try_into().expect("not zero"),
         coil_span_reduction: 4,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -149,7 +149,7 @@ fn test_winding_18_4_sl() {
         layers: 1.try_into().expect("not zero"),
         coil_span_reduction: 0,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::CoilSide,
+        winding_table_constructor: WindingTableConstructor::CoilSide,
     }
     .try_into()
     .unwrap();
@@ -192,7 +192,7 @@ fn test_set_concentric() {
         end_winding_leakage_coefficient: 0.0,
         wire: Box::new(RoundWire::default()),
         concentric_coils: true,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -210,7 +210,7 @@ fn test_set_concentric() {
         end_winding_leakage_coefficient: 0.0,
         wire: Box::new(RoundWire::default()),
         concentric_coils: false,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -235,7 +235,7 @@ fn test_coil_span() {
             layers: 1.try_into().expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -254,7 +254,7 @@ fn test_coil_span() {
             layers: 2.try_into().expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -275,7 +275,7 @@ fn test_coil_span() {
             layers: 1.try_into().expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -296,7 +296,7 @@ fn test_coil_span() {
             layers: 2.try_into().expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -318,7 +318,7 @@ fn test_coil_span() {
             layers: 1.try_into().expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -339,7 +339,7 @@ fn test_coil_span() {
             layers: 2.try_into().expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -368,7 +368,7 @@ fn test_coil_span() {
             end_winding_leakage_coefficient: 0.0,
             wire: Box::new(RoundWire::default()),
             concentric_coils: true,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -401,7 +401,7 @@ fn test_coil_span() {
             end_winding_leakage_coefficient: 0.0,
             wire: Box::new(RoundWire::default()),
             concentric_coils: true,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -430,7 +430,7 @@ fn test_winding_36_4() {
             layers: 1.try_into().expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -490,7 +490,7 @@ fn test_winding_36_4() {
             layers: 2.try_into().expect("not zero"),
             coil_span_reduction: 1,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -520,7 +520,7 @@ fn test_winding_36_4() {
             layers: 2.try_into().expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -538,7 +538,7 @@ fn test_failed_creation() {
             layers: 2.try_into().expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::CoilSide,
+            winding_table_constructor: WindingTableConstructor::CoilSide,
         })
         .is_err()
     );
@@ -558,7 +558,7 @@ fn test_failed_creation() {
             end_winding_leakage_coefficient: 0.0,
             wire: Box::new(RoundWire::default()),
             concentric_coils: false,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .is_err()
     );
@@ -573,7 +573,7 @@ fn test_air_gap_leakage_factor() {
         layers: 2.try_into().expect("not zero"),
         coil_span_reduction: 0,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -586,7 +586,7 @@ fn test_air_gap_leakage_factor() {
         layers: 1.try_into().expect("not zero"),
         coil_span_reduction: 0,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::CoilSide,
+        winding_table_constructor: WindingTableConstructor::CoilSide,
     }
     .try_into()
     .unwrap();
@@ -599,7 +599,7 @@ fn test_air_gap_leakage_factor() {
         layers: 2.try_into().expect("not zero"),
         coil_span_reduction: 0,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -612,7 +612,7 @@ fn test_air_gap_leakage_factor() {
         layers: 2.try_into().expect("not zero"),
         coil_span_reduction: 1,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -625,7 +625,7 @@ fn test_air_gap_leakage_factor() {
         layers: 2.try_into().expect("not zero"),
         coil_span_reduction: 2,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -638,7 +638,7 @@ fn test_air_gap_leakage_factor() {
         layers: 2.try_into().expect("not zero"),
         coil_span_reduction: 0,
         zone_span_variation: 1,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -651,7 +651,7 @@ fn test_air_gap_leakage_factor() {
         layers: 1.try_into().expect("not zero"),
         coil_span_reduction: 0,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::CoilSide,
+        winding_table_constructor: WindingTableConstructor::CoilSide,
     }
     .try_into()
     .unwrap();
@@ -664,7 +664,7 @@ fn test_air_gap_leakage_factor() {
         layers: 2.try_into().expect("not zero"),
         coil_span_reduction: 0,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -677,7 +677,7 @@ fn test_air_gap_leakage_factor() {
         layers: 1.try_into().expect("not zero"),
         coil_span_reduction: 0,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -690,7 +690,7 @@ fn test_air_gap_leakage_factor() {
         layers: 1.try_into().expect("not zero"),
         coil_span_reduction: 0,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::CoilSide,
+        winding_table_constructor: WindingTableConstructor::CoilSide,
     }
     .try_into()
     .unwrap();
@@ -703,7 +703,7 @@ fn test_air_gap_leakage_factor() {
         layers: 2.try_into().expect("not zero"),
         coil_span_reduction: 0,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -716,7 +716,7 @@ fn test_air_gap_leakage_factor() {
         layers: 1.try_into().expect("not zero"),
         coil_span_reduction: 0,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -729,7 +729,7 @@ fn test_air_gap_leakage_factor() {
         layers: 1.try_into().expect("not zero"),
         coil_span_reduction: 0,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -751,7 +751,7 @@ fn test_turns_per_phase() {
         end_winding_leakage_coefficient: 0.0,
         wire: Box::new(RoundWire::default()),
         concentric_coils: false,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -772,7 +772,7 @@ fn test_turns_per_phase() {
         end_winding_leakage_coefficient: 0.0,
         wire: Box::new(RoundWire::default()),
         concentric_coils: false,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
     .unwrap();
@@ -795,7 +795,7 @@ fn test_doubled_zone_span() {
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
             wire: Box::new(RoundWire::default()),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
             concentric_coils: false,
         })
         .is_err()
@@ -811,7 +811,7 @@ fn test_doubled_zone_span() {
         connection: Connection::Star,
         end_winding_leakage_coefficient: 0.0,
         wire: Box::new(RoundWire::default()),
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
         concentric_coils: false,
     })
     .unwrap();
@@ -850,7 +850,7 @@ fn test_derive_coil_assembly() {
         layers: 1.try_into().expect("not zero"),
         coil_span_reduction: 0,
         zone_span_variation: 0,
-        winding_table_method: WindingTableMethod::CoilSide,
+        winding_table_constructor: WindingTableConstructor::CoilSide,
     }
     .try_into()
     .unwrap();
@@ -939,7 +939,7 @@ fn test_harmonic_order_and_amplitude() {
             end_winding_leakage_coefficient: 0.25,
             wire: Box::new(RoundWire::default()),
             concentric_coils: false,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .unwrap();
 
@@ -1005,7 +1005,7 @@ fn test_line_to_phase_voltage() {
         end_winding_leakage_coefficient: 0.0,
         wire: Box::new(RoundWire::default()),
         concentric_coils: false,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     })
     .unwrap();
 
@@ -1035,7 +1035,7 @@ fn test_line_to_phase_voltage() {
         end_winding_leakage_coefficient: 0.0,
         wire: Box::new(RoundWire::default()),
         concentric_coils: false,
-        winding_table_method: WindingTableMethod::Tingley,
+        winding_table_constructor: WindingTableConstructor::Tingley,
     })
     .unwrap();
 
@@ -1065,7 +1065,7 @@ mod serde_tests {
             layers: 1
             coil_span_reduction: 0
             zone_span_variation: 0
-            winding_table_method: Zone
+            winding_table_constructor: Zone
             "};
 
         assert!(yaml_serde::from_str::<DistributedWinding>(yaml).is_err());
@@ -1082,7 +1082,7 @@ mod serde_tests {
             layers: 1
             coil_span_reduction: 0
             zone_span_variation: 0
-            winding_table_method: CoilSide
+            winding_table_constructor: CoilSide
             "};
 
         let winding: DistributedWinding = yaml_serde::from_str(yaml).unwrap();
@@ -1121,7 +1121,7 @@ mod serde_tests {
                     conductor_material:
                         name: Copper
                         relative_permeability: 1.0
-            winding_table_method: Tingley
+            winding_table_constructor: Tingley
             concentric_coils: false
             "};
         let winding: DistributedWinding = yaml_serde::from_str(yaml).unwrap();
@@ -1163,7 +1163,7 @@ mod serde_tests {
                     conductor_material:
                         name: Copper
                         relative_permeability: 1.0
-            winding_table_method: Tingley
+            winding_table_constructor: Tingley
             concentric_coils: false
             "};
         let winding: DistributedWinding = yaml_serde::from_str(yaml).unwrap();
@@ -1335,7 +1335,7 @@ mod stem_core_tests {
             layers: 1.try_into().expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
             turns_per_coil: 31.try_into().expect("not zero"),
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
@@ -1476,7 +1476,7 @@ mod stem_core_tests {
             layers: 2.try_into().expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
             turns_per_coil: 31.try_into().expect("not zero"),
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
@@ -1578,7 +1578,7 @@ mod stem_core_tests {
             layers: 2.try_into().expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
             turns_per_coil: 31.try_into().expect("not zero"),
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
@@ -1656,7 +1656,7 @@ mod stem_core_tests {
             layers: 2.try_into().expect("not zero"),
             coil_span_reduction: 1,
             zone_span_variation: 0,
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
             turns_per_coil: 31.try_into().expect("not zero"),
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
@@ -1708,7 +1708,7 @@ mod stem_core_tests {
                 layers: 2.try_into().expect("not zero"),
                 coil_span_reduction,
                 zone_span_variation: 0,
-                winding_table_method: WindingTableMethod::Tingley,
+                winding_table_constructor: WindingTableConstructor::Tingley,
                 turns_per_coil: 10.try_into().expect("not zero"),
                 parallel_paths: 1.try_into().expect("not zero"),
                 connection: Connection::Star,

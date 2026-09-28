@@ -1,6 +1,7 @@
 use std::num::{NonZeroU16, NonZeroUsize};
 use std::path::PathBuf;
 
+use cairo_viewport::bounding_box::ToBoundingBox;
 use cairo_viewport::{BoundingBox, SideLength, Viewport};
 use planar_geo::Transformation;
 use planar_geo::draw::*;
@@ -8,6 +9,64 @@ use stem_winding::prelude::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     zone_polarity()?;
+    winding_table_reference_img()?;
+    return Ok(());
+}
+
+fn winding_table_reference_img() -> Result<(), Box<dyn std::error::Error>> {
+    let winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 6.try_into()?,
+        pole_pairs: 1.try_into()?,
+        phases: 3.try_into()?,
+        layers: 2.try_into()?,
+        coil_span_reduction: 1,
+        zone_span_variation: 0,
+        winding_table_constructor: WindingTableConstructor::Tingley,
+    }
+    .try_into()?;
+
+    let core = LinCore::from_winding(&winding);
+
+    let mut drawables: Vec<Drawable> = vec![core.drawable().into()];
+
+    // Zone view
+    let config = ZoneDrawablesConfig {
+        background_color: ZoneBackgroundColor::Phase,
+        center_config: Some(ZoneCenterConfig::Arrow(ZoneArrowConfig {
+            color_by_phase: false,
+            relative_diameter: 0.8,
+            normalized_current: None,
+        })),
+        show_empty_zones: true,
+    };
+    drawables.extend(
+        winding
+            .zone_drawables(core.as_core_ref(), &config)
+            .map(|z| z.1),
+    );
+    drawables
+        .iter_mut()
+        .for_each(|d| d.line_reflection([0.0, 0.0], [1.0, 0.0]));
+
+    let mut bb = core.drawable().bounding_box();
+    let ymin = bb.ymin();
+    bb.try_set_ymin(-bb.ymax());
+    bb.try_set_ymax(-ymin);
+    bb.scale(1.01);
+
+    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join(&format!("docs/img/winding_table_reference_img.svg"));
+    let view = Viewport::from_bounding_box(&bb, SideLength::Long(800));
+    view.write_to_file(&fp, |cr| {
+        cr.set_source_rgb(1.0, 1.0, 1.0);
+        cr.paint()?;
+
+        for d in drawables.iter() {
+            d.draw(cr)?;
+        }
+
+        return Ok(());
+    })?;
     return Ok(());
 }
 

@@ -21,7 +21,7 @@ use crate::{
     coils::{Coil, Coils, FullCoil},
     error::{Error, WindingTableCreationError},
     winding::{Connection, Winding, base_winding_count_repeating_coil_groups, hole_number},
-    winding_table::{WindingTable, WindingTableMethod},
+    winding_table::{WindingTable, WindingTableConstructor},
 };
 
 /**
@@ -64,7 +64,7 @@ pub struct DistributedWinding {
     wire: Box<dyn Wire>,
     #[cfg_attr(feature = "serde", serde(skip))]
     coils: Coils,
-    winding_table_method: WindingTableMethod,
+    winding_table_constructor: WindingTableConstructor,
     concentric_coils: bool,
 }
 
@@ -100,7 +100,7 @@ impl DistributedWinding {
                 layers: self.layers(),
                 coil_span_reduction: 0,
                 zone_span_variation: self.zone_span_variation,
-                winding_table_method: self.winding_table_method,
+                winding_table_constructor: self.winding_table_constructor,
             }
             .try_into()
             .expect("all input parameters result in a valid winding, since self is valid as well");
@@ -132,8 +132,8 @@ impl DistributedWinding {
         &*self.wire
     }
 
-    pub fn winding_table_method(&self) -> &WindingTableMethod {
-        &self.winding_table_method
+    pub fn winding_table_constructor(&self) -> &WindingTableConstructor {
+        &self.winding_table_constructor
     }
 
     /**
@@ -373,7 +373,7 @@ impl Default for DistributedWinding {
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
             wire: Box::new(RoundWire::default()),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
             concentric_coils: false,
         }
         .try_into()
@@ -487,7 +487,7 @@ pub struct DistributedBuilder {
     pub layers: NonZeroU16,
     pub coil_span_reduction: i32,
     pub zone_span_variation: u16,
-    pub winding_table_method: WindingTableMethod,
+    pub winding_table_constructor: WindingTableConstructor,
     pub turns_per_coil: NonZeroUsize,
     pub parallel_paths: NonZeroU16,
     pub connection: Connection,
@@ -521,8 +521,8 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
             (slots as f64 / (2.0 * pole_pairs as f64)).floor() as i32 - builder.coil_span_reduction;
 
         // Create the zone plan by method
-        let mut winding_table = WindingTable::with_method(
-            &builder.winding_table_method,
+        let mut winding_table = WindingTable::from_constructor(
+            &builder.winding_table_constructor,
             NonZeroU16::new(slots_basic).expect("not zero"),
             builder.layers,
             NonZeroU16::new(pole_pairs_basic).expect("not zero"),
@@ -548,7 +548,7 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
             end_winding_leakage_coefficient: builder.end_winding_leakage_coefficient,
             wire: builder.wire,
             coils: Coils::with_capacity(num_zones, num_coils),
-            winding_table_method: builder.winding_table_method,
+            winding_table_constructor: builder.winding_table_constructor,
             concentric_coils: builder.concentric_coils,
         };
         winding.create_coils(&winding_table)?;
@@ -582,7 +582,7 @@ pub struct DistributedDoubleZoneSpanBuilder {
     pub connection: Connection,
     pub end_winding_leakage_coefficient: f64,
     pub wire: Box<dyn Wire>,
-    pub winding_table_method: WindingTableMethod,
+    pub winding_table_constructor: WindingTableConstructor,
     pub concentric_coils: bool,
 }
 
@@ -607,7 +607,7 @@ impl TryFrom<DistributedDoubleZoneSpanBuilder> for DistributedWinding {
             layers: NonZeroU16::new(2).expect("not zero"),
             coil_span_reduction: builder.coil_span_reduction,
             zone_span_variation,
-            winding_table_method: builder.winding_table_method,
+            winding_table_constructor: builder.winding_table_constructor,
             turns_per_coil: builder.turns_per_coil,
             parallel_paths: builder.parallel_paths,
             connection: builder.connection,
@@ -631,7 +631,7 @@ pub struct DistributedMinimalBuilder {
     /// Sehnung")
     pub coil_span_reduction: i32,
     pub zone_span_variation: u16,
-    pub winding_table_method: WindingTableMethod,
+    pub winding_table_constructor: WindingTableConstructor,
 }
 
 impl TryFrom<DistributedMinimalBuilder> for DistributedWinding {
@@ -645,7 +645,7 @@ impl TryFrom<DistributedMinimalBuilder> for DistributedWinding {
             layers: builder.layers,
             coil_span_reduction: builder.coil_span_reduction,
             zone_span_variation: builder.zone_span_variation,
-            winding_table_method: builder.winding_table_method,
+            winding_table_constructor: builder.winding_table_constructor,
             turns_per_coil: NonZeroUsize::MIN,
             parallel_paths: NonZeroU16::MIN,
             connection: Connection::Star,
@@ -690,8 +690,8 @@ mod tests {
 
     #[test]
     fn test_create_coil_group() {
-        let winding_table = WindingTable::with_method(
-            &WindingTableMethod::Tingley,
+        let winding_table = WindingTable::from_constructor(
+            &WindingTableConstructor::Tingley,
             18.try_into().unwrap(),
             1.try_into().unwrap(),
             1.try_into().unwrap(),
@@ -718,8 +718,8 @@ mod tests {
 
     #[test]
     fn test_find_partners() {
-        let winding_table = WindingTable::with_method(
-            &WindingTableMethod::Tingley,
+        let winding_table = WindingTable::from_constructor(
+            &WindingTableConstructor::Tingley,
             18.try_into().unwrap(),
             1.try_into().unwrap(),
             1.try_into().unwrap(),

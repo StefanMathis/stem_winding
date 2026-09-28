@@ -1,3 +1,9 @@
+//! Provides [`WindingTable`], a tabular representation of a winding.
+//!
+//! A [`WindingTable`] represents the phase and polarity of each zone of a
+//! winding and provides functionality for constructing, inspecting, and
+//! manipulating winding tables.
+
 use crate::error::WindingTableCreationError;
 
 #[cfg(feature = "serde")]
@@ -7,10 +13,67 @@ pub use stem_coil_layout::Zone;
 
 use std::{marker::PhantomData, num::NonZeroU16};
 
-mod builders;
-pub use builders::WindingTableMethod;
+mod constructors;
+pub use constructors::WindingTableConstructor;
 
-/// WindingTable -> Coils is done by the individual windings!
+/**
+A tabular representation of the phase and polarity of each winding [`Zone`].
+
+Each [`Zone`] of a winding is either empty or occupied by a coil with a phase
+and a polarity. The [`WindingTable`] represents all zones of a winding as a
+table where one axis is the slot index (going from 0 to the total number of
+slots minus one) and the other one is the layer index (likewise going from 0 to
+the total number of layers minus one). If the zone is empty, the table entry is
+0. If there is a coil, the value is `+phase` if the polarity is positive and
+`-phase` if the polarity is negative (see also
+[`ZoneAndPolarity`](crate::coils::ZoneAndPolarity)). For example, for the
+winding shown below, the winding table would look like this:
+
+```text
+layer \ slot  0   1   2   3   4   5
+      0      -3   2  -1   3  -2   1
+      1       1  -3   2  -1   3  -2
+```
+ */
+#[doc = ""]
+#[cfg_attr(
+    feature = "doc-images",
+    doc = "![Winding table reference image][winding_table_reference_img]"
+)]
+#[cfg_attr(
+    feature = "doc-images",
+    embed_doc_image::embed_doc_image(
+        "winding_table_reference_img",
+        "docs/img/winding_table_reference_img.svg"
+    )
+)]
+#[cfg_attr(
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+)]
+/**
+A [`WindingTable`] can either be built incrementally (see
+[`WindingTable::set`] and [`WindingTable::get_mut`]), from iterators (see
+[`WindingTable::from_slot_major`] and [`WindingTable::from_layer_major`]), or
+using a predefined [`WindingTableConstructor`] for symmetric multiphase
+windings. Its elements can be accessed using a [`Zone`] index, either through
+the getter methods or via the indexing syntax `table[Zone::new(0, 0)]`.
+
+A [`WindingTable`] can be used in two ways:
+1) As a compact representation of the winding design.
+2) As an intermediate step from which the [`Coils`](crate::coils::Coils) of a
+winding can be determined.
+
+Many of the predefined symmetric [`Winding`](crate::winding::Winding)s in
+this crate construct their [`Coils`](crate::coils::Coils) by first creating a
+winding table and then constructing individual [`Coil`](crate::coils::Coil)
+instances from it. Since, for example, a
+[`DistributedWinding`](crate::winding::DistributedWinding) has fundamentally
+different coil geometry from a
+[`ToothCoilWinding`](crate::winding::ToothCoilWinding), the conversion from a
+winding table to coils is specific to each winding variant.
+ */
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct WindingTable {
@@ -31,11 +94,181 @@ pub struct WindingTable {
 }
 
 impl WindingTable {
+    /// Creates a new [`WindingTable`] where all zones are set to `0`, i.e. do
+    /// not contain a coil.
+    ///
+    /// The winding table can then be manually edited using methods such as
+    /// [`WindingTable::get_mut`] and [`WindingTable::set`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let table = WindingTable::new(
+    ///     NonZeroU16::new(6).expect("not zero"),
+    ///     NonZeroU16::new(2).expect("not zero"),
+    /// );
+    ///
+    /// assert_eq!(table.get(Zone::new(0, 0)), Some(&0));
+    /// assert_eq!(table.get(Zone::new(5, 1)), Some(&0));
+    /// ```
     pub fn new(slots: NonZeroU16, layers: NonZeroU16) -> Self {
         Self {
             layers,
             data: vec![0; usize::from(u16::from(slots)) * usize::from(u16::from(layers))],
         }
+    }
+
+    /// Returns a reference to the value stored at the given [`Zone`], or `None`
+    /// if the zone is outside the bounds of the winding table.
+    pub fn get(&self, zone: Zone) -> Option<&i32> {
+        let linear_index = cart_lin::cart_to_lin(
+            &[usize::from(zone.slot), usize::from(zone.layer)],
+            &[usize::from(self.slots()), usize::from(self.layers())],
+        )?;
+        return self.data.get(linear_index);
+    }
+
+    /// Returns a mutable reference to the value stored at the given [`Zone`],
+    /// or `None` if the zone is outside the bounds of the winding table.
+    pub fn get_mut(&mut self, zone: Zone) -> Option<&mut i32> {
+        let linear_index = cart_lin::cart_to_lin(
+            &[usize::from(zone.slot), usize::from(zone.layer)],
+            &[usize::from(self.slots()), usize::from(self.layers())],
+        )?;
+        return self.data.get_mut(linear_index);
+    }
+
+    /// Sets the value at the given [`Zone`] and returns the previous value.
+    ///
+    /// Returns `None` if the zone is outside the bounds of the winding table.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let mut table = WindingTable::new(
+    ///     NonZeroU16::new(6).expect("not zero"),
+    ///     NonZeroU16::new(1).expect("not zero"),
+    /// );
+    ///
+    /// assert_eq!(table.set(Zone::new(2, 0), 1), Some(0));
+    /// assert_eq!(table.set(Zone::new(2, 0), -2), Some(1));
+    /// assert_eq!(table.get(Zone::new(2, 0)), Some(&-2));
+    /// ```
+    pub fn set(&mut self, zone: Zone, mut phase: i32) -> Option<i32> {
+        let linear_index = cart_lin::cart_to_lin(
+            &[usize::from(zone.slot), usize::from(zone.layer)],
+            &[usize::from(self.slots()), usize::from(self.layers())],
+        )?;
+        std::mem::swap(&mut phase, &mut self.data[linear_index]);
+        return Some(phase);
+    }
+
+    /// Returns a reference to the value stored at the given [`Zone`].
+    ///
+    /// The slot and layer indices are reduced modulo the number of slots and
+    /// layers, respectively. Consequently, indices outside the bounds of the
+    /// winding table wrap around.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let mut table = WindingTable::new(
+    ///     NonZeroU16::new(6).expect("not zero"),
+    ///     NonZeroU16::new(2).expect("not zero"),
+    /// );
+    /// table.set(Zone::new(0, 0), 1);
+    ///
+    /// assert_eq!(table.get_cyclic(Zone::new(6, 2)), &1);
+    /// ```
+    ///
+    /// This method is useful for accessing zones of cyclic windings.
+    pub fn get_cyclic(&self, zone: Zone) -> &i32 {
+        let slot = zone.slot % self.slots();
+        let layer = zone.layer % self.layers();
+        return self
+            .get(Zone { slot, layer })
+            .expect("zone exists in winding table");
+    }
+
+    /// Returns a mutable reference to the value stored at the given [`Zone`].
+    ///
+    /// The slot and layer indices are reduced modulo the number of slots and
+    /// layers, respectively. Consequently, indices outside the bounds of the
+    /// winding table wrap around.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let mut table = WindingTable::new(
+    ///     NonZeroU16::new(6).expect("not zero"),
+    ///     NonZeroU16::new(2).expect("not zero"),
+    /// );
+    ///
+    /// *table.get_cyclic_mut(Zone::new(6, 2)) = 1;
+    /// assert_eq!(table.get(Zone::new(0, 0)), Some(&1));
+    /// ```
+    pub fn get_cyclic_mut(&mut self, zone: Zone) -> &mut i32 {
+        let slot = zone.slot % self.slots();
+        let layer = zone.layer % self.layers();
+        return self
+            .get_mut(Zone { slot, layer })
+            .expect("zone exists in winding table");
+    }
+
+    /// Returns the number of slots in the winding table.
+    pub fn slots(&self) -> u16 {
+        (self.data.len() / self.layers.get() as usize)
+            .try_into()
+            .expect("resulting value can fit into an u16, this is checked at construction time")
+    }
+
+    /// Returns the number of layers in the winding table.
+    pub fn layers(&self) -> u16 {
+        return self.layers.into();
+    }
+
+    // Slot-major
+    //     slot 0: layer 0, layer 1, ...
+    //     slot 1: layer 0, layer 1, ...
+    //     ...
+    pub fn iter_slots(&self) -> SlotMajorIter<'_> {
+        SlotMajorIter::new(self)
+    }
+
+    // Slot-major
+    //     slot 0: layer 0, layer 1, ...
+    //     slot 1: layer 0, layer 1, ...
+    //     ...
+    pub fn iter_slots_mut(&mut self) -> SlotMajorIterMut<'_> {
+        SlotMajorIterMut::new(self)
+    }
+
+    // Layer-major
+    // layer 0: slot 0, slot 1, ...
+    //layer 1: slot 0, slot 1, ...
+    //...
+    pub fn iter_layers(&self) -> LayerMajorIter<'_> {
+        LayerMajorIter::new(self)
+    }
+
+    // Layer-major
+    // layer 0: slot 0, slot 1, ...
+    //layer 1: slot 0, slot 1, ...
+    //...
+    pub fn iter_layers_mut(&mut self) -> LayerMajorIterMut<'_> {
+        LayerMajorIterMut::new(self)
     }
 
     /// Uses [`WindingTable::iter_slots_mut`] to put the data from `iterator`
@@ -68,16 +301,6 @@ impl WindingTable {
                 *phase_this = phase_iter;
             });
         return this;
-    }
-
-    pub fn slots(&self) -> u16 {
-        (self.data.len() / self.layers.get() as usize)
-            .try_into()
-            .expect("resulting value can fit into an u16, this is checked at construction time")
-    }
-
-    pub fn layers(&self) -> u16 {
-        return self.layers.into();
     }
 
     /// Perform a zone shift on the input zone plan. As described in [MVP08]
@@ -223,74 +446,6 @@ impl WindingTable {
         });
     }
 
-    pub fn get(&self, zone: Zone) -> Option<&i32> {
-        let linear_index = cart_lin::cart_to_lin(
-            &[usize::from(zone.slot), usize::from(zone.layer)],
-            &[usize::from(self.slots()), usize::from(self.layers())],
-        )?;
-        return self.data.get(linear_index);
-    }
-
-    pub fn get_mut(&mut self, zone: Zone) -> Option<&mut i32> {
-        let linear_index = cart_lin::cart_to_lin(
-            &[usize::from(zone.slot), usize::from(zone.layer)],
-            &[usize::from(self.slots()), usize::from(self.layers())],
-        )?;
-        return self.data.get_mut(linear_index);
-    }
-
-    // with a doc comment explicitly saying that indices are reduced modulo the
-    // number of slots/layers.
-    pub fn get_cyclic(&self, zone: Zone) -> &i32 {
-        let slot = zone.slot % self.slots();
-        let layer = zone.layer % self.layers();
-        return self
-            .get(Zone { slot, layer })
-            .expect("zone exists in winding table");
-    }
-
-    // with a doc comment explicitly saying that indices are reduced modulo the
-    // number of slots/layers.
-    pub fn get_cyclic_mut(&mut self, zone: Zone) -> &mut i32 {
-        let slot = zone.slot % self.slots();
-        let layer = zone.layer % self.layers();
-        return self
-            .get_mut(Zone { slot, layer })
-            .expect("zone exists in winding table");
-    }
-
-    // Slot-major
-    //     slot 0: layer 0, layer 1, ...
-    //     slot 1: layer 0, layer 1, ...
-    //     ...
-    pub fn iter_slots(&self) -> SlotMajorIter<'_> {
-        SlotMajorIter::new(self)
-    }
-
-    // Slot-major
-    //     slot 0: layer 0, layer 1, ...
-    //     slot 1: layer 0, layer 1, ...
-    //     ...
-    pub fn iter_slots_mut(&mut self) -> SlotMajorIterMut<'_> {
-        SlotMajorIterMut::new(self)
-    }
-
-    // Layer-major
-    // layer 0: slot 0, slot 1, ...
-    //layer 1: slot 0, slot 1, ...
-    //...
-    pub fn iter_layers(&self) -> LayerMajorIter<'_> {
-        LayerMajorIter::new(self)
-    }
-
-    // Layer-major
-    // layer 0: slot 0, slot 1, ...
-    //layer 1: slot 0, slot 1, ...
-    //...
-    pub fn iter_layers_mut(&mut self) -> LayerMajorIterMut<'_> {
-        LayerMajorIterMut::new(self)
-    }
-
     pub(crate) fn check(self, phases: NonZeroU16) -> Result<Self, WindingTableCreationError> {
         for phase in 1..(i32::from(u16::from(phases)) + 1) {
             let mut counter = 0;
@@ -317,78 +472,55 @@ impl WindingTable {
 
 impl std::fmt::Display for WindingTable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let slots = self.slots();
+        let layers = self.layers();
+
+        let slot_width = usize::from(slots - 1).to_string().len();
+        let value_width = self
+            .iter_layers()
+            .map(|(_, value)| value.to_string().len())
+            .max()
+            .unwrap_or(1);
+        let column_width = slot_width.max(value_width);
+
+        let layer_width = usize::from(layers - 1).to_string().len().max("layer".len());
+
+        // Header.
         write!(
             f,
-            "Zone plan with {} slots and {} layers",
-            self.slots(),
-            self.layers()
+            "{:>layer_width$} \\ slot",
+            "layer",
+            layer_width = layer_width
         )?;
 
-        todo!();
+        for slot in 0..slots {
+            write!(f, " {:>column_width$}", slot, column_width = column_width)?;
+        }
+        writeln!(f)?;
 
-        // https://github.com/dimforge/nalgebra/blob/3320ecca21dc08f7a93c9595f6b257f05ba21273/src/base/matrix.rs#L1917
-        // #[cfg(feature = "std")]
-        // fn val_width<T: Scalar + $trait>(val: &T, f: &mut fmt::Formatter<'_>)
-        // -> usize {     match f.precision() {
-        //         Some(precision) => format!($fmt_str_with_precision, val,
-        // precision)             .chars()
-        //             .count(),
-        //         None => format!($fmt_str_without_precision,
-        // val).chars().count(),     }
-        // }
+        // Separator.
+        let line_width = layer_width + " \\ slot".len() + usize::from(slots) * (column_width + 1);
 
-        // #[cfg(not(feature = "std"))]
-        // fn val_width<T: Scalar + $trait>(_: &T, _: &mut fmt::Formatter<'_>)
-        // -> usize {     4
-        // }
+        writeln!(f, "{}", "─".repeat(line_width))?;
 
-        // let (nrows, ncols) = self.shape();
+        // Data.
+        let mut iter = self.iter_layers();
 
-        // if nrows == 0 || ncols == 0 {
-        //     return write!(f, "[ ]");
-        // }
+        for layer in 0..layers {
+            write!(f, "{layer:>layer_width$}", layer_width = layer_width + 2)?;
+            write!(f, "{:>width$}", "", width = " slot".len())?;
 
-        // let mut max_length = 0;
+            for _ in 0..slots {
+                let (_, value) = iter.next().expect("iterator length is known");
+                write!(f, " {:>column_width$}", value, column_width = column_width)?;
+            }
 
-        // for i in 0..nrows {
-        //     for j in 0..ncols {
-        //         max_length = crate::max(max_length, val_width(&self[(i, j)],
-        // f));     }
-        // }
+            if layer + 1 < layers {
+                writeln!(f)?;
+            }
+        }
 
-        // let max_length_with_space = max_length + 1;
-
-        // writeln!(f)?;
-        // writeln!(
-        //     f,
-        //     "  ┌ {:>width$} ┐",
-        //     "",
-        //     width = max_length_with_space * ncols - 1
-        // )?;
-
-        // for i in 0..nrows {
-        //     write!(f, "  │")?;
-        //     for j in 0..ncols {
-        //         let number_length = val_width(&self[(i, j)], f) + 1;
-        //         let pad = max_length_with_space - number_length;
-        //         write!(f, " {:>thepad$}", "", thepad = pad)?;
-        //         match f.precision() {
-        //             Some(precision) => {
-        //                 write!(f, $fmt_str_with_precision, (*self)[(i, j)],
-        // precision)?             }
-        //             None => write!(f, $fmt_str_without_precision, (*self)[(i,
-        // j)])?,         }
-        //     }
-        //     writeln!(f, " │")?;
-        // }
-
-        // writeln!(
-        //     f,
-        //     "  └ {:>width$} ┘",
-        //     "",
-        //     width = max_length_with_space * ncols - 1
-        // )?;
-        // writeln!(f)
+        Ok(())
     }
 }
 
@@ -405,9 +537,6 @@ impl std::ops::IndexMut<Zone> for WindingTable {
         return self.get_mut(index).expect("index out of bounds");
     }
 }
-
-// =============================================================================
-// Iterators
 
 #[derive(Clone)]
 pub struct SlotMajorIter<'a> {
@@ -446,10 +575,12 @@ impl<'a> Iterator for SlotMajorIter<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = usize::from(self.slots * self.layers);
-        return (len, Some(len));
+        let len = usize::from(self.slots * self.layers) - usize::from(self.idx);
+        (len, Some(len))
     }
 }
+
+impl<'a> ExactSizeIterator for SlotMajorIter<'a> {}
 
 pub struct SlotMajorIterMut<'a> {
     idx: u16,
@@ -483,10 +614,12 @@ impl<'a> Iterator for SlotMajorIterMut<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = usize::from(self.slots * self.layers);
-        return (len, Some(len));
+        let len = usize::from(self.slots * self.layers) - usize::from(self.idx);
+        (len, Some(len))
     }
 }
+
+impl<'a> ExactSizeIterator for SlotMajorIterMut<'a> {}
 
 impl<'a> SlotMajorIterMut<'a> {
     pub fn new(winding_table: &'a mut WindingTable) -> Self {
@@ -526,10 +659,12 @@ impl<'a> Iterator for LayerMajorIter<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = usize::from(self.slots * self.layers);
-        return (len, Some(len));
+        let len = usize::from(self.slots * self.layers) - usize::from(self.idx);
+        (len, Some(len))
     }
 }
+
+impl<'a> ExactSizeIterator for LayerMajorIter<'a> {}
 
 impl<'a> LayerMajorIter<'a> {
     pub fn new(winding_table: &'a WindingTable) -> Self {
@@ -590,10 +725,12 @@ impl<'a> Iterator for LayerMajorIterMut<'a> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = usize::from(self.slots * self.layers);
-        return (len, Some(len));
+        let len = usize::from(self.slots * self.layers) - usize::from(self.idx);
+        (len, Some(len))
     }
 }
+
+impl<'a> ExactSizeIterator for LayerMajorIterMut<'a> {}
 
 #[cfg(test)]
 mod tests {

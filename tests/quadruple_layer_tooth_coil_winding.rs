@@ -19,7 +19,7 @@ fn test_coil_direction() {
             slots: 9.try_into().expect("not zero"),
             pole_pairs: 4.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
             turns_per_slot_side: 2.try_into().expect("not zero"),
             turns_upper_layer_coils: Vec::new(),
         }
@@ -55,7 +55,7 @@ fn test_turn_creator_regression_test() {
             phases: 3.try_into().expect("not zero"),
             turns_per_slot_side: 2.try_into().expect("not zero"),
             turns_upper_layer_coils: Vec::new(),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .is_err()
     );
@@ -66,7 +66,7 @@ fn test_turn_creator_regression_test() {
             phases: 3.try_into().expect("not zero"),
             turns_per_slot_side: 2.try_into().expect("not zero"),
             turns_upper_layer_coils: vec![NonZeroUsize::new(1).expect("not zero")],
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .is_err()
     );
@@ -82,7 +82,7 @@ fn test_err_when_turns_per_slot_side_smaller_than_two() {
             phases: 3.try_into().expect("not zero"),
             turns_per_slot_side: 1.try_into().expect("not zero"),
             turns_upper_layer_coils: vec![NonZeroUsize::new(1).expect("not zero")],
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .is_err()
     );
@@ -95,7 +95,7 @@ fn test_err_when_turns_per_slot_side_smaller_than_two() {
             phases: 3.try_into().expect("not zero"),
             turns_per_slot_side: 2.try_into().expect("not zero"),
             turns_upper_layer_coils: vec![NonZeroUsize::new(1).expect("not zero")],
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .is_ok()
     );
@@ -108,7 +108,7 @@ fn test_err_when_turns_per_slot_side_smaller_than_two() {
             phases: 3.try_into().expect("not zero"),
             turns_per_slot_side: 3.try_into().expect("not zero"),
             turns_upper_layer_coils: vec![NonZeroUsize::new(1).expect("not zero")],
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .is_ok()
     );
@@ -127,7 +127,7 @@ fn test_equal_turns_per_coil_9_8() {
             phases: 3.try_into().expect("not zero"),
             turns_per_slot_side: 2.try_into().expect("not zero"),
             turns_upper_layer_coils: Vec::new(),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .unwrap();
 
@@ -175,7 +175,7 @@ fn test_equal_turns_per_coil_9_8() {
             phases: 3.try_into().expect("not zero"),
             turns_per_slot_side: 2.try_into().expect("not zero"),
             turns_upper_layer_coils: vec![NonZeroUsize::new(1).expect("not zero")],
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .unwrap();
 
@@ -234,7 +234,7 @@ fn test_equal_turns_per_coil_9_8() {
                 NonZeroUsize::new(1).expect("not zero"),
                 NonZeroUsize::new(1).expect("not zero"),
             ],
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .unwrap();
 
@@ -291,7 +291,7 @@ fn test_varying_turns_per_coil_9_8() {
             phases: 3.try_into().expect("not zero"),
             turns_per_slot_side: 9.try_into().expect("not zero"),
             turns_upper_layer_coils: vec![NonZeroUsize::new(4).expect("not zero")],
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .unwrap();
 
@@ -308,7 +308,7 @@ fn test_varying_turns_per_coil_9_8() {
             phases: 3.try_into().expect("not zero"),
             turns_per_slot_side: 9.try_into().expect("not zero"),
             turns_upper_layer_coils: vec![NonZeroUsize::new(3).expect("not zero")],
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .unwrap();
 
@@ -348,7 +348,7 @@ fn test_varying_turns_per_coil_9_8() {
             phases: 3.try_into().expect("not zero"),
             turns_per_slot_side: 9.try_into().expect("not zero"),
             turns_upper_layer_coils: vec![NonZeroUsize::new(2).expect("not zero")],
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .unwrap();
 
@@ -368,7 +368,7 @@ fn test_varying_turns_per_coil_9_8() {
                 NonZeroUsize::new(5).expect("not zero"),
                 NonZeroUsize::new(4).expect("not zero"),
             ],
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .unwrap();
 
@@ -416,7 +416,7 @@ fn test_varying_turns_per_coil_9_8() {
                 NonZeroUsize::new(4).expect("not zero"),
                 NonZeroUsize::new(3).expect("not zero"),
             ],
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .unwrap();
 
@@ -467,7 +467,7 @@ fn test_winding_table_creation_12_10_equal_turns_per_coil() {
             phases: 3.try_into().expect("not zero"),
             turns_per_slot_side: 2.try_into().expect("not zero"),
             turns_upper_layer_coils: Vec::new(),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .unwrap();
 
@@ -484,7 +484,7 @@ fn test_winding_table_creation_12_10_equal_turns_per_coil() {
             phases: 3.try_into().expect("not zero"),
             turns_per_slot_side: 2.try_into().expect("not zero"),
             turns_upper_layer_coils: vec![NonZeroUsize::new(1).expect("not zero")],
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .unwrap();
 
@@ -521,7 +521,7 @@ mod serde_tests {
             phases: 3.try_into().expect("not zero"),
             turns_per_slot_side: 2.try_into().expect("not zero"),
             turns_upper_layer_coils: vec![NonZeroUsize::new(1).expect("not zero")],
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .unwrap();
         let string = yaml_serde::to_string(&winding).expect("can be serialized");
@@ -544,7 +544,7 @@ mod serde_tests {
             phases: 3
             turns_per_slot_side: 2
             turns_upper_layer_coils: []
-            winding_table_method: Tingley
+            winding_table_constructor: Tingley
             "};
 
         let winding: QuadrupleLayerToothCoilWinding = yaml_serde::from_str(yaml).unwrap();
@@ -566,7 +566,7 @@ mod serde_tests {
             phases: 3
             turns_per_slot_side: 2
             turns_upper_layer_coils: []
-            winding_table_method: Tingley
+            winding_table_constructor: Tingley
             "};
 
         let winding: QuadrupleLayerToothCoilWinding = yaml_serde::from_str(yaml).unwrap();

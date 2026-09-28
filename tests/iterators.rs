@@ -59,7 +59,7 @@ fn test_harmonic_orders() {
             pole_pairs: NonZeroU16::new(10).expect("not zero"),
             phases: NonZeroU16::new(3).expect("not zero"),
             layers: NonZeroU16::new(2).expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -79,7 +79,7 @@ fn test_harmonic_orders() {
             pole_pairs: NonZeroU16::new(16).expect("not zero"),
             phases: NonZeroU16::new(3).expect("not zero"),
             layers: NonZeroU16::new(2).expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -99,7 +99,7 @@ fn test_harmonic_orders() {
             pole_pairs: NonZeroU16::new(4).expect("not zero"),
             phases: NonZeroU16::new(3).expect("not zero"),
             layers: NonZeroU16::new(2).expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -120,7 +120,7 @@ fn test_harmonic_orders() {
             pole_pairs: NonZeroU16::new(4).expect("not zero"),
             phases: NonZeroU16::new(3).expect("not zero"),
             layers: NonZeroU16::new(2).expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -144,7 +144,7 @@ fn test_coils_per_coil_group() {
             pole_pairs: NonZeroU16::new(1).expect("not zero"),
             phases: NonZeroU16::new(3).expect("not zero"),
             layers: NonZeroU16::new(1).expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
             coil_span_reduction: 0,
             zone_span_variation: 0,
         }
@@ -166,7 +166,7 @@ fn test_coils_per_coil_group() {
             pole_pairs: NonZeroU16::new(2).expect("not zero"),
             phases: NonZeroU16::new(3).expect("not zero"),
             layers: NonZeroU16::new(2).expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
             coil_span_reduction: 0,
             zone_span_variation: 0,
         }
@@ -190,7 +190,7 @@ fn test_coils_per_coil_group() {
             pole_pairs: NonZeroU16::new(2).expect("not zero"),
             phases: NonZeroU16::new(3).expect("not zero"),
             layers: NonZeroU16::new(1).expect("not zero"),
-            winding_table_method: WindingTableMethod::CoilSide,
+            winding_table_constructor: WindingTableConstructor::CoilSide,
             coil_span_reduction: 0,
             zone_span_variation: 0,
         }
@@ -214,7 +214,7 @@ fn test_coils_per_coil_group() {
             pole_pairs: NonZeroU16::new(1).expect("not zero"),
             phases: NonZeroU16::new(3).expect("not zero"),
             layers: NonZeroU16::new(1).expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
             coil_span_reduction: 0,
             zone_span_variation: 0,
         }
@@ -238,7 +238,7 @@ fn test_coils_per_coil_group() {
             pole_pairs: NonZeroU16::new(5).expect("not zero"),
             phases: NonZeroU16::new(3).expect("not zero"),
             layers: NonZeroU16::new(2).expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -258,7 +258,7 @@ fn test_coils_per_coil_group() {
             pole_pairs: NonZeroU16::new(5).expect("not zero"),
             phases: NonZeroU16::new(3).expect("not zero"),
             layers: NonZeroU16::new(1).expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();
@@ -278,7 +278,7 @@ fn test_coils_per_coil_group() {
             pole_pairs: NonZeroU16::new(4).expect("not zero"),
             phases: NonZeroU16::new(3).expect("not zero"),
             layers: NonZeroU16::new(2).expect("not zero"),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .unwrap();

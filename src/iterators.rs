@@ -60,10 +60,10 @@ assert_eq!(orders[4], Ratio::new(13, 1));
 
 # Example 2 (tooth-coil winding):
 ```
-use winding::{ToothCoilWinding, Winding, WindingTableMethod};
+use winding::{ToothCoilWinding, Winding, WindingTableConstructor};
 use num::rational::Ratio;
 
-let winding = ToothCoilWinding::new_minimal(24, 10, 3, 2, WindingTableMethod::Tingley).unwrap();
+let winding = ToothCoilWinding::new_minimal(24, 10, 3, 2, WindingTableConstructor::Tingley).unwrap();
 let orders: Vec<Ratio<i32>> = winding.harmonic_orders().take(5).collect();
 assert_eq!(orders[0], Ratio::new(-1, 5));
 assert_eq!(orders[1], Ratio::new(5, 5));

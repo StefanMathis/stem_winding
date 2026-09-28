@@ -17,7 +17,7 @@ use crate::{
     coils::{Coil, Coils, FullCoil},
     error::{Error, WindingTableCreationError},
     winding::{Connection, Winding, base_winding_count_repeating_coil_groups},
-    winding_table::{WindingTable, WindingTableMethod},
+    winding_table::{WindingTable, WindingTableConstructor},
 };
 
 #[derive(Debug, Clone)]
@@ -34,7 +34,7 @@ pub struct ToothCoilWinding {
     wire: Box<dyn Wire>,
     #[cfg_attr(feature = "serde", serde(skip))]
     coils: Coils,
-    winding_table_method: WindingTableMethod,
+    winding_table_constructor: WindingTableConstructor,
 }
 
 impl ToothCoilWinding {
@@ -50,8 +50,8 @@ impl ToothCoilWinding {
         &*self.wire
     }
 
-    pub fn winding_table_method(&self) -> &WindingTableMethod {
-        &self.winding_table_method
+    pub fn winding_table_constructor(&self) -> &WindingTableConstructor {
+        &self.winding_table_constructor
     }
 
     fn create_coils(
@@ -164,7 +164,7 @@ impl Default for ToothCoilWinding {
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
             wire: Box::new(RoundWire::default()),
-            winding_table_method: WindingTableMethod::Tingley,
+            winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
         .expect("valid inputs")
@@ -291,7 +291,7 @@ pub struct ToothCoilBuilder {
     pub connection: Connection,
     pub end_winding_leakage_coefficient: f64,
     pub wire: Box<dyn Wire>,
-    pub winding_table_method: WindingTableMethod,
+    pub winding_table_constructor: WindingTableConstructor,
 }
 
 impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
@@ -314,8 +314,8 @@ impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
         let pole_pairs_basic = builder.pole_pairs.get() / t;
 
         // Create the zone plan by method
-        let winding_table = WindingTable::with_method(
-            &builder.winding_table_method,
+        let winding_table = WindingTable::from_constructor(
+            &builder.winding_table_constructor,
             NonZeroU16::new(slots_basic).expect("not zero"),
             builder.layers,
             NonZeroU16::new(pole_pairs_basic).expect("not zero"),
@@ -336,7 +336,7 @@ impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
             end_winding_leakage_coefficient: builder.end_winding_leakage_coefficient,
             wire: builder.wire,
             coils: Coils::with_capacity(num_zones, num_coils),
-            winding_table_method: builder.winding_table_method,
+            winding_table_constructor: builder.winding_table_constructor,
         };
         winding.create_coils(&winding_table, true)?;
 
@@ -364,7 +364,7 @@ pub struct ToothCoilMinimalBuilder {
     pub pole_pairs: NonZeroU16,
     pub phases: NonZeroU16,
     pub layers: NonZeroU16,
-    pub winding_table_method: WindingTableMethod,
+    pub winding_table_constructor: WindingTableConstructor,
 }
 
 impl TryFrom<ToothCoilMinimalBuilder> for ToothCoilWinding {
@@ -381,7 +381,7 @@ impl TryFrom<ToothCoilMinimalBuilder> for ToothCoilWinding {
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
             wire: Box::new(RoundWire::default()),
-            winding_table_method: builder.winding_table_method,
+            winding_table_constructor: builder.winding_table_constructor,
         }
         .try_into()
     }
