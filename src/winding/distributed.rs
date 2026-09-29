@@ -253,7 +253,7 @@ impl DistributedWinding {
         }
 
         // Check if all zones are filled.
-        for (zone, _) in winding_table.iter_slots() {
+        for (zone, _) in winding_table.iter_slot_major() {
             // Check if the zone is already occupied
             if !self.coils.occupied(zone) {
                 return Err(crate::error::WindingTableCreationError::EmptyZone(Some(zone)).into());

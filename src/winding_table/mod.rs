@@ -239,11 +239,13 @@ impl WindingTable {
         return self.layers.into();
     }
 
+    // TODO
+
     // Slot-major
     //     slot 0: layer 0, layer 1, ...
     //     slot 1: layer 0, layer 1, ...
     //     ...
-    pub fn iter_slots(&self) -> SlotMajorIter<'_> {
+    pub fn iter_slot_major(&self) -> SlotMajorIter<'_> {
         SlotMajorIter::new(self)
     }
 
@@ -251,7 +253,7 @@ impl WindingTable {
     //     slot 0: layer 0, layer 1, ...
     //     slot 1: layer 0, layer 1, ...
     //     ...
-    pub fn iter_slots_mut(&mut self) -> SlotMajorIterMut<'_> {
+    pub fn iter_slot_major_mut(&mut self) -> SlotMajorIterMut<'_> {
         SlotMajorIterMut::new(self)
     }
 
@@ -259,7 +261,7 @@ impl WindingTable {
     // layer 0: slot 0, slot 1, ...
     //layer 1: slot 0, slot 1, ...
     //...
-    pub fn iter_layers(&self) -> LayerMajorIter<'_> {
+    pub fn iter_layer_major(&self) -> LayerMajorIter<'_> {
         LayerMajorIter::new(self)
     }
 
@@ -267,19 +269,19 @@ impl WindingTable {
     // layer 0: slot 0, slot 1, ...
     //layer 1: slot 0, slot 1, ...
     //...
-    pub fn iter_layers_mut(&mut self) -> LayerMajorIterMut<'_> {
+    pub fn iter_layer_major_mut(&mut self) -> LayerMajorIterMut<'_> {
         LayerMajorIterMut::new(self)
     }
 
-    /// Uses [`WindingTable::iter_slots_mut`] to put the data from `iterator`
-    /// into the zones of `self`
+    /// Uses [`WindingTable::iter_slot_major_mut`] to put the data from
+    /// `iterator` into the zones of `self`
     pub fn from_slot_major<I: Iterator<Item = i32>>(
         iterator: I,
         slots: NonZeroU16,
         layers: NonZeroU16,
     ) -> Self {
         let mut this = Self::new(slots, layers);
-        this.iter_slots_mut()
+        this.iter_slot_major_mut()
             .zip(iterator)
             .for_each(|((_, phase_this), phase_iter)| {
                 *phase_this = phase_iter;
@@ -287,15 +289,15 @@ impl WindingTable {
         return this;
     }
 
-    /// Uses [`WindingTable::iter_layers_mut`] to put the data from `iterator`
-    /// into the zones of `self`
+    /// Uses [`WindingTable::iter_layer_major_mut`] to put the data from
+    /// `iterator` into the zones of `self`
     pub fn from_layer_major<I: Iterator<Item = i32>>(
         iterator: I,
         slots: NonZeroU16,
         layers: NonZeroU16,
     ) -> Self {
         let mut this = Self::new(slots, layers);
-        this.iter_layers_mut()
+        this.iter_layer_major_mut()
             .zip(iterator)
             .for_each(|((_, phase_this), phase_iter)| {
                 *phase_this = phase_iter;
@@ -439,7 +441,7 @@ impl WindingTable {
 
     /// Inverts all coils in the given `layer`.
     pub(crate) fn invert_coils_in_layer(&mut self, layer: u16) {
-        self.iter_layers_mut().for_each(|(zone, phase)| {
+        self.iter_layer_major_mut().for_each(|(zone, phase)| {
             if layer == zone.layer {
                 *phase = -*phase;
             }
@@ -449,7 +451,7 @@ impl WindingTable {
     pub(crate) fn check(self, phases: NonZeroU16) -> Result<Self, WindingTableCreationError> {
         for phase in 1..(i32::from(u16::from(phases)) + 1) {
             let mut counter = 0;
-            for (zone, zone_phase) in self.iter_slots() {
+            for (zone, zone_phase) in self.iter_slot_major() {
                 if phase == *zone_phase {
                     counter += 1;
                 } else if -phase == *zone_phase {
@@ -477,21 +479,16 @@ impl std::fmt::Display for WindingTable {
 
         let slot_width = usize::from(slots - 1).to_string().len();
         let value_width = self
-            .iter_layers()
+            .iter_layer_major()
             .map(|(_, value)| value.to_string().len())
             .max()
             .unwrap_or(1);
         let column_width = slot_width.max(value_width);
 
-        let layer_width = usize::from(layers - 1).to_string().len().max("layer".len());
+        let layer_width = 1;
 
         // Header.
-        write!(
-            f,
-            "{:>layer_width$} \\ slot",
-            "layer",
-            layer_width = layer_width
-        )?;
+        write!(f, "{:>layer_width$} \\ S │", "L", layer_width = layer_width)?;
 
         for slot in 0..slots {
             write!(f, " {:>column_width$}", slot, column_width = column_width)?;
@@ -499,16 +496,19 @@ impl std::fmt::Display for WindingTable {
         writeln!(f)?;
 
         // Separator.
-        let line_width = layer_width + " \\ slot".len() + usize::from(slots) * (column_width + 1);
+        let line_width = usize::from(slots) * (column_width + 1);
 
-        writeln!(f, "{}", "─".repeat(line_width))?;
+        writeln!(f, "──────┼{}", "─".repeat(line_width))?;
 
         // Data.
-        let mut iter = self.iter_layers();
+        let mut iter = self.iter_layer_major();
 
         for layer in 0..layers {
-            write!(f, "{layer:>layer_width$}", layer_width = layer_width + 2)?;
-            write!(f, "{:>width$}", "", width = " slot".len())?;
+            write!(
+                f,
+                "{layer:>layer_width$}   │",
+                layer_width = layer_width + 2
+            )?;
 
             for _ in 0..slots {
                 let (_, value) = iter.next().expect("iterator length is known");

@@ -535,7 +535,7 @@ impl WindingTable {
             // pattern, shifting it by an odd coil span and then combining both
             // patterns via element-wise addition
             let mut right_coil_side: Vec<i32> = winding_table
-                .iter_layers()
+                .iter_layer_major()
                 .filter_map(
                     |(zone, phase)| {
                         if zone.layer == 0 { Some(*phase) } else { None }

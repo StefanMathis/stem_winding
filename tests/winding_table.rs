@@ -46,28 +46,28 @@ fn test_iterate() {
     let mut table = create_table();
 
     // Count the number of elements from the iterators
-    assert_eq!(table.iter_slots().count(), 12);
-    assert_eq!(table.iter_slots_mut().count(), 12);
-    assert_eq!(table.iter_layers().count(), 12);
-    assert_eq!(table.iter_layers_mut().count(), 12);
+    assert_eq!(table.iter_slot_major().count(), 12);
+    assert_eq!(table.iter_slot_major_mut().count(), 12);
+    assert_eq!(table.iter_layer_major().count(), 12);
+    assert_eq!(table.iter_layer_major_mut().count(), 12);
 
     // Check the order of returned elements
     {
-        let mut iterator = table.iter_slots();
+        let mut iterator = table.iter_slot_major();
         assert_eq!(iterator.next(), Some((Zone { slot: 0, layer: 0 }, &1)));
         assert_eq!(iterator.next(), Some((Zone { slot: 0, layer: 1 }, &-2)));
         assert_eq!(iterator.next(), Some((Zone { slot: 1, layer: 0 }, &-3)));
         assert_eq!(iterator.next(), Some((Zone { slot: 1, layer: 1 }, &1)));
     }
     {
-        let mut iterator = table.iter_slots_mut();
+        let mut iterator = table.iter_slot_major_mut();
         assert_eq!(iterator.next(), Some((Zone { slot: 0, layer: 0 }, &mut 1)));
         assert_eq!(iterator.next(), Some((Zone { slot: 0, layer: 1 }, &mut -2)));
         assert_eq!(iterator.next(), Some((Zone { slot: 1, layer: 0 }, &mut -3)));
         assert_eq!(iterator.next(), Some((Zone { slot: 1, layer: 1 }, &mut 1)));
     }
     {
-        let mut iterator = table.iter_layers();
+        let mut iterator = table.iter_layer_major();
         assert_eq!(iterator.next(), Some((Zone { slot: 0, layer: 0 }, &1)));
         assert_eq!(iterator.next(), Some((Zone { slot: 1, layer: 0 }, &-3)));
         assert_eq!(iterator.next(), Some((Zone { slot: 2, layer: 0 }, &2)));
@@ -77,7 +77,7 @@ fn test_iterate() {
         assert_eq!(iterator.next(), Some((Zone { slot: 0, layer: 1 }, &-2)));
     }
     {
-        let mut iterator = table.iter_layers_mut();
+        let mut iterator = table.iter_layer_major_mut();
         assert_eq!(iterator.next(), Some((Zone { slot: 0, layer: 0 }, &mut 1)));
         assert_eq!(iterator.next(), Some((Zone { slot: 1, layer: 0 }, &mut -3)));
         assert_eq!(iterator.next(), Some((Zone { slot: 2, layer: 0 }, &mut 2)));
@@ -92,7 +92,7 @@ fn test_iterate() {
 fn test_from_iter() {
     {
         let winding_table = create_table();
-        let iterator = winding_table.iter_slots().map(|(_, value)| *value);
+        let iterator = winding_table.iter_slot_major().map(|(_, value)| *value);
         let winding_table_from_iter = WindingTable::from_slot_major(
             iterator,
             NonZeroU16::new(winding_table.slots()).expect("not zero"),
@@ -102,7 +102,7 @@ fn test_from_iter() {
     }
     {
         let winding_table = create_table();
-        let iterator = winding_table.iter_layers().map(|(_, value)| *value);
+        let iterator = winding_table.iter_layer_major().map(|(_, value)| *value);
         let winding_table_from_iter = WindingTable::from_layer_major(
             iterator,
             NonZeroU16::new(winding_table.slots()).expect("not zero"),
@@ -132,6 +132,28 @@ fn test_tingley_single_layer_tooth_coil_failure() {
 
 #[test]
 fn test_tingley_success() {
+    {
+        // 12/2 double-layer winding with 3 phases
+        let winding_table = WindingTable::from_constructor(
+            &WindingTableConstructor::Tingley,
+            NonZeroU16::new(12).expect("not zero"),
+            NonZeroU16::new(2).expect("not zero"),
+            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::new(3).expect("not zero"),
+            6,
+        )
+        .unwrap();
+
+        let expected_result = WindingTable::from_layer_major(
+            [
+                1, 1, -3, -3, 2, 2, -1, -1, 3, 3, -2, -2, 1, 1, -3, -3, 2, 2, -1, -1, 3, 3, -2, -2,
+            ]
+            .into_iter(),
+            NonZeroU16::new(12).expect("not zero"),
+            NonZeroU16::new(2).expect("not zero"),
+        );
+        assert_eq!(winding_table, expected_result);
+    }
     {
         // 9/10 double-layer winding with 3 phases
         let winding_table = WindingTable::from_constructor(
@@ -1066,7 +1088,6 @@ fn test_distribution_table() {
         );
         assert_eq!(winding_table, expected_result);
     }
-
     {
         // Test case 7: 36/10 single-layer winding with 3 phases.
         let winding_table = WindingTable::from_constructor(
@@ -1092,10 +1113,48 @@ fn test_distribution_table() {
         );
         assert_eq!(winding_table, expected_result);
     }
+    {
+        let winding_table = WindingTable::from_constructor(
+            &WindingTableConstructor::DistributionTable,
+            NonZeroU16::new(12).expect("not zero"),
+            NonZeroU16::new(2).expect("not zero"),
+            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::new(3).expect("not zero"),
+            6,
+        )
+        .unwrap();
+
+        let expected_result = WindingTable::from_layer_major(
+            [
+                1, 1, -3, -3, 2, 2, -1, -1, 3, 3, -2, -2, 1, 1, -3, -3, 2, 2, -1, -1, 3, 3, -2, -2,
+            ]
+            .into_iter(),
+            NonZeroU16::new(12).expect("not zero"),
+            NonZeroU16::new(2).expect("not zero"),
+        );
+        assert_eq!(winding_table, expected_result);
+    }
 }
 
 #[test]
 fn test_display() {
+    {
+        let winding_table = WindingTable::from_constructor(
+            &WindingTableConstructor::DistributionTable,
+            NonZeroU16::new(12).expect("not zero"),
+            NonZeroU16::new(2).expect("not zero"),
+            NonZeroU16::new(1).expect("not zero"),
+            NonZeroU16::new(3).expect("not zero"),
+            6,
+        )
+        .unwrap();
+        let expected = indoc! {"
+        L \\ S │  0  1  2  3  4  5  6  7  8  9 10 11
+        ──────┼────────────────────────────────────
+          0   │  1  1 -3 -3  2  2 -1 -1  3  3 -2 -2
+          1   │  1  1 -3 -3  2  2 -1 -1  3  3 -2 -2"};
+        assert_eq!(expected, winding_table.to_string());
+    }
     {
         let winding_table = WindingTable::from_constructor(
             &WindingTableConstructor::DistributionTable,
@@ -1107,9 +1166,9 @@ fn test_display() {
         )
         .unwrap();
         let expected = indoc! {"
-        layer \\ slot   0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17  18  19  20  21  22  23
-        ────────────────────────────────────────────────────────────────────────────────────────────────────────────
-              0        1  -7   2  -8   3  -9   4 -10   5 -11   6 -12   7  -1   8  -2   9  -3  10  -4  11  -5  12  -6"};
+        L \\ S │   0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16  17  18  19  20  21  22  23
+        ──────┼────────────────────────────────────────────────────────────────────────────────────────────────
+          0   │   1  -7   2  -8   3  -9   4 -10   5 -11   6 -12   7  -1   8  -2   9  -3  10  -4  11  -5  12  -6"};
         assert_eq!(expected, winding_table.to_string());
     }
     {
@@ -1123,9 +1182,9 @@ fn test_display() {
         )
         .unwrap();
         let expected = indoc! {"
-        layer \\ slot  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35
-        ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-              0       1  1 -3  2 -1  3 -2 -2  1 -3  2 -1  3  3 -2  1 -3  2 -1 -1  3 -2  1 -3  2  2 -1  3 -2  1 -3 -3  2 -1  3 -2"};
+        L \\ S │  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35
+        ──────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────
+          0   │  1  1 -3  2 -1  3 -2 -2  1 -3  2 -1  3  3 -2  1 -3  2 -1 -1  3 -2  1 -3  2  2 -1  3 -2  1 -3 -3  2 -1  3 -2"};
         assert_eq!(expected, winding_table.to_string());
     }
     {
@@ -1139,10 +1198,10 @@ fn test_display() {
         )
         .unwrap();
         let expected = indoc! {"
-        layer \\ slot  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35
-        ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-              0       1  1 -3  2 -1  3 -2 -2  1 -3  2 -1  3  3 -2  1 -3  2 -1 -1  3 -2  1 -3  2  2 -1  3 -2  1 -3 -3  2 -1  3 -2
-              1       1 -3  2 -1 -1  3 -2  1 -3  2  2 -1  3 -2  1 -3 -3  2 -1  3 -2  1  1 -3  2 -1  3 -2 -2  1 -3  2 -1  3  3 -2"};
+        L \\ S │  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35
+        ──────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────
+          0   │  1  1 -3  2 -1  3 -2 -2  1 -3  2 -1  3  3 -2  1 -3  2 -1 -1  3 -2  1 -3  2  2 -1  3 -2  1 -3 -3  2 -1  3 -2
+          1   │  1 -3  2 -1 -1  3 -2  1 -3  2  2 -1  3 -2  1 -3 -3  2 -1  3 -2  1  1 -3  2 -1  3 -2 -2  1 -3  2 -1  3  3 -2"};
         assert_eq!(expected, winding_table.to_string());
     }
 }

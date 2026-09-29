@@ -73,7 +73,7 @@ impl ToothCoilWinding {
 
         // Check if all zones are occupied
         if all_zones_must_be_used {
-            for (zone, _) in winding_table.iter_slots() {
+            for (zone, _) in winding_table.iter_slot_major() {
                 // Check if the zone is already occupied
                 if !self.coils.occupied(zone) {
                     return Err(WindingTableCreationError::EmptyZone(Some(zone)).into());
