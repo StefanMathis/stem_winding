@@ -547,7 +547,7 @@ impl WindingTable {
             } else {
                 right_coil_side.rotate_left(cp.abs() as usize);
             }
-            for slot in 0..winding_table.slots() {
+            for slot in 0..winding_table.slots().get() {
                 if winding_table[Zone::new(slot, 0)] == 0 {
                     winding_table[Zone::new(slot, 0)] = -right_coil_side[usize::from(slot)]
                 }
@@ -558,7 +558,7 @@ impl WindingTable {
             // The second layer contains the return conductors of the first layer.
             // Therefore, the zone plan of the first layer is inverted (multiplied by -1)
             // and circularly shifted ("rolled") by the realized coil span W_sp.
-            for slot in 0..winding_table.slots() {
+            for slot in 0..winding_table.slots().get() {
                 let shifted = slot as i32 - span;
                 let shifted_slot = shifted.rem_euclid(slots_num as i32) as u16;
                 winding_table[Zone::new(slot, 1)] = -winding_table[Zone::new(shifted_slot, 0)];
@@ -822,7 +822,7 @@ impl WindingTable {
             // The second layer contains the return conductors of the first layer.
             // Therefore, the zone plan of the first layer is inverted (multiplied by -1)
             // and circularly shifted ("rolled") by the realized coil span.
-            for slot in 0..winding_table.slots() {
+            for slot in 0..winding_table.slots().get() {
                 let shifted = slot as i32 - span;
                 let shifted_slot = shifted.rem_euclid(slots_num as i32) as u16;
                 winding_table[Zone::new(slot, 1)] = -winding_table[Zone::new(shifted_slot, 0)];

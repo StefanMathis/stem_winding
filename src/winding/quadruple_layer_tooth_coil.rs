@@ -470,7 +470,7 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
         // second layer (slot side)
         let mut winding_table =
             WindingTable::new(builder.slots, NonZeroU16::new(4).expect("not zero"));
-        for slot in 0..winding_table_dl.slots() {
+        for slot in 0..winding_table_dl.slots().get() {
             for layer in 0..4 {
                 winding_table[Zone::new(slot.into(), layer.into())] =
                     winding_table_dl[Zone::new(slot, layer / 2)];
@@ -484,8 +484,13 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
         winding_table.shift_layer(upper_layer_shift as i32, UR);
 
         if upper_layer_shift.is_odd() {
-            winding_table.invert_coils_in_layer(UL);
-            winding_table.invert_coils_in_layer(UR);
+            winding_table
+                .iter_layer_major_mut()
+                .for_each(|(zone, phase)| {
+                    if UL == zone.layer || UR == zone.layer {
+                        *phase = -*phase;
+                    }
+                });
         }
 
         let mut winding = QuadrupleLayerToothCoilWinding {

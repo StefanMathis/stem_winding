@@ -176,7 +176,7 @@ impl DistributedWinding {
         // The three phases are handled independently from each other, since they don't
         // interact.
         for phase in 1..(self.phases().get() as i32 + 1) {
-            let start_slot = winding_table.start_at_largest_possible_span(phase);
+            let start_slot = largest_span_slot(winding_table, phase);
             for slot in start_slot..(self.slots().get() + start_slot) {
                 let slot = slot.rem_euclid(self.slots().get());
 
@@ -264,10 +264,73 @@ impl DistributedWinding {
 }
 
 /**
+Finds the first slot where the coil span is maximized.
+
+The coil builder algorithm of the [`DistributedWinding`] is very sensitive to
+the starting location. As an example, let's consider a 18 slot / 4 pole pairs
+single layer winding with the following zone plan:
+```text
+1 2 -1 3 -2 -3 2 3 -2 1 -3 -1 3 1 -3 2 -1 -2
+```
+Starting the coil builder algorithm at the first slot results in the following
+coil configuration for phase 2:
+```text
+──┐       ┌────┐    ┌────────────────┐     ┌
+1 2 -1 3 -2 -3 2 3 -2 1 -3 -1 3 1 -3 2 -1 -2
+──┘       └────┘    └────────────────┘     └
+```
+The very long third coil is solely a result of the starting location. If we
+instead start at the third positive zone, the coil configuration looks like this:
+  ```text
+  ┌───────┐    ┌────┐                ┌─────┐
+1 2 -1 3 -2 -3 2 3 -2 1 -3 -1 3 1 -3 2 -1 -2
+  └───────┘    └────┘                └─────┘
+```
+The overall end winding length of this configuration is much shorter. To find
+the optimal configuration with a minimum overall end winding length, a heuristic
+approach is used: We search for the hypothetical coil with the longest span and
+start the coil creater algorithm at the positive zone of this coil.
+ */
+fn largest_span_slot(winding_table: &WindingTable, phase: i32) -> u16 {
+    let mut longest_span = 0;
+    let mut span_start_slot = 0;
+    let mut positive_slot: u16 = 0;
+    let mut last_phase: i32 = 0;
+
+    /*
+    In order to find coils which go from the end to the start of the zone plan,
+    the algorithm scans the zone plan two times.
+     */
+    for slot in 0..(2 * winding_table.slots().get()) {
+        /*
+        We only need to check layer 0, since in case of a double-layer winding layer 1
+        is merely a shifted and mirrored version of layer 0.
+         */
+        let current_phase = winding_table.get_cyclic(Zone::new(slot, 0)).clone();
+        if current_phase.abs() == phase {
+            if current_phase != last_phase {
+                let current_span = slot - span_start_slot;
+                if current_span > longest_span {
+                    longest_span = current_span;
+                    if current_phase > 0 {
+                        positive_slot = slot
+                    } else {
+                        positive_slot = span_start_slot;
+                    }
+                }
+                last_phase = current_phase;
+            }
+            span_start_slot = slot;
+        }
+    }
+    return positive_slot;
+}
+
+/**
 A coil group starts in slot `start` and extends for `len` slots.
 This extension is wrapping: If e.g. the total number of slots is 12, start is 11 and len is 2,
 the coil group is located in the slots 11 and 0.
-    */
+*/
 #[derive(Clone, Debug, PartialEq)]
 struct AvailableSlotsForCoilGroup {
     start: u16,

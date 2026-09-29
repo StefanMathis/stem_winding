@@ -30,10 +30,13 @@ the total number of layers minus one). If the zone is empty, the table entry is
 winding shown below, the winding table would look like this:
 
 ```text
-layer \ slot  0   1   2   3   4   5
-      0      -3   2  -1   3  -2   1
-      1       1  -3   2  -1   3  -2
+L \ S │   0   1   2   3   4   5
+──────┼────────────────────────
+  0   │  -3   2  -1   3  -2   1
+  1   │   1  -3   2  -1   3  -2
 ```
+The [`Display`](std::fmt::Display) implementation formats a `WindingTable` in
+this tabular form.
  */
 #[doc = ""]
 #[cfg_attr(
@@ -126,7 +129,10 @@ impl WindingTable {
     pub fn get(&self, zone: Zone) -> Option<&i32> {
         let linear_index = cart_lin::cart_to_lin(
             &[usize::from(zone.slot), usize::from(zone.layer)],
-            &[usize::from(self.slots()), usize::from(self.layers())],
+            &[
+                usize::from(self.slots().get()),
+                usize::from(self.layers().get()),
+            ],
         )?;
         return self.data.get(linear_index);
     }
@@ -136,7 +142,10 @@ impl WindingTable {
     pub fn get_mut(&mut self, zone: Zone) -> Option<&mut i32> {
         let linear_index = cart_lin::cart_to_lin(
             &[usize::from(zone.slot), usize::from(zone.layer)],
-            &[usize::from(self.slots()), usize::from(self.layers())],
+            &[
+                usize::from(self.slots().get()),
+                usize::from(self.layers().get()),
+            ],
         )?;
         return self.data.get_mut(linear_index);
     }
@@ -163,7 +172,10 @@ impl WindingTable {
     pub fn set(&mut self, zone: Zone, mut phase: i32) -> Option<i32> {
         let linear_index = cart_lin::cart_to_lin(
             &[usize::from(zone.slot), usize::from(zone.layer)],
-            &[usize::from(self.slots()), usize::from(self.layers())],
+            &[
+                usize::from(self.slots().get()),
+                usize::from(self.layers().get()),
+            ],
         )?;
         std::mem::swap(&mut phase, &mut self.data[linear_index]);
         return Some(phase);
@@ -228,53 +240,185 @@ impl WindingTable {
     }
 
     /// Returns the number of slots in the winding table.
-    pub fn slots(&self) -> u16 {
-        (self.data.len() / self.layers.get() as usize)
-            .try_into()
+    pub fn slots(&self) -> NonZeroU16 {
+        u16::try_from(self.data.len() / self.layers.get() as usize)
             .expect("resulting value can fit into an u16, this is checked at construction time")
+            .try_into()
+            .expect("not zero")
     }
 
     /// Returns the number of layers in the winding table.
-    pub fn layers(&self) -> u16 {
+    pub fn layers(&self) -> NonZeroU16 {
         return self.layers.into();
     }
 
-    // TODO
+    /**
+    Returns a [`SlotMajorIter`] over the zones and value references of the
+    table.
 
-    // Slot-major
-    //     slot 0: layer 0, layer 1, ...
-    //     slot 1: layer 0, layer 1, ...
-    //     ...
+    This iterator returns `(Zone, &i32)` tuples in slot-major order: all layers
+    of one slot are visited before moving to the next slot. In other words, the
+    layer index of the [`Zone`] changes fastest, while the slot index changes
+    slowest.
+
+    ```
+    use std::num::NonZeroU16;
+    use stem_winding::prelude::*;
+
+    let mut table = WindingTable::new(
+        NonZeroU16::new(6).expect("not zero"),
+        NonZeroU16::new(2).expect("not zero"),
+    );
+    table.set(Zone::new(0, 0), 1);
+    table.set(Zone::new(0, 1), 2);
+    table.set(Zone::new(1, 0), 3);
+    table.set(Zone::new(1, 1), 4);
+
+    let mut iter = table.iter_slot_major();
+    assert_eq!(iter.next(), Some((Zone::new(0, 0), &1)));
+    assert_eq!(iter.next(), Some((Zone::new(0, 1), &2)));
+    assert_eq!(iter.next(), Some((Zone::new(1, 0), &3)));
+    assert_eq!(iter.next(), Some((Zone::new(1, 1), &4)));
+    ```
+    */
     pub fn iter_slot_major(&self) -> SlotMajorIter<'_> {
         SlotMajorIter::new(self)
     }
 
-    // Slot-major
-    //     slot 0: layer 0, layer 1, ...
-    //     slot 1: layer 0, layer 1, ...
-    //     ...
+    /**
+    Returns a [`SlotMajorIterMut`] over the zones and mutable value references
+    of the table.
+
+    This iterator returns `(Zone, &mut i32)` tuples in slot-major order: all
+    layers of one slot are visited before moving to the next slot. In other
+    words, the layer index of the [`Zone`] changes fastest, while the slot index
+    changes slowest.
+
+    ```
+    use std::num::NonZeroU16;
+    use stem_winding::prelude::*;
+
+    let mut table = WindingTable::new(
+        NonZeroU16::new(6).expect("not zero"),
+        NonZeroU16::new(2).expect("not zero"),
+    );
+    table.set(Zone::new(0, 0), 1);
+    table.set(Zone::new(0, 1), 2);
+    table.set(Zone::new(1, 0), 3);
+    table.set(Zone::new(1, 1), 4);
+
+    let mut iter = table.iter_slot_major_mut();
+    assert_eq!(iter.next(), Some((Zone::new(0, 0), &mut 1)));
+    assert_eq!(iter.next(), Some((Zone::new(0, 1), &mut 2)));
+    assert_eq!(iter.next(), Some((Zone::new(1, 0), &mut 3)));
+    assert_eq!(iter.next(), Some((Zone::new(1, 1), &mut 4)));
+    ```
+    */
     pub fn iter_slot_major_mut(&mut self) -> SlotMajorIterMut<'_> {
         SlotMajorIterMut::new(self)
     }
 
-    // Layer-major
-    // layer 0: slot 0, slot 1, ...
-    //layer 1: slot 0, slot 1, ...
-    //...
+    /**
+    Returns a [`LayerMajorIter`] over the zones and value references of the
+    table.
+
+    This iterator returns `(Zone, &i32)` tuples in layer-major order: all slots
+    of one layer are visited before moving to the next layer. In other words,
+    the slot index of the [`Zone`] changes fastest, while the layer index changes
+    slowest.
+
+    ```
+    use std::num::NonZeroU16;
+    use stem_winding::prelude::*;
+
+    let mut table = WindingTable::new(
+        NonZeroU16::new(6).expect("not zero"),
+        NonZeroU16::new(2).expect("not zero"),
+    );
+    table.set(Zone::new(0, 0), 1);
+    table.set(Zone::new(0, 1), 2);
+    table.set(Zone::new(1, 0), 3);
+    table.set(Zone::new(1, 1), 4);
+
+    let mut iter = table.iter_layer_major();
+    assert_eq!(iter.next(), Some((Zone::new(0, 0), &1)));
+    assert_eq!(iter.next(), Some((Zone::new(1, 0), &3)));
+    assert_eq!(iter.next(), Some((Zone::new(2, 0), &0)));
+    assert_eq!(iter.next(), Some((Zone::new(3, 0), &0)));
+    assert_eq!(iter.next(), Some((Zone::new(4, 0), &0)));
+    assert_eq!(iter.next(), Some((Zone::new(5, 0), &0)));
+    assert_eq!(iter.next(), Some((Zone::new(0, 1), &2)));
+    assert_eq!(iter.next(), Some((Zone::new(1, 1), &4)));
+    ```
+    */
     pub fn iter_layer_major(&self) -> LayerMajorIter<'_> {
         LayerMajorIter::new(self)
     }
 
-    // Layer-major
-    // layer 0: slot 0, slot 1, ...
-    //layer 1: slot 0, slot 1, ...
-    //...
+    /**
+    Returns a [`LayerMajorIter`] over the zones and mutable value references of
+    the table.
+
+    This iterator returns `(Zone, &mut i32)` tuples in layer-major order: all
+    slots of one layer are visited before moving to the next layer. In other
+    words, the slot index of the [`Zone`] changes fastest, while the layer index
+    changes slowest.
+
+    ```
+    use std::num::NonZeroU16;
+    use stem_winding::prelude::*;
+
+    let mut table = WindingTable::new(
+        NonZeroU16::new(6).expect("not zero"),
+        NonZeroU16::new(2).expect("not zero"),
+    );
+    table.set(Zone::new(0, 0), 1);
+    table.set(Zone::new(0, 1), 2);
+    table.set(Zone::new(1, 0), 3);
+    table.set(Zone::new(1, 1), 4);
+
+    let mut iter = table.iter_layer_major_mut();
+    assert_eq!(iter.next(), Some((Zone::new(0, 0), &mut 1)));
+    assert_eq!(iter.next(), Some((Zone::new(1, 0), &mut 3)));
+    assert_eq!(iter.next(), Some((Zone::new(2, 0), &mut 0)));
+    assert_eq!(iter.next(), Some((Zone::new(3, 0), &mut 0)));
+    assert_eq!(iter.next(), Some((Zone::new(4, 0), &mut 0)));
+    assert_eq!(iter.next(), Some((Zone::new(5, 0), &mut 0)));
+    assert_eq!(iter.next(), Some((Zone::new(0, 1), &mut 2)));
+    assert_eq!(iter.next(), Some((Zone::new(1, 1), &mut 4)));
+    ```
+    */
     pub fn iter_layer_major_mut(&mut self) -> LayerMajorIterMut<'_> {
         LayerMajorIterMut::new(self)
     }
 
-    /// Uses [`WindingTable::iter_slot_major_mut`] to put the data from
-    /// `iterator` into the zones of `self`
+    /// Constructs a [`WindingTable`] from data in slot-major order.
+    ///
+    /// The first `layers` elements of `iterator` are assigned to slot 0, the
+    /// next `layers` elements to slot 1, and so on. The layer index
+    /// therefore changes fastest, while the slot index changes slowest.
+    ///
+    /// If `iterator` yields fewer than `slots * layers` elements, the remaining
+    /// entries are initialized to 0. If it yields more, the excess elements are
+    /// ignored.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let table = WindingTable::from_slot_major(
+    ///     [1, 2, 3, 4].into_iter(),
+    ///     NonZeroU16::new(6).unwrap(),
+    ///     NonZeroU16::new(2).unwrap(),
+    /// );
+    ///
+    /// assert_eq!(table[Zone::new(0, 0)], 1);
+    /// assert_eq!(table[Zone::new(0, 1)], 2);
+    /// assert_eq!(table[Zone::new(1, 0)], 3);
+    /// assert_eq!(table[Zone::new(1, 1)], 4);
+    /// ```
     pub fn from_slot_major<I: Iterator<Item = i32>>(
         iterator: I,
         slots: NonZeroU16,
@@ -289,8 +433,33 @@ impl WindingTable {
         return this;
     }
 
-    /// Uses [`WindingTable::iter_layer_major_mut`] to put the data from
-    /// `iterator` into the zones of `self`
+    /// Constructs a [`WindingTable`] from data in layer-major order.
+    ///
+    /// The first `slots` elements of `iterator` are assigned to layer 0, the
+    /// next `slots` elements to layer 1, and so on. The slot index
+    /// therefore changes fastest, while the layer index changes slowest.
+    ///
+    /// If `iterator` yields fewer than `slots * layers` elements, the remaining
+    /// entries are initialized to 0. If it yields more, the excess elements are
+    /// ignored.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let table = WindingTable::from_layer_major(
+    ///     [1, 2, 3, 4].into_iter(),
+    ///     NonZeroU16::new(6).unwrap(),
+    ///     NonZeroU16::new(2).unwrap(),
+    /// );
+    ///
+    /// assert_eq!(table[Zone::new(0, 0)], 1);
+    /// assert_eq!(table[Zone::new(1, 0)], 2);
+    /// assert_eq!(table[Zone::new(2, 0)], 3);
+    /// assert_eq!(table[Zone::new(3, 0)], 4);
+    /// ```
     pub fn from_layer_major<I: Iterator<Item = i32>>(
         iterator: I,
         slots: NonZeroU16,
@@ -305,27 +474,91 @@ impl WindingTable {
         return this;
     }
 
-    /// Perform a zone shift on the input zone plan. As described in [MVP08]
-    /// p. 42f., this is done by expanding all positive phase zones in the lower
-    /// layer and by expanding all negative phase zones in the upper layer
-    /// by qΔ.
-    pub fn shift_zones(&mut self, shift: i32) -> () {
+    /**
+    Performs a zone shift by `shift` slots on a double-layer winding table.
+
+    A double-layer winding can be obtained from a single-layer winding by
+    splitting each slot into two layers. A zone shift increases the effective
+    zone span by shifting each positive-polarity zone in the lower layer and
+    each negative-polarity zone in the upper layer by `shift` slots.
+
+    This transformation can be used to suppress selected winding harmonics. For
+    some harmonic orders, the winding factor becomes zero after the zone shift.
+
+    The shift is cyclic: positive values shift toward increasing slot indices,
+    while negative values shift toward decreasing slot indices.
+
+    This method has no effect if `self` does not have exactly two layers.
+
+    See [\[1\]](#zone_shift_1), sections 1.2.2.1b and 1.2.3.4c.
+
+    # Literature
+    <a id="zone_shift_1">\[1\]</a>
+    Müller, G., Vogt, K. and Ponick, B.: Berechnung elektrischer Maschinen,
+    6th edition, Wiley-VCH, 2008
+
+    # Examples
+
+    ```
+    use std::num::NonZeroU16;
+    use stem_winding::prelude::*;
+
+    // Manually build an ordinary integer-slot winding with one pole pair
+    let mut table = WindingTable::new(
+        NonZeroU16::new(6).expect("not zero"),
+        NonZeroU16::new(2).expect("not zero"),
+    );
+    table.set(Zone::new(0, 0), 1);
+    table.set(Zone::new(0, 1), 1);
+    table.set(Zone::new(1, 0), -3);
+    table.set(Zone::new(1, 1), -3);
+    table.set(Zone::new(2, 0), 2);
+    table.set(Zone::new(2, 1), 2);
+    table.set(Zone::new(3, 0), -1);
+    table.set(Zone::new(3, 1), -1);
+    table.set(Zone::new(4, 0), 3);
+    table.set(Zone::new(4, 1), 3);
+    table.set(Zone::new(5, 0), -2);
+    table.set(Zone::new(5, 1), -2);
+
+    // A shift of 1 is sufficient to double the zone span because each coil group
+    // contains only one coil.
+    table.shift_zones(1);
+    assert_eq!(table[Zone::new(0, 0)], 1);
+    assert_eq!(table[Zone::new(1, 0)], 1);
+    assert_eq!(table[Zone::new(2, 0)], 2);
+    assert_eq!(table[Zone::new(3, 0)], 2);
+    assert_eq!(table[Zone::new(4, 0)], 3);
+    assert_eq!(table[Zone::new(5, 0)], 3);
+    assert_eq!(table[Zone::new(0, 1)], -2);
+    assert_eq!(table[Zone::new(1, 1)], -3);
+    assert_eq!(table[Zone::new(2, 1)], -3);
+    assert_eq!(table[Zone::new(3, 1)], -1);
+    assert_eq!(table[Zone::new(4, 1)], -1);
+    assert_eq!(table[Zone::new(5, 1)], -2);
+    ```
+    */
+    pub fn shift_zones(&mut self, shift: i32) {
+        if self.layers().get() != 2 {
+            return;
+        }
+
         // An internal "reference copy" of the zone plan is created.
         let winding_table_ref = self.clone();
-        let slots = self.slots();
+        let slots = self.slots().get();
 
-        for layer in 0..self.layers() {
+        for layer in 0..self.layers().get() {
             for slot in 0..slots {
                 let new_slot = (i32::from(u16::from(slot)) + shift)
                     .rem_euclid(i32::from(u16::from(slots))) as u16;
                 let phase = winding_table_ref[Zone::new(slot, layer)];
 
-                // Expand all positive slots in the upper layer
+                // Expand positive zones in the lower layer
                 if layer == 0 && phase > 0 {
                     self[Zone::new(new_slot, layer)] = phase;
                 }
 
-                // Expand all negative slots in the lower layer
+                // Expand negative zones in the upper layer
                 if layer == 1 && phase < 0 {
                     self[Zone::new(new_slot, layer)] = phase;
                 }
@@ -333,76 +566,57 @@ impl WindingTable {
         }
     }
 
-    /*
-    The coil arrangement is very sensitive to the starting location. As an example, let's consider a
-    18 slot / 4 pole pairs single layer winding with the following zone plan:
-    ```ignore
-    1 2 -1 3 -2 -3 2 3 -2 1 -3 -1 3 1 -3 2 -1 -2
-    ```
-    Starting the coil builder algorithm at the first slot results in the following coil configuration for phase 2:
-    ```ignore
-    ──┐       ┌────┐    ┌────────────────┐     ┌
-    1 2 -1 3 -2 -3 2 3 -2 1 -3 -1 3 1 -3 2 -1 -2
-    ──┘       └────┘    └────────────────┘     └
-    ```
-    The very long third coil is solely a result of the starting location. IF we instead start at the third positive zone,
-    the coil configuration looks like this:
-      ```ignore
-      ┌───────┐    ┌────┐                ┌─────┐
-    1 2 -1 3 -2 -3 2 3 -2 1 -3 -1 3 1 -3 2 -1 -2
-      └───────┘    └────┘                └─────┘
-    ```
-    The overall end winding length of this configuration is much shorter. To find the optimal configuration with a
-    minimum overall end winding length, a heuristic approach is used: We search for the hypothetical coil
-    with the longest span and start the coil creater algorithm at the positive zone of this coil.
-     */
-    pub fn start_at_largest_possible_span(&self, phase: i32) -> u16 {
-        let mut longest_span = 0;
-        let mut span_start_slot = 0;
-        let mut positive_slot: u16 = 0;
-        let mut last_phase: i32 = 0;
-
-        /*
-        In order to find coils which go from the end to the start of the zone plan,
-        the algorithm scans the zone plan two times.
-         */
-        for slot in 0..(2 * self.slots()) {
-            /*
-            We only need to check layer 0, since in case of a double-layer winding layer 1
-            is merely a shifted and mirrored version of layer 0.
-             */
-            let current_phase = self.get_cyclic(Zone::new(slot, 0)).clone();
-            if current_phase.abs() == phase {
-                if current_phase != last_phase {
-                    let current_span = slot - span_start_slot;
-                    if current_span > longest_span {
-                        longest_span = current_span;
-                        if current_phase > 0 {
-                            positive_slot = slot
-                        } else {
-                            positive_slot = span_start_slot;
-                        }
-                    }
-                    last_phase = current_phase;
-                }
-                span_start_slot = slot;
-            }
-        }
-        return positive_slot;
-    }
-
-    /// Shift all layers of the given zone plan by `shift` slots.
-    pub(crate) fn shift_layers(&mut self, shift: i32) -> () {
-        for layer in 0..self.layers() {
+    /// Shifts all layers of the table by `shift` slots.
+    ///
+    /// See [`WindingTable::shift_layer`] for details.
+    pub fn shift_layers(&mut self, shift: i32) {
+        for layer in 0..self.layers().get() {
             self.shift_layer(shift, layer)
         }
     }
 
-    /// Shift the `layer` of the given zone plan by `shift` slots.
-    pub(crate) fn shift_layer(&mut self, shift: i32, layer: u16) {
+    /// Shifts the specified `layer` of `self` by `shift` slots.
+    ///
+    /// Positive values shift toward increasing slot indices, while negative
+    /// values shift toward decreasing slot indices. The shift is cyclic, so
+    /// values shifted beyond either end of the slot range wrap around to
+    /// the opposite end.
+    ///
+    /// Examples:
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let mut table = WindingTable::from_layer_major(
+    ///     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].into_iter(),
+    ///     NonZeroU16::new(6).unwrap(),
+    ///     NonZeroU16::new(2).unwrap(),
+    /// );
+    ///
+    /// // First layer
+    /// assert_eq!(table[Zone::new(0, 0)], 1);
+    /// assert_eq!(table[Zone::new(1, 0)], 2);
+    /// assert_eq!(table[Zone::new(5, 0)], 6);
+    /// // Second layer
+    /// assert_eq!(table[Zone::new(0, 1)], 7);
+    /// assert_eq!(table[Zone::new(1, 1)], 8);
+    ///
+    /// table.shift_layer(-1, 0);
+    ///
+    /// // First layer
+    /// assert_eq!(table[Zone::new(0, 0)], 2);
+    /// assert_eq!(table[Zone::new(1, 0)], 3);
+    /// assert_eq!(table[Zone::new(5, 0)], 1);
+    ///
+    /// // Second layer
+    /// assert_eq!(table[Zone::new(0, 1)], 7);
+    /// assert_eq!(table[Zone::new(1, 1)], 8);
+    /// ```
+    pub fn shift_layer(&mut self, shift: i32, layer: u16) {
         // Swap with the Triple reversal algorithm: https://en.wikipedia.org/wiki/Block_swap_algorithms
 
-        let slots = self.slots();
+        let slots = self.slots().get();
         let shift = shift.rem_euclid(i32::from(u16::from(slots))) as usize;
 
         if shift == 0 {
@@ -421,8 +635,8 @@ impl WindingTable {
         self.reverse_layer_range(layer, 0, slots as usize);
     }
 
-    pub(crate) fn reverse_layer_range(&mut self, layer: usize, start: usize, end: usize) {
-        let layers = usize::from(self.layers());
+    fn reverse_layer_range(&mut self, layer: usize, start: usize, end: usize) {
+        let layers = usize::from(self.layers().get());
 
         let mut left = start;
         let mut right = end;
@@ -439,16 +653,12 @@ impl WindingTable {
         }
     }
 
-    /// Inverts all coils in the given `layer`.
-    pub(crate) fn invert_coils_in_layer(&mut self, layer: u16) {
-        self.iter_layer_major_mut().for_each(|(zone, phase)| {
-            if layer == zone.layer {
-                *phase = -*phase;
-            }
-        });
-    }
-
-    pub(crate) fn check(self, phases: NonZeroU16) -> Result<Self, WindingTableCreationError> {
+    /// Checks if the table fulfills the following invariants:
+    ///
+    /// - For each phase, the number of zones with positive polarity is equal to
+    /// that of the zones with negative polarity
+    /// - There are no empty zones (value of 0) in the table.
+    fn check(self, phases: NonZeroU16) -> Result<Self, WindingTableCreationError> {
         for phase in 1..(i32::from(u16::from(phases)) + 1) {
             let mut counter = 0;
             for (zone, zone_phase) in self.iter_slot_major() {
@@ -474,8 +684,8 @@ impl WindingTable {
 
 impl std::fmt::Display for WindingTable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let slots = self.slots();
-        let layers = self.layers();
+        let slots = self.slots().get();
+        let layers = self.layers().get();
 
         let slot_width = usize::from(slots - 1).to_string().len();
         let value_width = self
@@ -538,6 +748,10 @@ impl std::ops::IndexMut<Zone> for WindingTable {
     }
 }
 
+/// A slot-major iterator over the zones and references to the values of a
+/// [`WindingTable`].
+///
+/// See [`WindingTable::iter_slot_major`] for details and examples.
 #[derive(Clone)]
 pub struct SlotMajorIter<'a> {
     winding_table: &'a WindingTable,
@@ -547,9 +761,12 @@ pub struct SlotMajorIter<'a> {
 }
 
 impl<'a> SlotMajorIter<'a> {
+    /// Creates a new iterator over the given [`WindingTable`].
+    ///
+    /// See [`WindingTable::iter_slot_major`] for examples.
     pub fn new(winding_table: &'a WindingTable) -> Self {
-        let slots = winding_table.slots();
-        let layers = winding_table.layers();
+        let slots = winding_table.slots().get();
+        let layers = winding_table.layers().get();
         Self {
             winding_table,
             idx: 0,
@@ -582,12 +799,33 @@ impl<'a> Iterator for SlotMajorIter<'a> {
 
 impl<'a> ExactSizeIterator for SlotMajorIter<'a> {}
 
+/// A slot-major iterator over the zones and mutable references to the values
+/// of a [`WindingTable`].
+///
+/// See [`WindingTable::iter_slot_major_mut`] for details and examples.
 pub struct SlotMajorIterMut<'a> {
     idx: u16,
     slots: u16,
     layers: u16,
     ptr: *mut i32,
     _marker: PhantomData<&'a mut i32>,
+}
+
+impl<'a> SlotMajorIterMut<'a> {
+    /// Creates a new iterator over the given [`WindingTable`].
+    ///
+    /// See [`WindingTable::iter_slot_major_mut`] for examples.
+    pub fn new(winding_table: &'a mut WindingTable) -> Self {
+        let slots = winding_table.slots().get();
+        let layers = winding_table.layers().get();
+        Self {
+            ptr: winding_table.data.as_mut_ptr(),
+            idx: 0,
+            slots,
+            layers,
+            _marker: PhantomData,
+        }
+    }
 }
 
 impl<'a> Iterator for SlotMajorIterMut<'a> {
@@ -621,26 +859,32 @@ impl<'a> Iterator for SlotMajorIterMut<'a> {
 
 impl<'a> ExactSizeIterator for SlotMajorIterMut<'a> {}
 
-impl<'a> SlotMajorIterMut<'a> {
-    pub fn new(winding_table: &'a mut WindingTable) -> Self {
-        let slots = winding_table.slots();
-        let layers = winding_table.layers();
-        Self {
-            ptr: winding_table.data.as_mut_ptr(),
-            idx: 0,
-            slots,
-            layers,
-            _marker: PhantomData,
-        }
-    }
-}
-
+/// A layer-major iterator over the zones and references to the values of a
+/// [`WindingTable`].
+///
+/// See [`WindingTable::iter_layer_major`] for details and examples.
 #[derive(Clone)]
 pub struct LayerMajorIter<'a> {
     winding_table: &'a WindingTable,
     idx: u16,
     slots: u16,
     layers: u16,
+}
+
+impl<'a> LayerMajorIter<'a> {
+    /// Creates a new iterator over the given [`WindingTable`].
+    ///
+    /// See [`WindingTable::iter_layer_major`] for examples.
+    pub fn new(winding_table: &'a WindingTable) -> Self {
+        let slots = winding_table.slots().get();
+        let layers = winding_table.layers().get();
+        Self {
+            winding_table,
+            idx: 0,
+            slots,
+            layers,
+        }
+    }
 }
 
 impl<'a> Iterator for LayerMajorIter<'a> {
@@ -666,19 +910,10 @@ impl<'a> Iterator for LayerMajorIter<'a> {
 
 impl<'a> ExactSizeIterator for LayerMajorIter<'a> {}
 
-impl<'a> LayerMajorIter<'a> {
-    pub fn new(winding_table: &'a WindingTable) -> Self {
-        let slots = winding_table.slots();
-        let layers = winding_table.layers();
-        Self {
-            winding_table,
-            idx: 0,
-            slots,
-            layers,
-        }
-    }
-}
-
+/// A layer-major iterator over the zones and mutable references to the values
+/// of a [`WindingTable`].
+///
+/// See [`WindingTable::iter_layer_major_mut`] for details and examples.
 pub struct LayerMajorIterMut<'a> {
     idx: u16,
     slots: u16,
@@ -688,9 +923,12 @@ pub struct LayerMajorIterMut<'a> {
 }
 
 impl<'a> LayerMajorIterMut<'a> {
+    /// Creates a new iterator over the given [`WindingTable`].
+    ///
+    /// See [`WindingTable::iter_layer_major_mut`] for examples.
     pub fn new(winding_table: &'a mut WindingTable) -> Self {
-        let slots = winding_table.slots();
-        let layers = winding_table.layers();
+        let slots = winding_table.slots().get();
+        let layers = winding_table.layers().get();
         Self {
             ptr: winding_table.data.as_mut_ptr(),
             idx: 0,
@@ -811,8 +1049,8 @@ mod tests {
         let table = create_table();
         let mut rev_table = table.clone();
 
-        for layer in 0..usize::from(rev_table.layers()) {
-            rev_table.reverse_layer_range(layer, 0, rev_table.slots().into());
+        for layer in 0..usize::from(rev_table.layers().get()) {
+            rev_table.reverse_layer_range(layer, 0, rev_table.slots().get().into());
         }
 
         assert_eq!(rev_table[Zone { slot: 5, layer: 0 }], 1);
@@ -829,46 +1067,11 @@ mod tests {
         assert_eq!(rev_table[Zone { slot: 1, layer: 1 }], -1);
         assert_eq!(rev_table[Zone { slot: 0, layer: 1 }], 3);
 
-        for layer in 0..usize::from(rev_table.layers()) {
-            rev_table.reverse_layer_range(layer, 0, rev_table.slots().into());
+        for layer in 0..usize::from(rev_table.layers().get()) {
+            rev_table.reverse_layer_range(layer, 0, rev_table.slots().get().into());
         }
 
         assert_eq!(table, rev_table);
-    }
-
-    #[test]
-    fn test_invert_coils_in_layer() {
-        let mut winding_table = WindingTable::from_layer_major(
-            [
-                1, 1, -3, -3, 2, 2, -1, -1, 3, 3, -2, -2, 1, 1, -3, -3, 2, 2, -1, -1, 3, 3, -2, -2,
-            ]
-            .into_iter(),
-            NonZeroU16::new(12).expect("not zero"),
-            NonZeroU16::new(2).expect("not zero"),
-        );
-        winding_table.invert_coils_in_layer(1);
-
-        let expected_result = WindingTable::from_layer_major(
-            [
-                1, 1, -3, -3, 2, 2, -1, -1, 3, 3, -2, -2, -1, -1, 3, 3, -2, -2, 1, 1, -3, -3, 2, 2,
-            ]
-            .into_iter(),
-            NonZeroU16::new(12).expect("not zero"),
-            NonZeroU16::new(2).expect("not zero"),
-        );
-        assert_eq!(winding_table, expected_result);
-
-        winding_table.invert_coils_in_layer(0);
-
-        let expected_result = WindingTable::from_layer_major(
-            [
-                -1, -1, 3, 3, -2, -2, 1, 1, -3, -3, 2, 2, -1, -1, 3, 3, -2, -2, 1, 1, -3, -3, 2, 2,
-            ]
-            .into_iter(),
-            NonZeroU16::new(12).expect("not zero"),
-            NonZeroU16::new(2).expect("not zero"),
-        );
-        assert_eq!(winding_table, expected_result);
     }
 
     #[test]

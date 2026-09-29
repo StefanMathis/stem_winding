@@ -105,7 +105,7 @@ impl ToothCoilWinding {
             direction as well. Otherwise, it is in the "backward direction" (with corresponding adjustment of the coil direction)
              */
             let mut counter: i32 = 0;
-            for search_slot in 1..winding_table.slots() {
+            for search_slot in 1..winding_table.slots().get() {
                 let phase_search_slot =
                     winding_table.get_cyclic(Zone::new(search_slot + slot, layer));
                 if phase_search_slot.abs() != phase.abs() {

@@ -790,7 +790,7 @@ pub trait CoilExt: private::Sealed {
     .expect("zones identical");
 
     // Rotary core with 6 slots
-    assert_eq!(coil.throw(Some(NonZeroUsize::new(6).expect("not zero"))), 1);
+    assert_eq!(coil.throw(Some(NonZeroU16::new(6).expect("not zero"))), 1);
 
     // Linear core with 6 slots
     assert_eq!(coil.throw(None), 5);

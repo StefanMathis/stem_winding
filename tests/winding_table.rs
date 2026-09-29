@@ -93,21 +93,15 @@ fn test_from_iter() {
     {
         let winding_table = create_table();
         let iterator = winding_table.iter_slot_major().map(|(_, value)| *value);
-        let winding_table_from_iter = WindingTable::from_slot_major(
-            iterator,
-            NonZeroU16::new(winding_table.slots()).expect("not zero"),
-            NonZeroU16::new(winding_table.layers()).expect("not zero"),
-        );
+        let winding_table_from_iter =
+            WindingTable::from_slot_major(iterator, winding_table.slots(), winding_table.layers());
         assert_eq!(winding_table, winding_table_from_iter);
     }
     {
         let winding_table = create_table();
         let iterator = winding_table.iter_layer_major().map(|(_, value)| *value);
-        let winding_table_from_iter = WindingTable::from_layer_major(
-            iterator,
-            NonZeroU16::new(winding_table.slots()).expect("not zero"),
-            NonZeroU16::new(winding_table.layers()).expect("not zero"),
-        );
+        let winding_table_from_iter =
+            WindingTable::from_layer_major(iterator, winding_table.slots(), winding_table.layers());
         assert_eq!(winding_table, winding_table_from_iter);
     }
 }

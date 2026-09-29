@@ -428,8 +428,20 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
         match harmonic_orders.coupling_with_pole_pairs() {
             Some(coupling) => {
                 if coupling < 0 {
-                    for layer in 0..usize::from(winding_table.layers()) {
-                        winding_table.reverse_layer_range(layer, 0, winding_table.slots().into());
+                    for layer in 0..winding_table.layers().get() {
+                        let mut left = 0;
+                        let mut right = winding_table.slots().get();
+
+                        while left < right.saturating_sub(1) {
+                            right -= 1;
+
+                            let tmp = winding_table[Zone::new(left, layer)];
+                            winding_table[Zone::new(left, layer)] =
+                                winding_table[Zone::new(right, layer)];
+                            winding_table[Zone::new(right, layer)] = tmp;
+
+                            left += 1;
+                        }
                     }
                     winding_table.shift_layers(2 * wires_len as i32);
                 }
