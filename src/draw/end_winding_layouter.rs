@@ -14,7 +14,7 @@ of "crossovers" over different coils. This means that the layer of a coil with a
 should be closer to the core than that of a coil with a longer span. Applying these rules
 to a 18-slot, 4-pole-pair single-layer winding results in the following representation:
 
-```ignore
+```text
 End winding layer:
 1)     ┌───────┐      ┌───────┐      ┌───────┐
 0)   ┌─│──┐ ┌──│──┐ ┌─│──┐ ┌──│──┐ ┌─│──┐ ┌──│──┐
