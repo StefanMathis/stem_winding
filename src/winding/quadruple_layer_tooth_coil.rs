@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     coils::{Coil, Coils, FullCoil},
-    error::{Error, WindingTableCreationError},
+    error::{Error, WindingTableConstructionError},
     winding::{Connection, Winding, base_winding_count_repeating_coil_groups, hole_number},
     winding_table::{WindingTable, WindingTableConstructor},
 };
@@ -252,7 +252,7 @@ impl QuadrupleLayerToothCoilWinding {
             for (zone, _) in winding_table.iter_slot_major() {
                 // Check if the zone is already occupied
                 if !self.coils.occupied(zone) {
-                    return Err(WindingTableCreationError::EmptyZone(Some(zone)).into());
+                    return Err(WindingTableConstructionError::EmptyZone(Some(zone)).into());
                 }
             }
         }
@@ -555,7 +555,7 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
         if winding.equal_winding_factors() {
             return Ok(winding);
         } else {
-            return Err(WindingTableCreationError::NotSymmetric.into());
+            return Err(WindingTableConstructionError::NotSymmetric.into());
         }
     }
 }

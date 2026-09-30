@@ -1,3 +1,10 @@
+//! Provides [`WindingTableConstructor`], an enum representing a selection of
+//! methods / algorithms to build a [`WindingTable`].
+//!
+//! The [`WindingTableConstructor`] is used as an argument to the
+//! [`WindingTable::from_constructor`] method (which is also defined in this
+//! module).
+
 use std::num::NonZeroU16;
 
 #[cfg(feature = "serde")]
@@ -7,15 +14,12 @@ use num::Integer;
 use stem_coil_layout::Zone;
 
 use crate::{
-    error::WindingTableCreationError,
+    error::WindingTableConstructionError,
     winding::{hole_number, phase_sequence},
     winding_table::WindingTable,
 };
 
 /**
-This enum contains the options available for the zone plan creation of a single- or double-layer winding.
-The following methods are currently implemented:
-* `Tingley`: Method for single- and double layer windings with two or three phases according to [Seq50], p.186f.
 * `Zone`: Method for distributed single layer windings. Further details in [Hut20a]
 * `AlgebraicAlgorithm`: Method for single- and double layer windings. This method is taken from [Kre88].
 Be aware that this method may result in incorrect configurations, so check the zone plan before proceeding.
@@ -23,11 +27,192 @@ Be aware that this method may result in incorrect configurations, so check the z
 * `DistributionTable`: Method for single- and double layer windings according to [Car18].
  */
 
+/**
+An enum specifying an algorithm for constructing a [`WindingTable`].
+
+Each variant represents a different algorithm for constructing a
+[`WindingTable`] with [`WindingTable::from_constructor`]. See the docstring of
+each variant for a description of the corresponding algorithm and its
+requirements.
+
+Construction can fail if the selected algorithm is not applicable to the
+given winding parameters. For example, the
+[`WindingTableConstructor::CoilSide`] algorithm can only be used for
+single-layer windings. In case of failure,
+[`WindingTable::from_constructor`] returns a
+[`WindingTableConstructionError`].
+ */
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum WindingTableConstructor {
-    /// Seq50
+    /**
+    Tingley method for constructing a symmetric 2- or 3-phase winding.
+
+    The Tingley method constructs a winding pattern by dividing each pole
+    division into equal-sized sections and assigning consecutive sections to the
+    different phases. The resulting pattern is then mapped onto the slots of the
+    winding. For a double-layer winding, the second layer is initially copied
+    from the first layer and then the return conductors are shifted by `span`
+    slots.
+
+    The method is applicable only to two- and three-phase windings. It supports
+    single- and double-layer windings, but a single-layer winding must have an
+    even number of slots. In addition, the total number of zones must be
+    divisible by `2 * phases`, so that each phase has the same number of
+    positive and negative zones:
+
+    `layers * slots % (2 * phases) == 0`.
+
+    The construction can result in empty zones for some combinations of winding
+    parameters. Such windings are rejected. A valid winding must also contain a
+    negative zone corresponding to every positive zone of each phase; otherwise,
+    the resulting winding table is rejected.
+
+    For double-layer windings, `span` determines the displacement of the return
+    conductors relative to the first layer. For single-layer windings, `span` is
+    ignored (*).
+
+    The construction follows the rules for the graphical construction of the
+    Tingley pattern described in [\[1\]](#tingley_1), pp. 186 ff. The
+    implementation does not explicitly construct the intermediate graphical
+    representation.
+
+    A detailed description of the Tingley method, including its derivation and
+    special cases, can be found in [\[1\]](#tingley_1).
+
+    (*): For the special case of a single-layer
+    [`ToothCoilWinding`](crate::winding::ToothCoilWinding) (`span.abs() == 1`),
+    a double-layer [`ToothCoilWinding`](crate::winding::ToothCoilWinding) with
+    half the number of slots is created and then "flattened" into a single-layer
+    winding with the given number of slots.
+
+    # Notes
+
+    In the author's experience, the Tingley algorithm is particularly
+    well-suited to integer-slot windings with one or two layers and to
+    single-layer tooth coil windings. For single-layer fractional-slot windings
+    with `span.abs() > 1`, consider using [`WindingTableConstructor::CoilSide`]
+    instead.
+
+    # Literature
+
+    <a id="tingley_1">\[1\]</a>
+    Sequenz, H.: Die Wicklungen elektrischer Maschinen - Wechselstrom-Ankerwicklungen
+    1st edition, Springer-Verlag Wien, 1950
+
+    # Examples
+
+    A simple 6-slot, 2-layer, 3-phase winding can be constructed as follows:
+
+    ```
+    use std::num::NonZeroU16;
+    use stem_winding::prelude::*;
+
+    let table = WindingTable::from_constructor(
+        &WindingTableConstructor::Tingley,
+        NonZeroU16::new(6).unwrap(),
+        NonZeroU16::new(2).unwrap(),
+        NonZeroU16::new(1).unwrap(),
+        NonZeroU16::new(3).unwrap(),
+        3,
+    )
+    .unwrap();
+
+    assert_eq!(table[Zone::new(0, 0)], 1);
+    assert_eq!(table[Zone::new(1, 0)], -3);
+    assert_eq!(table[Zone::new(2, 0)], 2);
+    assert_eq!(table[Zone::new(3, 0)], -1);
+    assert_eq!(table[Zone::new(4, 0)], 3);
+    assert_eq!(table[Zone::new(5, 0)], -2);
+
+    assert_eq!(table[Zone::new(0, 1)], -2);
+    assert_eq!(table[Zone::new(1, 1)], 1);
+    assert_eq!(table[Zone::new(2, 1)], -3);
+    assert_eq!(table[Zone::new(3, 1)], 2);
+    assert_eq!(table[Zone::new(4, 1)], -1);
+    assert_eq!(table[Zone::new(5, 1)], 3);
+    ```
+    */
     Tingley,
+    /**
+    Constructs a symmetric single-layer winding using the coil-side method.
+
+    The coil-side method distributes the slots of a winding according to the
+    number of slots per pole and phase. This number can be fractional for
+    fractional-slot windings. The method represents the fractional distribution
+    using the two nearest integer values: if the number of slots per pole and
+    phase is
+
+    `q = g + z / n`,
+
+    each phase is assigned either `g` or `g + 1` consecutive slots. The value
+    `g + 1` occurs `z` times in a distribution vector with `n` entries, while
+    `g` occurs in the remaining entries. The resulting distribution is repeated
+    for all phases.
+
+    The positive coil sides are then arranged according to the winding's phase
+    sequence. The return coil sides are obtained by circularly shifting this
+    sequence by the number of phases. Combining the positive and return coil
+    sides gives the number of consecutive slots assigned to each phase.
+    These assignments are finally mapped onto the slots of the [`WindingTable`].
+
+    The method is applicable only to single-layer windings. The total number of
+    `slots` must be divisible by `2 * phases`; otherwise, the winding cannot be
+    distributed symmetrically and construction fails. Construction also fails if
+    empty zones remain or if the number of positive and negative zones is not
+    equal per phase. The `span` parameter is not needed and hence ignored.
+
+    This algorithm was developed by the author's PhD supervisor,
+    Prof. Dr.-Ing. Gerhard Huth.
+
+    # Notes
+
+    This is a fairly specialized algorithm which only works for single-layer
+    windings, but delivers consistent results even for complicated
+    fractional-slot windings such as the one shown in the example. A
+    particularly nice property of it is that it doesn't rely on the `span`
+    parameter, which is not necessarily the same for all coils of a single-layer
+    fractional-slot winding anyway.
+
+    # Examples
+
+    The following constructs an 18-slot, single-layer, 2-pole-pair, 3-phase
+    winding with q = 1.5:
+
+    ```
+    use std::num::NonZeroU16;
+    use stem_winding::prelude::*;
+
+    let table = WindingTable::from_constructor(
+        &WindingTableConstructor::CoilSide,
+        NonZeroU16::new(18).unwrap(),
+        NonZeroU16::new(1).unwrap(),
+        NonZeroU16::new(2).unwrap(),
+        NonZeroU16::new(3).unwrap(),
+        1, // Is ignored
+    )
+    .unwrap();
+
+    assert_eq!(table[Zone::new(0, 0)], 1);
+    assert_eq!(table[Zone::new(1, 0)], 1);
+    assert_eq!(table[Zone::new(2, 0)], -3);
+    assert_eq!(table[Zone::new(3, 0)], -2);
+    assert_eq!(table[Zone::new(4, 0)], -1);
+    assert_eq!(table[Zone::new(5, 0)], -1);
+    assert_eq!(table[Zone::new(6, 0)], 3);
+    assert_eq!(table[Zone::new(7, 0)], 3);
+    assert_eq!(table[Zone::new(8, 0)], -2);
+    assert_eq!(table[Zone::new(9, 0)], 1);
+    assert_eq!(table[Zone::new(10, 0)], -3);
+    assert_eq!(table[Zone::new(11, 0)], -3);
+    assert_eq!(table[Zone::new(12, 0)], 2);
+    assert_eq!(table[Zone::new(13, 0)], 2);
+    assert_eq!(table[Zone::new(14, 0)], -1);
+    assert_eq!(table[Zone::new(15, 0)], 3);
+    assert_eq!(table[Zone::new(16, 0)], -2);
+    assert_eq!(table[Zone::new(17, 0)], -2);
+    ```
+    */
     CoilSide,
     AlgebraicAlgorithm,
     StarOfSlots,
@@ -35,30 +220,44 @@ pub enum WindingTableConstructor {
 }
 
 impl WindingTableConstructor {
-    /// Return a string representation of the zone plan method
+    /// Returns the human-readable name of `self`.
+    ///
+    /// The returned strings are:
+    /// - `"Tingley"` for [`WindingTableConstructor::Tingley`]
+    /// - `"Coil side"` for [`WindingTableConstructor::CoilSide`]
+    /// - `"Algebraic algorithm"` for
+    ///   [`WindingTableConstructor::AlgebraicAlgorithm`]
+    /// - `"Star of slots"` for [`WindingTableConstructor::StarOfSlots`]
+    /// - `"Distribution table"` for
+    ///   [`WindingTableConstructor::DistributionTable`]
     pub fn as_str(&self) -> &str {
         match self {
             WindingTableConstructor::Tingley => return "Tingley",
             WindingTableConstructor::CoilSide => return "Coil side",
             WindingTableConstructor::AlgebraicAlgorithm => return "Algebraic algorithm",
             WindingTableConstructor::StarOfSlots => return "Star of slots",
-            WindingTableConstructor::DistributionTable => return "Winding distribution table",
+            WindingTableConstructor::DistributionTable => return "Distribution table",
         }
     }
 
+    /// Fallibly converts a `&str` into an instance of `Self`.
+    ///
+    /// Returns `None` if `string` does not match the name of any variant. See
+    /// [`WindingTableConstructor::as_str`] for the names of all variants.
     pub fn from_str(string: &str) -> Option<Self> {
         match string {
             "Tingley" => return Some(WindingTableConstructor::Tingley),
             "Coil side" => return Some(WindingTableConstructor::CoilSide),
             "Algebraic algorithm" => return Some(WindingTableConstructor::AlgebraicAlgorithm),
             "Star of slots" => return Some(WindingTableConstructor::StarOfSlots),
-            "Winding distribution table" => {
+            "Distribution table" => {
                 return Some(WindingTableConstructor::DistributionTable);
             }
             _ => return None,
         }
     }
 
+    /// Returns an iterator over all variants of [`Self`].
     pub fn iter() -> impl Iterator<Item = WindingTableConstructor> {
         return [
             Self::Tingley,
@@ -72,11 +271,23 @@ impl WindingTableConstructor {
 }
 
 impl WindingTable {
-    /// Constructs a [`WindingTable`] using the specified
-    /// [`WindingTableConstructor`].
-    ///
-    /// Construction can fail for several reasons, which are reported through
-    /// [`WindingTableCreationError`].
+    /**
+    Constructs a [`WindingTable`] using the specified [`WindingTableConstructor`].
+
+    The construction algorithm is determined by `winding_table_constructor`.
+    `slots`, `layers`, `pole_pairs`, and `phases` specify the winding
+    configuration. `span` specifies the span of an individual coil in slots;
+    positive values represent a span toward increasing slot indices, while
+    negative values represent a span toward decreasing slot indices. For some
+    algorithms and combinations of arguments, `span` is ignored because the coil
+    span is determined automatically by the selected algorithm; see the
+    documentation of [`WindingTableConstructor`] for details.
+
+    Construction can fail for several reasons, which are reported through
+    [`WindingTableConstructionError`]. See the documentation of the individual
+    [`WindingTableConstructor`] variants for algorithm-specific requirements
+    and examples.
+     */
     pub fn from_constructor(
         winding_table_constructor: &WindingTableConstructor,
         slots: NonZeroU16,
@@ -84,7 +295,7 @@ impl WindingTable {
         pole_pairs: NonZeroU16,
         phases: NonZeroU16,
         span: i32,
-    ) -> Result<Self, WindingTableCreationError> {
+    ) -> Result<Self, WindingTableConstructionError> {
         return match winding_table_constructor {
             WindingTableConstructor::Tingley => {
                 if u16::from(layers) == 1 && span.abs() == 1 {
@@ -112,16 +323,16 @@ impl WindingTable {
     /// tooth coil In the case of single-layer tooth-coil windings, the number
     /// of teeth is halfed for the calculation and a double-layer zone plan
     /// is created with the Tingley pattern. Then, additional teeth are
-    /// inserted between the coils to get the original number of teeth back
-    pub(crate) fn tingley_single_layer_tooth_coil(
+    /// inserted between the coils to get the original number of teeth back.
+    fn tingley_single_layer_tooth_coil(
         slots: NonZeroU16,
         pole_pairs: NonZeroU16,
         phases: NonZeroU16,
-    ) -> Result<Self, WindingTableCreationError> {
+    ) -> Result<Self, WindingTableConstructionError> {
         let slots_num = u16::from(slots);
 
         if slots_num.is_odd() {
-            return Err(WindingTableCreationError::SingleLayerOddSlotNumber);
+            return Err(WindingTableConstructionError::SingleLayerOddSlotNumber);
         }
 
         // Half the number of slots and double the number of layers
@@ -145,7 +356,7 @@ impl WindingTable {
                 Err(msg) => return Err(msg),
             }
         } else {
-            return Err(WindingTableCreationError::EmptyZone(None));
+            return Err(WindingTableConstructionError::EmptyZone(None));
         }
     }
 
@@ -159,7 +370,7 @@ impl WindingTable {
         pole_pairs: NonZeroU16,
         phases: NonZeroU16,
         span: i32,
-    ) -> Result<Self, WindingTableCreationError> {
+    ) -> Result<Self, WindingTableConstructionError> {
         // Check whether the Tingley pattern is applicable to the given winding
         // configuration or not
         let slots_num = u16::from(slots);
@@ -169,12 +380,12 @@ impl WindingTable {
 
         // The Tingley pattern only works for two- and three-phase AC windings
         if phases_num != 2 && phases_num != 3 {
-            return Err(WindingTableCreationError::TingleyInvalidNumberPhases);
+            return Err(WindingTableConstructionError::TingleyInvalidNumberPhases);
         }
 
         // Winding must be symmetric (e.g. no empty slots)
         if (layers_num * slots_num) % (2 * phases_num) != 0 {
-            return Err(WindingTableCreationError::EmptyZone(None));
+            return Err(WindingTableConstructionError::EmptyZone(None));
         }
 
         // Create the phase sequence
@@ -290,7 +501,7 @@ impl WindingTable {
         pole_pairs: NonZeroU16,
         phases: NonZeroU16,
         _span: i32,
-    ) -> Result<WindingTable, WindingTableCreationError> {
+    ) -> Result<WindingTable, WindingTableConstructionError> {
         let slots_num = u16::from(slots);
         let layers_num = u16::from(layers);
         let phases_num = u16::from(phases);
@@ -300,12 +511,12 @@ impl WindingTable {
 
         // Can only be applied to single-layer windings
         if layers_num != 1 {
-            return Err(WindingTableCreationError::CoilSideInvalidNumberLayers);
+            return Err(WindingTableConstructionError::CoilSideInvalidNumberLayers);
         }
 
         // Winding must be symmetric (e.g. no empty slots)
         if (layers_num * slots_num) % (2 * phases_num) != 0 {
-            return Err(WindingTableCreationError::EmptyZone(None));
+            return Err(WindingTableConstructionError::EmptyZone(None));
         }
 
         // Calculate the number of slots per pole and phase
@@ -314,9 +525,8 @@ impl WindingTable {
         let z = ratio.fract().numer().clone();
         let n = ratio.denom().clone();
 
-        //  `*******************************************************************
-        // Distribute q1 and q2 along a vector qk which has n entries. This
-        // operation is equal to step 2 in [Hut20]
+        // *********************************************************************
+        // Distribute q1 and q2 along a vector qk which has n entries.
 
         // The two possible integer numbers of qk are given here explicitly
         let q1 = g + 1; // occurs z times
@@ -347,7 +557,7 @@ impl WindingTable {
 
         // Check if something went wrong during the calculation of qk
         if 2 * qk.iter().sum::<i32>() != slots_num as i32 {
-            return Err(WindingTableCreationError::CoilSideCouldNotDistribute);
+            return Err(WindingTableConstructionError::CoilSideCouldNotDistribute);
         }
 
         // Create the phase vector
@@ -359,7 +569,7 @@ impl WindingTable {
         }
 
         // *********************************************************************
-        // Create the whole coil side pattern (step 4 in [Hut20])
+        // Create the whole coil side pattern
 
         // Create the phase sequence vector
         let (phase_sequence, _) = phase_sequence(phases);
@@ -375,7 +585,6 @@ impl WindingTable {
         let mut coil_distribution = vec![0; phase_sequence_vector.len()];
 
         // Assign the slot numbers to the phases
-        // The result is equal to step 4 in [Hut20] w/ negative phases
         let mut coil_counter: usize = 0;
 
         // All rows of winding_table_coil_side
@@ -400,8 +609,8 @@ impl WindingTable {
             coil_distribution[ii] = coil_distribution[ii] + return_conductor_slots[ii];
         }
 
-        //  `*******************************************************************
-        // Create the zone plan with the coil side pattern (equals step 5 in [Hut20])
+        // *********************************************************************
+        // Create the zone plan with the coil side pattern
 
         // Initialize empty zone plan
         let mut winding_table = WindingTable::new(slots, layers);
@@ -432,7 +641,7 @@ impl WindingTable {
         pole_pairs: NonZeroU16,
         phases: NonZeroU16,
         span: i32,
-    ) -> Result<WindingTable, WindingTableCreationError> {
+    ) -> Result<WindingTable, WindingTableConstructionError> {
         let slots_num = u16::from(slots);
         let layers_num = u16::from(layers);
         let phases_num = u16::from(phases);
@@ -440,12 +649,12 @@ impl WindingTable {
 
         // Winding must be symmetric (e.g. no empty slots)
         if (layers_num * slots_num) % (2 * phases_num) != 0 {
-            return Err(WindingTableCreationError::EmptyZone(None));
+            return Err(WindingTableConstructionError::EmptyZone(None));
         }
 
         // Number of phases must be greater than two, only works for odd phases
         if phases_num <= 2 || phases_num.is_even() {
-            return Err(WindingTableCreationError::AlgebraicAlgorithmInvalidNumberPhases);
+            return Err(WindingTableConstructionError::AlgebraicAlgorithmInvalidNumberPhases);
         }
 
         // Calculate the number of steps between two electrically neighboring slots
@@ -467,7 +676,7 @@ impl WindingTable {
         }
 
         if g_val == -1 {
-            return Err(WindingTableCreationError::AlgebraicAlgorithmInvalidStep);
+            return Err(WindingTableConstructionError::AlgebraicAlgorithmInvalidStep);
         }
 
         // Double Y_k for single-layer windings
@@ -576,7 +785,7 @@ impl WindingTable {
         pole_pairs: NonZeroU16,
         phases: NonZeroU16,
         span: i32,
-    ) -> Result<Self, WindingTableCreationError> {
+    ) -> Result<Self, WindingTableConstructionError> {
         use std::f64::consts::TAU;
 
         let slots_num = u16::from(slots);
@@ -586,16 +795,16 @@ impl WindingTable {
 
         // Only works for odd phases
         if phases_num.is_even() {
-            return Err(WindingTableCreationError::StarOfSlotsInvalidNumberPhases);
+            return Err(WindingTableConstructionError::StarOfSlotsInvalidNumberPhases);
         }
 
         if layers_num != 1 && layers_num != 2 {
-            return Err(WindingTableCreationError::StarOfSlotsInvalidNumberLayers);
+            return Err(WindingTableConstructionError::StarOfSlotsInvalidNumberLayers);
         }
 
         // Winding must be symmetric (e.g. no empty slots)
         if (layers_num * slots_num) % (2 * phases_num) != 0 {
-            return Err(WindingTableCreationError::EmptyZone(None));
+            return Err(WindingTableConstructionError::EmptyZone(None));
         }
 
         // Create a two-layer zone plan by dividing the phasor star in 2*m sectors
@@ -658,7 +867,7 @@ impl WindingTable {
         pole_pairs: NonZeroU16,
         phases: NonZeroU16,
         span: i32,
-    ) -> Result<Self, WindingTableCreationError> {
+    ) -> Result<Self, WindingTableConstructionError> {
         fn wdt_fill_next_slot(
             wdt: &mut Vec<Vec<i32>>,
             index: usize,
@@ -691,12 +900,12 @@ impl WindingTable {
         let pole_pairs_num = u16::from(pole_pairs);
 
         if layers_num != 1 && layers_num != 2 {
-            return Err(WindingTableCreationError::DistributionTableInvalidNumberLayers);
+            return Err(WindingTableConstructionError::DistributionTableInvalidNumberLayers);
         }
 
         // Winding must be symmetric (e.g. no empty slots)
         if (layers_num * slots_num) % (2 * phases_num) != 0 {
-            return Err(WindingTableCreationError::EmptyZone(None));
+            return Err(WindingTableConstructionError::EmptyZone(None));
         }
 
         // Create empty winding distribution table (WDT). Since nalgebra is

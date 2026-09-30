@@ -21,7 +21,7 @@ pub enum Error {
     /// [`WindingTable`], those zones must not be equal. This error variant is
     /// returned if they are.
     EqualCoilZones(Zone),
-    WindingTableCreationError(WindingTableCreationError),
+    WindingTableConstructionError(WindingTableConstructionError),
     InvalidNumberParallelPaths,
     InvalidPolePairNumber,
     OddNumberOfTurnsPerSlot,
@@ -70,9 +70,9 @@ impl From<Comparison<f64>> for Error {
     }
 }
 
-impl From<WindingTableCreationError> for Error {
-    fn from(value: WindingTableCreationError) -> Self {
-        return Error::WindingTableCreationError(value);
+impl From<WindingTableConstructionError> for Error {
+    fn from(value: WindingTableConstructionError) -> Self {
+        return Error::WindingTableConstructionError(value);
     }
 }
 
@@ -89,7 +89,7 @@ impl From<std::convert::Infallible> for Error {
 }
 
 #[derive(Debug)]
-pub enum WindingTableCreationError {
+pub enum WindingTableConstructionError {
     NotSymmetric,
     SingleLayerOddSlotNumber,
     EmptyZone(Option<Zone>),
@@ -110,10 +110,10 @@ pub enum WindingTableCreationError {
     DistributionTableInvalidNumberLayers,
 }
 
-impl std::fmt::Display for WindingTableCreationError {
+impl std::fmt::Display for WindingTableConstructionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "placeholder")
     }
 }
 
-impl std::error::Error for WindingTableCreationError {}
+impl std::error::Error for WindingTableConstructionError {}

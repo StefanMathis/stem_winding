@@ -18,7 +18,7 @@ use crate::core_support::*;
 
 use crate::{
     coils::{Coil, Coils, FullCoil},
-    error::{Error, WindingTableCreationError},
+    error::{Error, WindingTableConstructionError},
     iterators::HarmonicOrdersIterator,
     winding::{Connection, Winding},
     winding_table::{WindingTable, WindingTableConstructor},
@@ -465,7 +465,7 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
         if winding.equal_winding_factors() {
             return Ok(winding);
         } else {
-            return Err(WindingTableCreationError::NotSymmetric.into());
+            return Err(WindingTableConstructionError::NotSymmetric.into());
         }
     }
 }

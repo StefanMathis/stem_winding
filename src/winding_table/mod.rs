@@ -4,7 +4,7 @@
 //! winding and provides functionality for constructing, inspecting, and
 //! manipulating winding tables.
 
-use crate::error::WindingTableCreationError;
+use crate::error::WindingTableConstructionError;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -658,7 +658,7 @@ impl WindingTable {
     /// - For each phase, the number of zones with positive polarity is equal to
     /// that of the zones with negative polarity
     /// - There are no empty zones (value of 0) in the table.
-    fn check(self, phases: NonZeroU16) -> Result<Self, WindingTableCreationError> {
+    fn check(self, phases: NonZeroU16) -> Result<Self, WindingTableConstructionError> {
         for phase in 1..(i32::from(u16::from(phases)) + 1) {
             let mut counter = 0;
             for (zone, zone_phase) in self.iter_slot_major() {
@@ -667,13 +667,13 @@ impl WindingTable {
                 } else if -phase == *zone_phase {
                     counter -= 1;
                 } else if *zone_phase == 0 {
-                    return Err(WindingTableCreationError::EmptyZone(Some(zone)));
+                    return Err(WindingTableConstructionError::EmptyZone(Some(zone)));
                 }
             }
 
             // Check if there is the same number of positive and negative zones for a phase
             if counter != 0 {
-                return Err(WindingTableCreationError::InequalPositiveNegativeZones(
+                return Err(WindingTableConstructionError::InequalPositiveNegativeZones(
                     phase as u16,
                 ));
             }
