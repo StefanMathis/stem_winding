@@ -100,8 +100,8 @@ pub enum WindingTableConstructionError {
     CoilSideInvalidNumberLayers,
     CoilSideCouldNotDistribute,
     /// Number of phases must be greater than two, only works for odd phases
-    AlgebraicAlgorithmInvalidNumberPhases,
-    AlgebraicAlgorithmInvalidStep,
+    AlgebraicInvalidNumberPhases,
+    AlgebraicInvalidStep,
     /// Only odd phase numbers
     StarOfSlotsInvalidNumberPhases,
     /// Only single or double layer

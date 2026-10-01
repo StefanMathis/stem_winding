@@ -227,7 +227,7 @@ fn test_end_winding_half_turn_length_straight() {
             layers: NonZeroU16::new(2).expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_constructor: WindingTableConstructor::AlgebraicAlgorithm,
+            winding_table_constructor: WindingTableConstructor::Algebraic,
         }
         .try_into()
         .unwrap();
@@ -327,7 +327,7 @@ fn test_end_winding_half_turn_length_straight() {
             layers: NonZeroU16::new(1).expect("not zero"),
             coil_span_reduction: 0,
             zone_span_variation: 0,
-            winding_table_constructor: WindingTableConstructor::AlgebraicAlgorithm,
+            winding_table_constructor: WindingTableConstructor::Algebraic,
         }
         .try_into()
         .unwrap();
@@ -347,7 +347,7 @@ fn test_end_winding_half_turn_length_straight() {
             pole_pairs: NonZeroU16::new(5).expect("not zero"),
             phases: NonZeroU16::new(3).expect("not zero"),
             layers: NonZeroU16::new(1).expect("not zero"),
-            winding_table_constructor: WindingTableConstructor::AlgebraicAlgorithm,
+            winding_table_constructor: WindingTableConstructor::Algebraic,
         }
         .try_into()
         .unwrap();
