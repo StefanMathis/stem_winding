@@ -63,6 +63,10 @@ impl DistributedToothCoilWinding {
         self.wires.iter().map(|(turns, _)| *turns)
     }
 
+    pub fn end_winding_leakage_coefficient(&self) -> f64 {
+        self.end_winding_leakage_coefficient
+    }
+
     /**
     Create a turn distribution for a double-layer distributed winding which keeps the number of turns per slot constant.
 
@@ -281,27 +285,14 @@ impl Winding for DistributedToothCoilWinding {
         return num::rational::Ratio::new(2 * self.coils_per_coil_group(), 1);
     }
 
-    fn turns_per_phase(&self, _phase: NonZeroU16) -> num::rational::Ratio<usize> {
-        let all_turns: usize = self.coil_group_turns().map(usize::from).sum();
-        return num::rational::Ratio::new(
-            (all_turns * usize::from(u16::from(self.coil_groups_per_phase())))
-                / usize::from(u16::from(self.parallel_paths())),
-            1,
-        );
-    }
-
     fn connection(&self) -> Connection {
         self.connection
     }
 
-    fn end_winding_leakage_coefficient(&self) -> f64 {
-        self.end_winding_leakage_coefficient
-    }
-
-    /// The number of parallel paths of this winding type is alwaystwice the
+    /// The number of parallel paths of this winding type is always twice the
     /// number of basic windings.
-    fn parallel_paths(&self) -> NonZeroU16 {
-        return NonZeroU16::new(self.base_winding_count().get() * 2).expect("not zero");
+    fn parallel_paths(&self, _phase: NonZeroU16) -> NonZeroU16 {
+        self.parallel_paths
     }
 
     fn coil_at(&self, zone: Zone) -> Option<&Coil> {
@@ -343,7 +334,12 @@ impl Winding for DistributedToothCoilWinding {
         _phase: NonZeroU16,
         end_winding_half_turn_length: Option<Length>,
     ) -> Inductance {
-        end_winding_leakage_inductance_semicircle(self, core, end_winding_half_turn_length)
+        end_winding_leakage_inductance_semicircle(
+            self,
+            core,
+            end_winding_half_turn_length,
+            self.end_winding_leakage_coefficient,
+        )
     }
 
     #[cfg(feature = "stem_core")]

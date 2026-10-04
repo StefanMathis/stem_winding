@@ -8,9 +8,6 @@ use stem_coil_layout::{CoilLayout, Zone};
 #[cfg(feature = "stem_core")]
 use stem_core::prelude::*;
 
-#[cfg(feature = "stem_core")]
-use crate::core_support::*;
-
 use crate::{
     coils::{Coil, CoilExt, Coils},
     error::Error,
@@ -38,8 +35,7 @@ pub struct CoilAssembly {
     phases: NonZeroU16,
     coil_layout: CoilLayout,
     coils: Coils,
-    end_winding_leakage_coefficient: f64,
-    parallel_paths: NonZeroU16,
+    parallel_paths: Vec<NonZeroU16>,
     connection: Connection,
 }
 
@@ -50,18 +46,13 @@ struct CoilAssemblyBuilder {
     pub phases: NonZeroU16,
     pub coil_layout: CoilLayout,
     pub coils: Coils,
+    /// Entry per phase: 0th item == Phase 1, 1st item == Phase 2, ...
     #[cfg_attr(feature = "serde", serde(default))]
-    pub end_winding_leakage_coefficient: f64,
-    #[cfg_attr(feature = "serde", serde(default = "parallel_paths_default"))]
-    pub parallel_paths: NonZeroU16,
+    pub parallel_paths: Vec<NonZeroU16>,
     #[cfg_attr(feature = "serde", serde(default = "connection_default"))]
     pub connection: Connection,
 }
 
-#[cfg(feature = "serde")]
-fn parallel_paths_default() -> NonZeroU16 {
-    NonZeroU16::MIN
-}
 #[cfg(feature = "serde")]
 fn connection_default() -> Connection {
     Connection::Star
@@ -77,7 +68,6 @@ impl TryFrom<CoilAssemblyBuilder> for CoilAssembly {
             phases: builder.phases,
             coils: builder.coils,
             coil_layout: builder.coil_layout,
-            end_winding_leakage_coefficient: builder.end_winding_leakage_coefficient,
             parallel_paths: builder.parallel_paths,
             connection: builder.connection,
         };
@@ -98,8 +88,7 @@ impl CoilAssembly {
         phases: NonZeroU16,
         coil_layout: CoilLayout, // Defines layers
         coils: Coils,
-        end_winding_leakage_coefficient: f64,
-        parallel_paths: NonZeroU16,
+        parallel_paths: Vec<NonZeroU16>,
         connection: Connection,
     ) -> Result<Self, Error> {
         let winding = CoilAssembly {
@@ -108,7 +97,6 @@ impl CoilAssembly {
             phases,
             coils,
             coil_layout,
-            end_winding_leakage_coefficient,
             parallel_paths,
             connection,
         };
@@ -134,8 +122,7 @@ impl CoilAssembly {
             phases,
             coil_layout,
             coils,
-            0.0,
-            NonZeroU16::MIN,
+            Vec::new(),
             Connection::Star,
         );
     }
@@ -211,72 +198,34 @@ impl Winding for CoilAssembly {
         self.coil_layout
     }
 
-    fn parallel_paths(&self) -> NonZeroU16 {
+    fn parallel_paths(&self, phase: NonZeroU16) -> NonZeroU16 {
         self.parallel_paths
+            .get(usize::from(phase.get() - 1))
+            .cloned()
+            .unwrap_or(NonZeroU16::MIN)
     }
 
     fn connection(&self) -> Connection {
         self.connection
     }
 
-    fn end_winding_leakage_coefficient(&self) -> f64 {
-        self.end_winding_leakage_coefficient
-    }
-
     fn as_dyn(&self) -> &dyn Winding {
         self
-    }
-
-    #[cfg(feature = "stem_core")]
-    fn end_winding_leakage_inductance(
-        &self,
-        _core: CoreRef<'_>,
-        _phase: NonZeroU16,
-        _end_winding_half_turn_length: Option<Length>,
-    ) -> Inductance {
-        // We cannot analytically calculate the end winding leakage inductance
-        // for an arbitrary coil setup, so we just return zero.
-        return Inductance::new::<si::inductance::henry>(0.0);
-    }
-
-    #[cfg(feature = "stem_core")]
-    fn end_winding_half_turn_length(&self, core: CoreRef<'_>, zone: Zone) -> Length {
-        let coil = match self.coil_at(zone) {
-            Some(c) => c,
-            None => return Length::new::<meter>(0.0),
-        };
-
-        // If the zones of the coil are in neighboring slots, use the
-        // end_winding_half_turn_length_semicircle approximation, otherwise use
-        // end_winding_half_turn_length_circular_arc /
-        // end_winding_half_turn_length_straight. This is obviously a rough
-        // approximation and will not necessarily match with the calculation
-        // method of a specialized winding type such as a ToothCoilWinding
-        let slots = core.rot().map(|_| self.slots());
-        if coil.throw(slots) <= 1 {
-            end_winding_half_turn_length_semicircle(self, core, zone)
-        } else {
-            match core {
-                CoreRef::Lin(lin_core) => {
-                    end_winding_half_turn_length_straight(self, lin_core, zone)
-                }
-                CoreRef::Rot(rot_core) => {
-                    end_winding_half_turn_length_circular_arc(self, rot_core, zone)
-                }
-            }
-        }
     }
 }
 
 impl<W: Winding + ?Sized> From<&W> for CoilAssembly {
     fn from(winding: &W) -> Self {
         // Build the hashmap
-        let mut coils = Coils::with_capacity(winding.number_coils(), winding.number_coils());
+        let mut coils = Coils::with_capacity(winding.num_coils(), winding.num_coils());
         for coil in winding.coils() {
             coils
                 .insert(coil.clone())
                 .expect("two coils occupy the same zone. This is a bug.")
         }
+        let parallel_paths = (1..winding.phases().get() + 1)
+            .map(|phase| winding.parallel_paths(NonZeroU16::new(phase).unwrap_or(NonZeroU16::MIN)))
+            .collect();
 
         return CoilAssembly {
             slots: winding.slots(),
@@ -284,8 +233,7 @@ impl<W: Winding + ?Sized> From<&W> for CoilAssembly {
             phases: winding.phases(),
             coils,
             coil_layout: winding.coil_layout(),
-            end_winding_leakage_coefficient: winding.end_winding_leakage_coefficient(),
-            parallel_paths: winding.parallel_paths(),
+            parallel_paths,
             connection: winding.connection(),
         };
     }

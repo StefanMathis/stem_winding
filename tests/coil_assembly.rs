@@ -55,6 +55,63 @@ fn test_build_from_scratch() {
 #[test]
 fn test_derive_from_winding() {
     {
+        let winding: DistributedWinding = DistributedMinimalBuilder {
+            slots: 18.try_into().expect("not zero"),
+            pole_pairs: 4.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            layers: 1.try_into().expect("not zero"),
+            coil_span_reduction: 0,
+            zone_span_variation: 0,
+            winding_table_constructor: WindingTableConstructor::CoilSide,
+        }
+        .try_into()
+        .unwrap();
+        let coil_assembly = CoilAssembly::from(&winding);
+
+        assert_eq!(coil_assembly.phases(), winding.phases());
+        assert_eq!(coil_assembly.slots(), winding.slots());
+        assert_eq!(coil_assembly.layers(), winding.layers());
+        assert_eq!(
+            coil_assembly.series_turns_per_phase(NonZeroU16::MIN),
+            winding.series_turns_per_phase(NonZeroU16::MIN)
+        );
+    }
+    {
+        let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
+            slots: 12.try_into().expect("not zero"),
+            pole_pairs: 5.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            layers: 2.try_into().expect("not zero"),
+            winding_table_constructor: WindingTableConstructor::Tingley,
+        }
+        .try_into()
+        .unwrap();
+        let coil_assembly = CoilAssembly::from(&winding);
+
+        assert_eq!(coil_assembly.phases(), winding.phases());
+        assert_eq!(coil_assembly.slots(), winding.slots());
+        assert_eq!(coil_assembly.layers(), winding.layers());
+        assert_eq!(
+            coil_assembly.series_turns_per_phase(NonZeroU16::MIN),
+            winding.series_turns_per_phase(NonZeroU16::MIN)
+        );
+    }
+    {
+        let winding = SquirrelCageWinding::from(SquirrelCageMinimalBuilder {
+            slots: 18.try_into().expect("not zero"),
+            pole_pairs: ONE,
+        });
+        let coil_assembly = CoilAssembly::from(&winding);
+
+        assert_eq!(coil_assembly.phases(), winding.phases());
+        assert_eq!(coil_assembly.slots(), winding.slots());
+        assert_eq!(coil_assembly.layers(), winding.layers());
+        assert_eq!(
+            coil_assembly.series_turns_per_phase(NonZeroU16::MIN),
+            winding.series_turns_per_phase(NonZeroU16::MIN)
+        );
+    }
+    {
         let mut wires: Vec<(NonZeroUsize, Box<dyn Wire>)> = Vec::with_capacity(2);
         for turns in 2..4 {
             wires.push((
@@ -80,6 +137,10 @@ fn test_derive_from_winding() {
         assert_eq!(coil_assembly.phases(), winding.phases());
         assert_eq!(coil_assembly.slots(), winding.slots());
         assert_eq!(coil_assembly.layers(), winding.layers());
+        assert_eq!(
+            coil_assembly.series_turns_per_phase(NonZeroU16::MIN),
+            winding.series_turns_per_phase(NonZeroU16::MIN)
+        );
 
         let coils: Vec<Coil> = coil_assembly.coils().cloned().collect();
         assert_eq!(coils.len(), 12);
@@ -115,6 +176,10 @@ fn test_derive_from_winding() {
         assert_eq!(coil_assembly.phases(), winding.phases());
         assert_eq!(coil_assembly.slots(), winding.slots());
         assert_eq!(coil_assembly.layers(), winding.layers());
+        assert_eq!(
+            coil_assembly.series_turns_per_phase(NonZeroU16::MIN),
+            winding.series_turns_per_phase(NonZeroU16::MIN)
+        );
 
         let coils: Vec<Coil> = coil_assembly.coils().cloned().collect();
         assert_eq!(coils.len(), 24);
@@ -160,6 +225,10 @@ fn test_derive_from_winding() {
         assert_eq!(
             coil_assembly.turns_at(Zone::new(1, 1)),
             winding.turns_at(Zone::new(1, 1))
+        );
+        assert_eq!(
+            coil_assembly.series_turns_per_phase(NonZeroU16::MIN),
+            winding.series_turns_per_phase(NonZeroU16::MIN)
         );
 
         let coils: Vec<Coil> = coil_assembly.coils().cloned().collect();
@@ -245,8 +314,7 @@ fn test_harmonic_order_and_amplitude() {
                 3.try_into().expect("not zero"),
                 CoilLayout::DoubleVertical,
                 Default::default(),
-                0.0,
-                1.try_into().expect("not zero"),
+                Vec::new(),
                 Connection::Star,
             )
             .unwrap();

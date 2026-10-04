@@ -737,7 +737,7 @@ fn test_air_gap_leakage_factor() {
 }
 
 #[test]
-fn test_turns_per_phase() {
+fn test_series_turns_per_phase() {
     let winding: DistributedWinding = DistributedBuilder {
         slots: 36.try_into().expect("not zero"),
         pole_pairs: 2.try_into().expect("not zero"),
@@ -757,7 +757,7 @@ fn test_turns_per_phase() {
     .unwrap();
 
     assert_eq!(winding.turns_in_slot(0), 62);
-    assert_eq!(winding.turns_per_phase(ONE).numer().clone(), 372);
+    assert_eq!(winding.series_turns_per_phase(ONE).numer().clone(), 372);
 
     let winding: DistributedWinding = DistributedBuilder {
         slots: 36.try_into().expect("not zero"),
@@ -778,7 +778,7 @@ fn test_turns_per_phase() {
     .unwrap();
 
     assert_eq!(winding.turns_in_slot(0), 31);
-    assert_eq!(winding.turns_per_phase(ONE).numer().clone(), 186);
+    assert_eq!(winding.series_turns_per_phase(ONE).numer().clone(), 186);
 }
 
 /// Create windings with a doubled zone span
@@ -1169,7 +1169,7 @@ mod serde_tests {
         let winding: DistributedWinding = yaml_serde::from_str(yaml).unwrap();
 
         assert_eq!(winding.turns_in_slot(0), 62);
-        assert_eq!(winding.turns_per_phase(ONE).numer().clone(), 372);
+        assert_eq!(winding.series_turns_per_phase(ONE).numer().clone(), 372);
     }
 
     #[test]
@@ -1754,7 +1754,7 @@ mod stem_core_tests {
         let leakage_inductance = 2.0
             * *VACUUM_PERMEABILITY
             * core.axial_coil_length()
-            * winding.turns_per_phase(NonZeroU16::MIN).to_integer().pow(2) as f64
+            * winding.series_turns_per_phase(NonZeroU16::MIN).to_integer().pow(2) as f64
             / (winding.pole_pairs().get() as f64 * winding.hole_number_float())
             * resulting_leakage_coeff(lambda_l, lambda_res, &winding);
 
@@ -1782,7 +1782,7 @@ mod stem_core_tests {
         let leakage_inductance = 2.0
             * *VACUUM_PERMEABILITY
             * core.axial_coil_length()
-            * winding.turns_per_phase(NonZeroU16::MIN).to_integer().pow(2) as f64
+            * winding.series_turns_per_phase(NonZeroU16::MIN).to_integer().pow(2) as f64
             / (winding.pole_pairs().get() as f64 * winding.hole_number_float())
             * resulting_leakage_coeff(lambda_l, lambda_res, &winding);
 
@@ -1810,7 +1810,7 @@ mod stem_core_tests {
         let leakage_inductance = 2.0
             * *VACUUM_PERMEABILITY
             * core.axial_coil_length()
-            * winding.turns_per_phase(NonZeroU16::MIN).to_integer().pow(2) as f64
+            * winding.series_turns_per_phase(NonZeroU16::MIN).to_integer().pow(2) as f64
             / (winding.pole_pairs().get() as f64 * winding.hole_number_float())
             * resulting_leakage_coeff(lambda_l, lambda_res, &winding);
 
@@ -1838,7 +1838,7 @@ mod stem_core_tests {
         let leakage_inductance = 2.0
             * *VACUUM_PERMEABILITY
             * core.axial_coil_length()
-            * winding.turns_per_phase(NonZeroU16::MIN).to_integer().pow(2) as f64
+            * winding.series_turns_per_phase(NonZeroU16::MIN).to_integer().pow(2) as f64
             / (winding.pole_pairs().get() as f64 * winding.hole_number_float())
             * resulting_leakage_coeff(lambda_l, lambda_res, &winding);
 

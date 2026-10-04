@@ -71,6 +71,10 @@ impl SquirrelCageWinding {
     pub fn wire(&self) -> &dyn Wire {
         return &*self.wire;
     }
+
+    pub fn end_winding_leakage_coefficient(&self) -> f64 {
+        self.end_winding_leakage_coefficient
+    }
 }
 
 impl Clone for SquirrelCageWinding {
@@ -124,22 +128,18 @@ impl Winding for SquirrelCageWinding {
         CoilLayout::Single
     }
 
-    fn parallel_paths(&self) -> NonZeroU16 {
+    fn parallel_paths(&self, _phase: NonZeroU16) -> NonZeroU16 {
         NonZeroU16::MIN
     }
 
     /// According to the "Stabmodell" as presented in [Hut18], the number of
     /// turns per phase is 0.5 for a cage winding
-    fn turns_per_phase(&self, _phase: NonZeroU16) -> num::rational::Ratio<usize> {
+    fn series_turns_per_phase(&self, _phase: NonZeroU16) -> num::rational::Ratio<usize> {
         num::rational::Ratio::new(1, 2)
     }
 
     fn connection(&self) -> Connection {
         Connection::Star
-    }
-
-    fn end_winding_leakage_coefficient(&self) -> f64 {
-        self.end_winding_leakage_coefficient
     }
 
     /// Returns the angle between two neighbouring phases.
@@ -364,7 +364,12 @@ impl Winding for SquirrelCageWinding {
         _phase: NonZeroU16,
         end_winding_half_turn_length: Option<Length>,
     ) -> Inductance {
-        end_winding_leakage_inductance_cage(self, core, end_winding_half_turn_length)
+        end_winding_leakage_inductance_cage(
+            self,
+            core,
+            end_winding_half_turn_length,
+            self.end_winding_leakage_coefficient,
+        )
     }
 
     #[cfg(feature = "stem_core")]

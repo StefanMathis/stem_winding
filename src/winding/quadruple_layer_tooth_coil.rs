@@ -145,6 +145,10 @@ impl QuadrupleLayerToothCoilWinding {
         &self.winding_table_constructor
     }
 
+    pub fn end_winding_leakage_coefficient(&self) -> f64 {
+        self.end_winding_leakage_coefficient
+    }
+
     /**
     Calculate the number of turns in the given zone
      */
@@ -358,24 +362,20 @@ impl Winding for QuadrupleLayerToothCoilWinding {
         }
     }
 
-    fn parallel_paths(&self) -> NonZeroU16 {
+    fn parallel_paths(&self, _phase: NonZeroU16) -> NonZeroU16 {
         self.parallel_paths
     }
 
-    fn turns_per_phase(&self, _phase: NonZeroU16) -> num::rational::Ratio<usize> {
+    fn series_turns_per_phase(&self, phase: NonZeroU16) -> num::rational::Ratio<usize> {
         return num::rational::Ratio::new(
             usize::from(self.layers().get() * self.slots().get()) * self.turns_per_slot_side.get()
-                / usize::from(2 * self.phases().get() * self.parallel_paths().get()),
+                / usize::from(2 * self.phases().get() * self.parallel_paths(phase).get()),
             1,
         );
     }
 
     fn connection(&self) -> Connection {
         self.connection
-    }
-
-    fn end_winding_leakage_coefficient(&self) -> f64 {
-        self.end_winding_leakage_coefficient
     }
 
     fn coil_at(&self, zone: Zone) -> Option<&Coil> {
@@ -398,7 +398,12 @@ impl Winding for QuadrupleLayerToothCoilWinding {
         _phase: NonZeroU16,
         end_winding_half_turn_length: Option<Length>,
     ) -> Inductance {
-        end_winding_leakage_inductance_semicircle(self, core, end_winding_half_turn_length)
+        end_winding_leakage_inductance_semicircle(
+            self,
+            core,
+            end_winding_half_turn_length,
+            self.end_winding_leakage_coefficient,
+        )
     }
 
     #[cfg(feature = "stem_core")]

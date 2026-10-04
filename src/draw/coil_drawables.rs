@@ -58,7 +58,7 @@ impl<'a> CoilDrawables<'a> {
         // If the end winding should be layered, create a hashmap of ranks
         let mut layer_winding_head_map: Option<HashMap<Zone, usize>> = None;
         if parameters.end_winding_style == EndWindingStyle::Layered {
-            let mut map = HashMap::with_capacity(winding.number_coils());
+            let mut map = HashMap::with_capacity(winding.num_coils());
             for coil_and_rank in EndWindingLayouter::new(winding, parameters.cyclic) {
                 map.insert(
                     coil_and_rank.coil.any_zone(),

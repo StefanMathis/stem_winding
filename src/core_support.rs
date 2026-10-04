@@ -397,15 +397,14 @@ pub fn end_winding_leakage_inductance_semicircle<W: Winding>(
     winding: &W,
     core: CoreRef<'_>,
     end_winding_half_turn_length: Option<Length>,
+    end_winding_leakage_coefficient: f64,
 ) -> Inductance {
     let end_winding_half_turn_length = end_winding_half_turn_length
         .unwrap_or_else(|| winding.end_winding_half_turn_length(core, Zone { slot: 0, layer: 0 }));
-    *VACUUM_PERMEABILITY
-        * winding.end_winding_leakage_coefficient()
-        * f64::from(winding.slots().get())
+    *VACUUM_PERMEABILITY * end_winding_leakage_coefficient * f64::from(winding.slots().get())
         / (f64::from(winding.layers().get()) * f64::from(winding.phases().get()))
         * winding.turns_in_slot(0).pow(2) as f64
-        / f64::from(winding.parallel_paths().get()).powi(2)
+        / f64::from(winding.parallel_paths(NonZeroU16::MIN).get()).powi(2)
         * (end_winding_half_turn_length + core.axial_coil_overhang())
 }
 
@@ -414,12 +413,16 @@ pub fn end_winding_leakage_inductance_distributed<W: Winding>(
     winding: &W,
     core: CoreRef<'_>,
     end_winding_half_turn_length: Option<Length>,
+    end_winding_leakage_coefficient: f64,
 ) -> Inductance {
     let end_winding_half_turn_length = end_winding_half_turn_length
         .unwrap_or_else(|| winding.end_winding_half_turn_length(core, Zone { slot: 0, layer: 0 }));
-    2.0 * winding.end_winding_leakage_coefficient()
+    2.0 * end_winding_leakage_coefficient
         * *VACUUM_PERMEABILITY
-        * winding.turns_per_phase(NonZeroU16::MIN).to_integer().pow(2) as f64
+        * winding
+            .series_turns_per_phase(NonZeroU16::MIN)
+            .to_integer()
+            .pow(2) as f64
         * (end_winding_half_turn_length + core.axial_coil_overhang())
         / f64::from(winding.pole_pairs().get())
 }
@@ -430,14 +433,14 @@ pub fn end_winding_leakage_inductance_cage<W: Winding>(
     winding: &W,
     core: CoreRef<'_>,
     end_winding_half_turn_length: Option<Length>,
+    end_winding_leakage_coefficient: f64,
 ) -> Inductance {
     use std::f64::consts::PI;
     let end_winding_half_turn_length = end_winding_half_turn_length
         .unwrap_or_else(|| winding.end_winding_half_turn_length(core, Zone { slot: 0, layer: 0 }));
-    let ring_segment_inductance = *VACUUM_PERMEABILITY
-        * winding.end_winding_leakage_coefficient()
-        * end_winding_half_turn_length
-        / f64::from(winding.pole_pairs().get());
+    let ring_segment_inductance =
+        *VACUUM_PERMEABILITY * end_winding_leakage_coefficient * end_winding_half_turn_length
+            / f64::from(winding.pole_pairs().get());
 
     let poles_per_slot = f64::from(winding.pole_pairs().get()) / f64::from(winding.slots().get());
     return ring_segment_inductance / (2.0 * (PI * poles_per_slot).sin());
@@ -448,7 +451,7 @@ pub fn end_winding_leakage_inductance_cage<W: Winding>(
 /// two winding-zone centroids.
 /// Tooth coil winding
 /// The end winding is approximated by the centerline of the conductor path.
-pub fn end_winding_half_turn_length_semicircle<W: Winding>(
+pub fn end_winding_half_turn_length_semicircle<W: Winding + ?Sized>(
     winding: &W,
     core: CoreRef<'_>,
     zone: Zone,
@@ -497,7 +500,7 @@ pub fn end_winding_half_turn_length_semicircle<W: Winding>(
 /// The coil is approximated as a circle which covers the same area
 /// as the mean value of the two contours:
 /// coil_dia = 2 * sqrt((Apos + Aneg) / (2 * PI))
-pub fn end_winding_half_turn_length_circular_arc<W: Winding>(
+pub fn end_winding_half_turn_length_circular_arc<W: Winding + ?Sized>(
     winding: &W,
     core: &RotCore,
     zone: Zone,
@@ -601,7 +604,7 @@ pub fn end_winding_half_turn_length_circular_arc<W: Winding>(
 /// The coil is approximated as a circle which covers the same area
 /// as the mean value of the two contours:
 /// coil_dia = 2 * sqrt((Apos + Aneg) / (2 * PI))
-pub fn end_winding_half_turn_length_straight<W: Winding>(
+pub fn end_winding_half_turn_length_straight<W: Winding + ?Sized>(
     winding: &W,
     core: &LinCore,
     zone: Zone,

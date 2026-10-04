@@ -12,7 +12,7 @@ use rayon::prelude::*;
 use stem_core::prelude::*;
 
 #[cfg(feature = "stem_core")]
-use crate::core_support::{Overrides, ResistanceComponents};
+use crate::core_support::*;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -48,47 +48,111 @@ pub use quadruple_layer_tooth_coil::{
 pub use squirrel_cage::*;
 pub use tooth_coil::*;
 
+/**
+A trait for representing windings for AC multi-phase machines.
+
+A winding consists of a collection of [`Coil`]s arranged within the slots of
+an electrical machine. In addition to its coil arrangement, a winding defines
+electrical properties such as its number of phases, pole pairs, parallel paths,
+and connection type, as well as geometric properties such as its coil layout
+and end-winding characteristics.
+
+A [`Zone`] identifies a possible position of a coil side by its slot and layer
+indices, while [`CoilLayout`] describes how these positions are arranged
+within a slot. A [`Winding`] assigns coil sides to these positions and groups
+them into [`Coil`]s.
+
+Different winding types may use different methods to determine their coil
+arrangement and winding properties, but all provide the common interface
+required by electrical-machine calculations.
+
+# Implementation notes
+
+Besides the required methods, it is recommended to override the following
+methods when appropriate. For examples, see the predefined winding types such
+as [`DistributedWinding`].
+
+- [`Winding::base_winding_count`] determines the number of base or repeating
+  windings of `self`. The default implementation uses an O(n) algorithm, but
+  some winding types can determine this in O(1) time.
+- [`Winding::series_turns_per_phase`] calculates the number of turns of a phase
+  by iterating over the coils and summing [`Coil::turns`], resulting in an O(n)
+  operation. Some winding types can provide this value in O(1) time.
+- [`Winding::end_winding_half_turn_length`] (only available with the
+  `stem_core` feature enabled) approximates the end-winding geometry using
+  simple geometric models. If a more accurate calculation method is available,
+  override this method.
+- [`Winding::end_winding_leakage_inductance`] (only available with the
+  `stem_core` feature enabled) returns zero by default. Implementations should
+  override this method if the winding has a non-negligible end-winding leakage
+  inductance.
+ */
 #[cfg_attr(feature = "serde", typetag::serde)]
 pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
-    /// Return the number of winding phases.
+    /// Returns the number of phases in the winding.
     fn phases(&self) -> NonZeroU16;
 
-    /// Return the number of winding slots.
+    /// Returns the number of slots in the winding.
     fn slots(&self) -> NonZeroU16;
 
-    /// Return the number of pole pairs.
+    /// Returns the number of pole pairs in the winding.
     fn pole_pairs(&self) -> NonZeroU16;
 
-    /// Return the number of parallel paths of the winding
-    fn parallel_paths(&self) -> NonZeroU16;
+    /// Returns the number of parallel paths of the given phase.
+    ///
+    /// Parallel paths are electrically connected to the same terminals and are
+    /// assumed to be electrically balanced. In particular, the paths contain
+    /// the same number of turns and have the same electrical impedance.
+    ///
+    /// Refer to standard electrical machine literature for more information,
+    /// for example:
+    /// - Binder, A.: Elektrische Maschinen und Antriebe, 1st edition, Springer
+    ///   Heidelberg, 2012
+    /// - Müller, G., Vogt, K. and Ponick, B.: Berechnung elektrischer
+    ///   Maschinen, 6th edition, Wiley-VCH, 2008
+    /// - Pyrhönen, J., Jokinen, T., Hrabovcová, V.: Design of rotating
+    ///   electrical machines, 1st edition, John Wiley & Sons, 2008
+    fn parallel_paths(&self, phase: NonZeroU16) -> NonZeroU16;
 
-    /// Return the connection type (star, delta, star-delta, double star, double
-    /// delta, ...)
+    /// Returns the electrical connection of the winding.
     fn connection(&self) -> Connection;
 
-    /// Return the leakage coefficient of the end winding.
-    fn end_winding_leakage_coefficient(&self) -> f64;
-
-    /// Returns the coil layout of the winding.
+    /// Returns the layout of the winding coils within a slot.
     fn coil_layout(&self) -> CoilLayout;
 
-    /// Return the coil at the given slot / layer position, if the position
-    /// contains a coil.
+    /// Returns the coil occupying the given [`Zone`], if any.
     fn coil_at(&self, zone: Zone) -> Option<&Coil>;
 
+    /// Returns `self` as a trait object.
     fn as_dyn(&self) -> &dyn Winding;
 
     // =========================================================================
-    // These functions are likely to be overloaded
+    // These functions are likely to be overriden.
 
-    /// Return the number of winding layers.
-    fn layers(&self) -> NonZeroU16 {
-        return self.coil_layout().layers();
-    }
-
-    /// Returns the number of basic windings contained in the winding
-    /// TODO: Recommend overloading, default impl is O(n), where n is the number
-    /// of zones (it scans the entire winding table for repetitions)
+    /// Returns the number of base windings contained in the winding.
+    ///
+    /// Winding with a large pole pair and slot number are often realized by
+    /// repeating a "base winding" multiple times. For example, the following
+    /// [`WindingTable`] for a 12-slot, 2-pole-pair, 3-phase winding consists of
+    /// two repetitions of a 6-slot, 1-pole-pair, 3-phase winding:
+    ///
+    /// ```text
+    /// L \ S │   0   1   2   3   4   5   6   7   8   9  10  11
+    /// ──────┼────────────────────────────────────────────────
+    ///   0   │   1  -3   2  -1   3  -2   1  -3   2  -1   3  -2
+    /// ``
+    ///
+    /// This method returns the number of repetitions of such a "base winding"
+    /// in `self`. The [`WindingTable`] of the base winding can then be
+    /// obtained from the full winding by considering only the first `slots
+    /// / base_winding_count` columns of the table. This property is used by
+    /// [`Winding::winding_table`] when the `full` argument is set to
+    /// `false`.
+    ///
+    /// As stated in the [trait documentation](Winding), it is recommended to
+    /// override this method if possible, as the default implementation is O(n)
+    /// with respect to the number of zones because it uses the
+    /// [`repeating_pattern_count`] algorithm.
     fn base_winding_count<'a>(&'a self) -> NonZeroU16 {
         // Wrapper structure which makes the winding indexable by an usize (slot-major)
         struct IndexWrapper<'a, W: ?Sized>(&'a W);
@@ -120,68 +184,71 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return NonZeroU16::new(value as u16).unwrap_or(NonZeroU16::MIN);
     }
 
-    /// Return the angle covered by one phase zone
-    fn phase_zone_angle(&self) -> f64 {
-        return TAU / (self.phases().get() as f64);
-    }
-
-    /// Return the pole pitch in slots.
-    fn pole_pitch(&self) -> f64 {
-        return (self.slots().get() as f64) / (2.0 * self.pole_pairs().get() as f64);
-    }
-
-    /// Return the number of turns at the given slot / layer position, if the
-    /// position contains a coil. If the zone does not contain a coil, this
-    /// value is zero. The counting of slot and layer starts at zero, so the
-    /// upper layer of a double layer winding at slot 2 is indexed as
-    /// `self.turns_at(Zone::new(1, 0))`.
-    fn turns_at(&self, zone: Zone) -> usize {
-        self.coil_at(zone).map(|c| c.turns().get()).unwrap_or(0)
-    }
-
-    /// Return the number of turns per phase as given in [MVP08].
-    fn turns_per_phase(&self, phase: NonZeroU16) -> num::rational::Ratio<usize> {
-        // Loop through all coils and add up the number of turns
+    /// Returns the number of series turns per phase.
+    ///
+    /// The series turns per phase are an important design parameter because
+    /// they determine the induced voltage of the machine. The number of
+    /// turns must be chosen appropriately for the intended terminal
+    /// voltage: the relationship between the induced voltage and the
+    /// terminal voltage determines the winding current and therefore
+    /// strongly affects the operating point of the machine. An unsuitable
+    /// number of turns can result in excessive current and overheating or,
+    /// conversely, insufficient torque.
+    ///
+    /// The series turns per phase are an important design parameter because
+    /// they determine the induced voltage and therefore the terminal
+    /// voltage. The desired voltage level can be achieved by choosing the
+    /// appropriate number of turns for the coils. The amplitude of the
+    /// fundamental component of the induced phase voltage `û` is
+    ///
+    /// `û = omega * w * kw1 * Phi_h`,
+    ///
+    /// where `omega` is the angular frequency, `w` is the number of series
+    /// turns per phase, `kw1` is the fundamental-wave winding factor, and
+    /// `Phi_h` is the fundamental flux per pole. Alternatively, the RMS induced
+    /// phase voltage `U` is often used:
+    ///
+    /// `U = omega / sqrt(2) * w * kw1 * Phi_h`.
+    ///
+    /// The default implementation loops through all coil sides of the winding
+    /// and sums the turns belonging to the specified `phase`. This is an
+    /// O(n) operation, and it is recommended to override it with an O(1)
+    /// algorithm if the winding structure allows it, as is the case for
+    /// [`DistributedWinding`].
+    fn series_turns_per_phase(&self, phase: NonZeroU16) -> num::rational::Ratio<usize> {
+        // Sum of the turns in all coil sides belonging to that phase
         let mut turns = 0;
 
-        for slot in 0..self.slots().get() {
-            for layer in 0..self.layers().get() {
-                if let Some(coil) = self.coil_at(Zone::new(slot, layer)) {
-                    if coil.phase() == phase {
-                        // Check if the current winding zone is the first occurence of the coil
-                        let first_zone = coil
-                            .zones()
-                            .next()
-                            .expect("A coil must occupy at least one zone");
-                        if first_zone == (Zone { slot, layer }) {
-                            turns = turns + usize::from(coil.turns());
-                        }
-                    }
-                }
+        for coil in self.coils() {
+            if coil.phase() == phase {
+                turns = turns
+                    + match coil {
+                        Coil::Full(_) => 2 * usize::from(coil.turns()),
+                        Coil::Half(_) => usize::from(coil.turns()),
+                    };
             }
         }
-        return num::rational::Ratio::new(turns, 1);
+
+        // Take into consideration the number of parallel paths
+        let parallel_paths = usize::from(self.parallel_paths(phase).get());
+        let gcd_turns_pp = gcd(turns, parallel_paths);
+        let path_turns = turns / gcd_turns_pp;
+        if path_turns % 2 == 0 {
+            return num::rational::Ratio::new(path_turns / 2, parallel_paths / gcd_turns_pp);
+        } else {
+            return num::rational::Ratio::new(path_turns, 2 * parallel_paths / gcd_turns_pp);
+        }
     }
 
     /**
-    End winding leakage inductance.
-     */
-    #[cfg(feature = "stem_core")]
-    fn end_winding_leakage_inductance(
-        &self,
-        _core: CoreRef<'_>,
-        _phase: NonZeroU16,
-        _end_winding_half_turn_length: Option<Length>,
-    ) -> Inductance {
-        return Default::default();
-    }
+    Returns the length of one half turn of the end winding associated with the
+    specified [`Zone`].
 
-    /**
-    Return the end winding length of a half-turn. A half turn starts in the middle of the end winding
-    on one side and ends in the middle of the end winding of the other side.
-
-    If the space of a single character in the ASCII drawing below equals one mm, the return value of
-    this function would be 7 mm (│ + ┌ + 4*─ + ┐).
+    The end winding connects the two coil sides of a coil outside the active
+    core region. The following diagram illustrates the quantity returned by this
+    method. If the space occupied by one character in the diagram corresponds to
+    one millimeter, the half-turn shown below has a length of 7 mm:
+    `━ + ━ + ┏ + ┃ + ┗ + ━ + ━`
 
     ```text
        ╔══════╗
@@ -190,10 +257,9 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     ┗━━║      ║━━┛
        ╚══════╝
     ```
-    End winding half turn is bold.
 
-    Assignment end_winding_half_turn_length to zone:
-    End winding always belongs to the zone the current comes from
+    The half turn is associated with the [`Zone`] from which the coil side
+    originates. For example, consider a full coil occupying two zones:
     ```text
            ┏━━━┓   ┏━━━┓
            │   │   │           │
@@ -202,30 +268,146 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
            ┗━━━┛           ┗━━━┛
             (a)     (b)     (c)
     ```
-    (a) Full coil through `Zone { slot: 0, layer:0 }` and `Zone { slot: 1, layer:0 }`
-    (b) End winding associated with `Zone { slot: 0, layer:0 }`
-    (c) End winding associated with `Zone { slot: 1, layer:0 }`
+    Here, the end winding associated with the first zone is the portion leaving
+    the coil side at that zone, while the end winding associated with the second
+    zone is the portion leaving the coil side at that zone:
+
+    (a) The full coil occupies [`Zone { slot: 0, layer: 0 }`] and
+    [`Zone { slot: 1, layer: 0 }`].
+
+    (b) The end winding is associated with [`Zone { slot: 0, layer: 0 }`].
+
+    (c) The end winding is associated with [`Zone { slot: 1, layer: 0 }`].
+
+    The default implementation provides a simple geometric approximation:
+
+    - For coil sides in neighboring slots, the winding is treated as a
+    tooth-coil winding and [`end_winding_half_turn_length_semicircle`] is used.
+    - Otherwise, for a [`LinCore`], [`end_winding_half_turn_length_straight`]
+    is used.
+    - For a [`RotCore`], [`end_winding_half_turn_length_circular_arc`] is
+    used.
+
+    These approximations are intended for general-purpose calculations. Winding
+    types with more detailed geometric information should override this method
+    with a more accurate calculation.
      */
     #[cfg(feature = "stem_core")]
-    fn end_winding_half_turn_length(&self, _core: CoreRef<'_>, _zone: Zone) -> Length {
+    fn end_winding_half_turn_length(&self, core: CoreRef<'_>, zone: Zone) -> Length {
+        let coil = match self.coil_at(zone) {
+            Some(c) => c,
+            None => return Length::new::<meter>(0.0),
+        };
+
+        let slots = core.rot().map(|_| self.slots());
+        if coil.throw(slots) <= 1 {
+            end_winding_half_turn_length_semicircle(self, core, zone)
+        } else {
+            match core {
+                CoreRef::Lin(lin_core) => {
+                    end_winding_half_turn_length_straight(self, lin_core, zone)
+                }
+                CoreRef::Rot(rot_core) => {
+                    end_winding_half_turn_length_circular_arc(self, rot_core, zone)
+                }
+            }
+        }
+    }
+
+    /// Returns the end winding leakage inductance for the specified phase.
+    ///
+    /// End-winding leakage inductance describes the inductance associated with
+    /// the leakage flux produced by the end-winding portions of the phase.
+    /// This flux does not contribute to the useful air-gap flux but affects
+    /// the electrical behavior of the winding, for example its voltage drop
+    /// and current.
+    ///
+    /// Unlike [`Winding::end_winding_half_turn_length`], for which a generic
+    /// geometric approximation can be provided, the end-winding leakage
+    /// inductance cannot in general be determined from the winding geometry
+    /// alone [\[1\]](#end_winding_leakage_inductance_1), section 3.7.2. Its
+    /// value depends on the detailed geometry and arrangement of the end
+    /// windings as well as on surrounding ferromagnetic parts such as e.g.
+    /// the machine housing.
+    ///
+    /// The default implementation therefore returns zero. Winding types for
+    /// which an analytical approximation is available should override this
+    /// method. Such calculations often require the end-winding turn length;
+    /// this can either be obtained from
+    /// [`Winding::end_winding_half_turn_length`] or supplied explicitly
+    /// through `end_winding_half_turn_length`. The latter is useful when
+    /// the actual turn length is known from a measurement which should be used
+    /// instead of a geometric approximation.
+    ///
+    /// # Literature
+    /// <a id="end_winding_leakage_inductance_1">\[1\]</a>
+    /// Müller, G., Vogt, K. and Ponick, B.: Berechnung elektrischer Maschinen,
+    /// 6th edition, Wiley-VCH, 2008
+    #[cfg(feature = "stem_core")]
+    fn end_winding_leakage_inductance(
+        &self,
+        core: CoreRef<'_>,
+        phase: NonZeroU16,
+        end_winding_half_turn_length: Option<Length>,
+    ) -> Inductance {
+        let _ = core;
+        let _ = phase;
+        let _ = end_winding_half_turn_length;
         return Default::default();
     }
 
     // =========================================================================
-    // These functions usually don't need to be overloaded.
+    // These functions usually don't need to be overriden.
 
-    /// Return the wire at the given slot / layer position, if the position
-    /// contains a coil.
-    fn wire_at(&self, zone: Zone) -> Option<&dyn Wire> {
-        let coil = self.coil_at(zone)?;
-        return Some(coil.wire());
+    /// Return the number of turns at the given [`Zone`].
+    ///
+    /// If there is a coil at the specified index, this function returns the
+    /// [`turns`](CoilExt::turns) of that coil. If there is no coil, this method
+    /// returns 0.
+    fn turns_at(&self, zone: Zone) -> usize {
+        self.coil_at(zone).map(|c| c.turns().get()).unwrap_or(0)
     }
 
-    /// Returns the number of turns at the given slot / layer position, if the
-    /// position contains a coil. The counting of slot and layer starts at
-    /// zero, so the upper layer of a double layer winding at slot 2 is indexed
-    /// as `self.turns_at(1, 0)`. If the slot or layer doesn't exist, return
-    /// an error instead.
+    /// Returns the number of winding layers within each slot.
+    ///
+    /// The number of layers is determined by the winding's [CoilLayout]. This
+    /// method is equivalent to calling [CoilLayout::layers] on
+    /// [Winding::coil_layout].
+    fn layers(&self) -> NonZeroU16 {
+        self.coil_layout().layers()
+    }
+
+    /// Returns the pole pitch in slots.
+    ///
+    /// The pole pitch is the number of slots corresponding to one pole, i.e.
+    /// the angular distance between two adjacent poles of opposite
+    /// polarity. It is calculated as
+    ///
+    /// `pole_pitch = slots / (2 * pole_pairs)`.
+    ///
+    /// The pole pitch may be fractional for windings with a fractional-slot
+    /// configuration.
+    fn pole_pitch(&self) -> f64 {
+        self.slots().get() as f64 / (2.0 * self.pole_pairs().get() as f64)
+    }
+
+    /// Returns the [`Wire`] of the [`Coil`] containing the coil side at the
+    /// given [`Zone`].
+    ///
+    /// If the specified [`Zone`] is empty, this method returns `None`.
+    fn wire_at(&self, zone: Zone) -> Option<&dyn Wire> {
+        self.coil_at(zone).map(CoilExt::wire)
+    }
+
+    /// Returns the signed phase of the coil side at the given [`Zone`].
+    ///
+    /// The sign indicates the polarity of the coil side: a positive value
+    /// denotes a positive coil-side polarity, while a negative value
+    /// denotes a negative coil-side polarity. The absolute value identifies
+    /// the phase.
+    ///
+    /// If the specified [`Zone`] is empty, this method returns `0`. The signed
+    /// phase follows the same convention as [`WindingTable`].
     fn phase_at(&self, zone: Zone) -> i32 {
         let coil = match self.coil_at(zone) {
             Some(c) => c,
@@ -243,31 +425,70 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         }
     }
 
-    // Return the number of coils of the winding
-    fn number_coils(&self) -> usize {
-        let mut counter = 0;
-
-        for slot in 0..self.slots().get() {
-            for layer in 0..self.layers().get() {
-                if let Some(coil) = self.coil_at(Zone::new(slot, layer)) {
-                    // Check if the current winding zone is the first occurence of the coil
-                    let first_zone = coil
-                        .zones()
-                        .next()
-                        .expect("A coil must occupy at least one zone");
-                    if first_zone == (Zone { slot, layer }) {
-                        counter += 1;
-                    }
-                }
-            }
-        }
-        return counter;
+    // Returns the number of [`Coil`]s in the winding.
+    fn num_coils(&self) -> usize {
+        self.coils().count()
     }
 
-    /// Create a matrix representing the zone plan of the winding.
-    /// If `full` is set to `true`, return the zone plan over all slots.
-    /// If `full` is set to `false`, return the zone plan of the underlying
-    /// basic winding instead.
+    /**
+    Returns the [`WindingTable`] of the winding.
+
+    The [`WindingTable`] shows the phase and polarity of the coil sides at the
+    individual winding zones. It is populated from `self` by iterating over the
+    slots and layers and calling [`Winding::phase_at`] for each [`Zone`].
+
+    Some windings are composed of multiple "base windings"; see
+    [`Winding::base_winding_count`] for details. If `full` is `false`, only the
+    winding table of the base winding is returned, covering the first
+    `slots / base_winding_count` slots. If `full` is `true`, the winding table
+    contains all slots of the winding.
+
+    [`WindingTable`] also implements [`From<&Winding>`], which is equivalent to
+    calling this method with `full` set to `true`.
+
+    # Example
+
+    ```
+    use std::num::NonZeroU16;
+    use stem_winding::prelude::*;
+
+    let winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 12.try_into().expect("not zero"),
+        pole_pairs: 2.try_into().expect("not zero"),
+        phases: 3.try_into().expect("not zero"),
+        layers: 1.try_into().expect("not zero"),
+        coil_span_reduction: 0,
+        zone_span_variation: 0,
+        winding_table_constructor: WindingTableConstructor::Tingley,
+    }
+    .try_into()
+    .unwrap();
+
+    // Base winding table
+    let wt = winding.winding_table(false);
+    assert_eq!(wt[Zone::new(0, 0)], 1);
+    assert_eq!(wt[Zone::new(1, 0)], -3);
+    assert_eq!(wt[Zone::new(2, 0)], 2);
+    assert_eq!(wt[Zone::new(3, 0)], -1);
+    assert_eq!(wt[Zone::new(4, 0)], 3);
+    assert_eq!(wt[Zone::new(5, 0)], -2);
+
+    // Full winding table
+    let wt = winding.winding_table(true);
+    assert_eq!(wt[Zone::new(0, 0)], 1);
+    assert_eq!(wt[Zone::new(1, 0)], -3);
+    assert_eq!(wt[Zone::new(2, 0)], 2);
+    assert_eq!(wt[Zone::new(3, 0)], -1);
+    assert_eq!(wt[Zone::new(4, 0)], 3);
+    assert_eq!(wt[Zone::new(5, 0)], -2);
+    assert_eq!(wt[Zone::new(6, 0)], 1);
+    assert_eq!(wt[Zone::new(7, 0)], -3);
+    assert_eq!(wt[Zone::new(8, 0)], 2);
+    assert_eq!(wt[Zone::new(9, 0)], -1);
+    assert_eq!(wt[Zone::new(10, 0)], 3);
+    assert_eq!(wt[Zone::new(11, 0)], -2);
+    ```
+     */
     fn winding_table(&self, full: bool) -> WindingTable {
         let slots = if full {
             self.slots()
@@ -288,48 +509,71 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return winding_table;
     }
 
-    /// Returns the (electrical) angle between two  slots in radians. In
-    /// [Pyr08], this value is designated as α_u.
+    /// Returns the electrical angle between the phasors of two neighboring
+    /// slots.
+    ///
+    /// The angle is calculated as
+    ///
+    /// `phasor_angle = 2π * pole_pairs / slots`.
+    ///
+    /// This relation is given by Pyrhönen, J., Jokinen, T., Hrabovcová, V.:
+    /// *Design of Rotating Electrical Machines*, 1st edition, John Wiley &
+    /// Sons, 2008, eq. (2.66).
     fn phasor_angle(&self) -> f64 {
         phasor_angle(self.slots(), self.pole_pairs())
     }
 
-    /// Returns the hole number represented as q = z/n.
+    /// Returns the hole number of the winding.
+    ///
+    /// This is equivalent to calling [`hole_number`] with the number of slots,
+    /// pole pairs, and phases of this winding.
     fn hole_number(&self) -> num::rational::Ratio<u16> {
         hole_number(self.slots(), self.pole_pairs(), self.phases())
     }
 
-    /**
-    Return the hole number as f64.
-     */
+    /// Returns the [`hole_number`](Winding::hole_number) as a floating-point
+    /// number.
     fn hole_number_float(&self) -> f64 {
         let hole_number = self.hole_number();
         return f64::from(*hole_number.numer()) / f64::from(*hole_number.denom());
     }
 
-    // Returns the number of turns at a given slot.
+    /// Returns the total number of turns of the specified `slot`.
     fn turns_in_slot(&self, slot: u16) -> usize {
         let mut turns: usize = 0;
         for layer in 0..self.layers().get() {
-            let turns_at = self.turns_at(Zone::new(slot, layer));
-            turns = turns + turns_at;
+            turns += self.turns_at(Zone::new(slot, layer));
         }
         return turns;
     }
 
+    // TODO
     /// Calculate the number of phasors skipped in the numbering of the voltage
     /// phasor star.
     fn skipped_phasors(&self) -> usize {
         return usize::from(self.pole_pairs().get() / self.base_winding_count().get()) - 1;
     }
 
-    /// Vibration mode: The number equals the number of constant, rotating
-    /// attraction forces which deforms the stator [Pol12]. With
-    /// o_vibration=1, a constant force in one direction exists which leads
-    /// to a dynamic load on the bearing. o_vibration=2 results
-    /// in an] ovalization of the stator, o_vibration=3 leads to a rounded
-    /// triangle and so on.
-    fn lowest_vibration_mode(&self) -> usize {
+    /// Returns the lowest order of the radial force resulting from the winding
+    /// topology.
+    ///
+    /// The radial-force order describes the spatial variation of the radial
+    /// force acting on the stator [\[1\]](#lowest_radial_force_order_1),
+    /// section 3.5.3. An order of 1 corresponds to a constant radial force
+    /// acting in one direction, resulting in a dynamic load on the
+    /// bearings. An order of 2 produces an ovalization of the stator, an
+    /// order of 3 produces a three-lobed deformation, and so on. All
+    /// multiples of the lowest radial-force order occur as well.
+    ///
+    /// The default implementation is valid only for
+    /// [symmetric](Winding::is_symmetric) windings.
+    ///
+    /// # Literature
+    /// <a id="lowest_radial_force_order_1">\[1\]</a>
+    /// Poltschak, F.: *Untersuchungen zu permanentmagneterregten
+    /// Synchronmaschinen hoher Leistungsdichte*, 1st edition, Trauner Druck,
+    /// 2012
+    fn lowest_radial_force_order(&self) -> usize {
         return num::integer::gcd(
             2 * self.pole_pairs().get(),
             self.slots().get() / self.phases().get(),
@@ -337,38 +581,108 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     }
 
     /**
-    Torque ripple order: The number equals the lowest order of sinusoidal torque waves caused by current.
-    E.g. 24 means that 24 sinusoidal waves occur during one full turn of the rotor.
-    To put it in other terms: During one full turn of the rotor, the positive peak of the sine occurs 24 times.
-    Beside the lowest order, higher orders may occur, whose order is g*o_ripple with g being an integer.
+    Returns the lowest order of the torque ripple caused by the winding
+    currents.
+
+    The torque ripple order describes the number of complete torque-ripple
+    waves occurring during one full mechanical revolution of the rotor. For
+    example, an order of 24 means that the torque completes 24 sinusoidal
+    cycles per rotor revolution; equivalently, the positive peak of the
+    sinusoidal torque component occurs 24 times per revolution.
+    \[1\](lowest_torque_ripple_order_1), section 9.4.2b)
+
+    Higher-order torque-ripple components may occur as well. Their orders
+    are integer multiples of the lowest order.
+
+    The default implementation is valid only for symmetric windings.
+
+    # Literature
+    <a id="lowest_torque_ripple_order_1">\[1\]</a>
+    Binder, A.: Elektrische Maschinen und Antriebe, 1st edition, Springer
+    Heidelberg, 2012
+
+    # Examples
 
     ```
-    use winding::{ToothCoilWinding, Winding, WindingTableConstructor};
+    use std::num::NonZeroU16;
+    use stem_winding::prelude::*;
 
-    let winding = ToothCoilWinding::new_minimal(12, 5, 3, 2, WindingTableConstructor::Tingley).unwrap();
-    assert_eq!(winding.lowest_torque_ripple_order(), 30); // Poles times phases: 10 * 3 = 60
+    let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
+        slots: 12.try_into().expect("not zero"),
+        pole_pairs: 5.try_into().expect("not zero"),
+        phases: 3.try_into().expect("not zero"),
+        layers: 1.try_into().expect("not zero"),
+        winding_table_constructor: WindingTableConstructor::Tingley,
+    }
+    .try_into()
+    .unwrap();
+
+    // 30 = number of poles × number of phases = 10 × 3
+    assert_eq!(winding.lowest_torque_ripple_order(), 30);
     ```
-     */
+    */
     fn lowest_torque_ripple_order(&self) -> usize {
-        return 2 * (self.pole_pairs().get() * self.phases().get()) as usize;
+        // In [1], the lowest-order pulsation frequency is stated as
+        // 2 * phases * stator_frequency for a single pole pair. To get the
+        // order over all pole pairs, we need to multiply by self.pole_pairs.
+        2 * (self.pole_pairs().get() * self.phases().get()) as usize
     }
 
     /**
-    Torque cogging order: The number equals the lowest order of sinusoidal torque waves
-    caused by reluctance effects on the teeth. The meaning of the number is the
-    same as that of the torque ripple order.
+    Returns the lowest order of the cogging torque caused by reluctance effects
+    between the rotor and the stator.
+
+    The cogging-torque order has the same meaning as the
+    [`lowest_torque_ripple_order`](Winding::lowest_torque_ripple_order): it is
+    the number of complete cogging-torque cycles occurring during one full
+    mechanical revolution of the rotor. Higher-order components may occur as
+    well.
+
+    Cogging torque occurs only in topologies where the magnetic reluctance
+    varies with the rotor position, such as slotted machines. It does not occur
+    in topologies without such reluctance variation, such as ideal air-gap
+    windings.
+
+    The lowest cogging-torque order is the least common multiple of the number
+    of slots and the number of poles [\[1\]](#lowest_cogging_torque_order_1),
+    section 9.4.2a, [\[2\]](#lowest_cogging_torque_order_2), eq. (14).
+
+    The default implementation is valid only for symmetric windings.
+
+    # Literature
+    <a id="lowest_cogging_torque_order_1">\[1\]</a>
+    Binder, A.: *Elektrische Maschinen und Antriebe*, 1st edition, Springer
+    Heidelberg, 2012
+
+    <a id="lowest_cogging_torque_order_2">\[2\]</a>
+    Huth, G.: *Nutrastung von permanenterregten AC-Servomotoren mit gestaffelter
+    Rototanordnung*, Electrical Engineering 78, p. 391–397, Springer-Verlag, 1995
+
+    # Examples
 
     ```
-    use winding::{ToothCoilWinding, Winding, WindingTableConstructor};
+    use std::num::NonZeroU16;
+    use stem_winding::prelude::*;
 
-    let winding = ToothCoilWinding::new_minimal(12, 5, 3, 2, WindingTableConstructor::Tingley).unwrap();
-    assert_eq!(winding.lowest_cogging_torque_order(), 60); // Least common multiple of poles and slots: lcm(12, 10) = 60
+    let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
+        slots: 12.try_into().expect("not zero"),
+        pole_pairs: 5.try_into().expect("not zero"),
+        phases: 3.try_into().expect("not zero"),
+        layers: 1.try_into().expect("not zero"),
+        winding_table_constructor: WindingTableConstructor::Tingley,
+    }
+    .try_into()
+    .unwrap();
+
+    // Least common multiple of poles and slots: lcm(12, 10) = 60
+    assert_eq!(winding.lowest_cogging_torque_order(), 60);
     ```
-     */
+    */
     fn lowest_cogging_torque_order(&self) -> usize {
         return num::integer::lcm(2 * self.pole_pairs().get(), self.slots().get()) as usize;
     }
 
+    // TODO
     /// Returns the winding grade (first grade or second grade) according to
     /// [Phy08]. If the denominator of q is odd, then the winding is of
     /// first grade, otherwise of second grade. Integer windings are always
@@ -378,19 +692,21 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return usize::from(2 - n % 2);
     }
 
+    // TODO
     /// Returns the number of wound coils per phase (equals winding_holes in
     /// case of single-layer winding).
     fn coils_per_phase(&self) -> u16 {
         return self.layers().get() * self.slots().get() / (2 * self.phases().get());
     }
 
+    // TODO
     /**
     Returns the number of coil groups per phase. This value is equal to the maximum possible number of parallel paths and can be calculated
     as described in [Seq50], p. 37: First, the number of coils per phase in a basic winding is calculated. Then, it is checked whether this
     number is even or odd. If it is even, the number of coil groups equals twice the number of basic windings (= the base_winding_count). If it is odd,
     the number of coil groups equals the number of basic windings.
 
-    At least one coiö group per phase is always possible
+    At least one coil group per phase is always possible
     */
     fn coil_groups_per_phase(&self) -> NonZeroU16 {
         let t = self.base_winding_count();
@@ -405,6 +721,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         }
     }
 
+    // TODO
     /**
     Return the number of coils in a coil group
      */
@@ -412,12 +729,14 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return self.coils_per_phase() / self.coil_groups_per_phase();
     }
 
+    // TODO
     /// Returns an iterator for all possible numbers of parallel paths, starting
     /// from 1.
     fn possible_parallel_paths(&self) -> crate::iterators::ParallelPathIterator {
         return crate::iterators::ParallelPathIterator::new(self.coil_groups_per_phase());
     }
 
+    // TODO
     /// Returns the winding factor for the given phase and harmonic order.
     /// Note that the phase counting starts with 1 as it usually does in
     /// scientific literature regarding electrical machines. If the phase is
@@ -477,14 +796,16 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return phasor_sum_geo.norm_sqr().sqrt() / (phasor_sum_abs as f64);
     }
 
+    // TODO
     /// Returns the angle between two neighbouring phases.
     fn phase_angle_difference(&self) -> f64 {
         return TAU / self.phases().get() as f64;
     }
 
+    // TODO
     /// Calculate the vertices of the Görges polygon for the winding `obj`
     /// according to [MVP08], p. 97ff. as a vector of complex coordinates.
-    fn calculate_goerges_polygon(&self, full: bool) -> Vec<Complex<f64>> {
+    fn goerges_polygon(&self, full: bool) -> Vec<Complex<f64>> {
         let slots = if full {
             self.slots()
         } else {
@@ -528,6 +849,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return verts;
     }
 
+    // TODO
     /// Check if the winding factors of all phases are identical.
     /// A default implementation exists.
     fn equal_winding_factors(&self) -> bool {
@@ -542,6 +864,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return true;
     }
 
+    // TODO
     /// Conversion of the voltage between two symmetric power grid phases to the
     /// voltage drop over a winding phase.
     fn line_to_phase_voltage(&self) -> num::Complex<f64> {
@@ -553,16 +876,19 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         }
     }
 
+    // TODO
     /// Returns the change in amplitude from line voltage to phase voltage.
     fn ratio_line_to_phase_voltage(&self) -> f64 {
         return self.line_to_phase_voltage().norm();
     }
 
+    // TODO
     /// Returns the phase angle between line voltage and phase voltage.
     fn angle_line_to_phase_voltage(&self) -> f64 {
         return -self.line_to_phase_voltage().arg();
     }
 
+    // TODO
     /// Conversion of the voltage between two symmetric power grid phases to the
     /// voltage drop over a winding phase. The voltages are given as complex
     /// numbers.
@@ -576,20 +902,23 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         }
     }
 
+    // TODO
     /// Returns the change in amplitude from line current to phase current.
     fn ratio_line_to_phase_current(&self) -> f64 {
         return self.line_to_phase_current().norm();
     }
 
+    // TODO
     /// Returns the phase angle between line current and phase current.
     fn angle_line_to_phase_current(&self) -> f64 {
         return -self.line_to_phase_current().arg();
     }
 
+    // TODO
     /// Calculate the air gap leakage factor from the Görges diagram ([MVP08],
     /// p. 97 ff.) A default implementation exists.
     fn air_gap_leakage_factor(&self) -> f64 {
-        let verts = self.calculate_goerges_polygon(false);
+        let verts = self.goerges_polygon(false);
         let slots = self.slots().get() / self.base_winding_count();
         let phase = NonZeroU16::MIN;
         let k_w = self.winding_factor(phase, 1.0);
@@ -607,11 +936,11 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         // eq. (1.2.86)
 
         // Current is arbitrarily set to 1 A (as it is in
-        // self.calculate_goerges_polygon()) Correction by the number of winding
+        // self.goerges_polygon()) Correction by the number of winding
         // layers is necessary due to the same reason as for rg2
-        let turns_per_phase = *self.turns_per_phase(phase).numer() as f64
-            / *self.turns_per_phase(phase).denom() as f64;
-        let rp2 = (self.phases().get() as f64 * turns_per_phase * k_w
+        let series_turns_per_phase = *self.series_turns_per_phase(phase).numer() as f64
+            / *self.series_turns_per_phase(phase).denom() as f64;
+        let rp2 = (self.phases().get() as f64 * series_turns_per_phase * k_w
             / (PI * (self.pole_pairs().get() * self.layers().get()) as f64))
             .powi(2);
 
@@ -619,6 +948,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return rg2 / rp2 - 1.0;
     }
 
+    // TODO
     /**
     Calculates the field excitation curve (FEC) of `self` for the given phase currents into the provided buffer.
     The buffer length must be equal to the number of winding slots and can therefore be created by `vec![0.0; winding.slots() as usize]`.
@@ -697,6 +1027,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return Ok(());
     }
 
+    // TODO
     /**
     Returns a `HarmonicOrdersIterator` which gives the harmonic orders of the field excitation curve created by the winding.
     For further details, see the documentation on `HarmonicOrdersIterator`.
@@ -725,7 +1056,9 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return HarmonicOrdersIterator::new(self.as_dyn());
     }
 
+    // TODO
     /**
+     *
     Return an iterator over the normalized air gap flux density / induction |B_v / B_p| and the
     associated harmonic order (calculated by [`harmonic_orders`](Winding::harmonic_orders)).
     for each harmonic order returned by [`harmonic_orders`](Winding::harmonic_orders)
@@ -735,11 +1068,13 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return NormalizedInductionIterator::new(self.as_dyn());
     }
 
+    // TODO
     /// Returns an iterator over all coils of the winding.
     fn coils(&self) -> CoilsIterator<'_> {
         return CoilsIterator::new(self.as_dyn());
     }
 
+    // TODO
     /**
     Return the volume of a single half turn of the wire in the specified zone.
      */
@@ -770,6 +1105,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return cross_section * length;
     }
 
+    // TODO
     /// Assert the symmetry of the winding. If true, the following is also true:
     /// * The winding factor is identical for all phases (this holds true for
     ///   all orders individually).
@@ -807,9 +1143,9 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
         // Condition 3: Add the number of turns of phase 1 and compare it to the number
         // of turns of all phases
-        let turns_phase_1 = self.turns_per_phase(NonZeroU16::MIN);
+        let turns_phase_1 = self.series_turns_per_phase(NonZeroU16::MIN);
         for phase in 2..(self.phases().get() + 1) {
-            if self.turns_per_phase(NonZeroU16::new(phase).unwrap_or(NonZeroU16::MIN))
+            if self.series_turns_per_phase(NonZeroU16::new(phase).unwrap_or(NonZeroU16::MIN))
                 != turns_phase_1
             {
                 return false;
@@ -819,6 +1155,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return true;
     }
 
+    // TODO
     /**
     If the phase resistance of the winding can be represented as `resistance = resistance_constant * electric_resistivity`,
     this function returns the `resistance_constant` as well as the material from which the electric resistivity can be taken.
@@ -849,6 +1186,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         });
     }
 
+    // TODO
     /**
     Calculate the slot leakage inductance for a symmetric winding
      */
@@ -958,12 +1296,13 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
             // Scale with the winding base_winding_count and the number of parallel paths
             return Inductance::new::<si::inductance::henry>(basic_winding_slot_inductance)
                 * self.base_winding_count().get() as f64
-                / self.parallel_paths().get() as f64;
+                / self.parallel_paths(phase).get() as f64;
         } else {
             return Inductance::new::<si::inductance::henry>(0.0);
         }
     }
 
+    // TODO
     /// Return an iterator over the coils of the winding and their properties
     #[cfg(feature = "stem_core")]
     fn coil_properties<'a>(
@@ -979,6 +1318,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         };
     }
 
+    // TODO
     #[cfg(feature = "stem_core")]
     fn coil_properties_at<'a>(
         &'a self,
@@ -995,6 +1335,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         });
     }
 
+    // TODO
     #[cfg(feature = "stem_core")]
     fn coil_resistance(
         &self,
@@ -1026,6 +1367,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         resistance
     }
 
+    // TODO
     #[cfg(feature = "stem_core")]
     fn resistance(
         &self,
@@ -1057,10 +1399,11 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
                 }
             }
         }
-        let parallel_paths = f64::from(self.parallel_paths().get());
+        let parallel_paths = f64::from(self.parallel_paths(phase).get());
         return resistance / parallel_paths.powi(2);
     }
 
+    // TODO
     #[cfg(all(feature = "cairo", feature = "stem_core"))]
     fn zone_drawables<'a>(
         &'a self,
@@ -1070,6 +1413,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         WindingZoneDrawables::new(self.as_dyn(), core, zone_config)
     }
 
+    // TODO
     #[cfg(all(feature = "cairo", feature = "stem_core"))]
     fn coil_drawables<'a>(&'a self, parameters: &'a CoilDrawablesParameters) -> CoilDrawables<'a> {
         CoilDrawables::new(self.as_dyn(), parameters)
@@ -1078,6 +1422,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
 dyn_clone::clone_trait_object!(Winding);
 
+// TODO
 /// Connection type used for the winding
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -1086,16 +1431,19 @@ pub enum Connection {
     Delta,
 }
 
-/// Calculate the electrical angle between two slots (2.66 in [1]). In [1] this
-/// is expressed by α_z as well: α_u = α_z * p / t
-/// However, α_z = 2π * t / Q, therefore this equation can be simplified to the
-/// term below
-pub fn electrical_slot_angle(slots: NonZeroU16, p: u16) -> f64 {
-    return TAU * (p as f64) / (slots.get() as f64);
-}
-
-/// Returns the hole number representation q = g + z/n where g, z and n are
-/// integers in order [g, z, n].
+/// Returns the hole number `q` of a winding as a reduced fraction.
+///
+/// The hole number is the number of slots per pole and phase:
+///
+/// `q = slots / (2 * pole_pairs * phases)`.
+///
+/// It can be represented as
+///
+/// `q = g + z / n`,
+///
+/// where `g` is the integer part and `z` and `n` are integers with
+/// `0 <= z < n`. The returned [`Ratio`] is reduced, so its numerator and
+/// denominator directly provide `z` and `n` for the fractional part.
 ///
 /// ```
 /// use winding::hole_number;
@@ -1141,6 +1489,7 @@ pub fn hole_number(
     return num::rational::Ratio::new_raw(z, n);
 }
 
+// TODO
 /// Calculate the phase sequence for the given number of phases to generate a
 /// rotating field. The sequence is calculated with the star of slots as shown
 /// in e.g. [Pyr08] or [Mat20a] The phase sequence star consists of 2*m beams
@@ -1171,6 +1520,7 @@ pub fn phase_sequence(phases: NonZeroU16) -> (Vec<i32>, Vec<f64>) {
     return (phase_indices, angles);
 }
 
+// TODO
 /// The curvature factor accounts for the curvature of the air gap field due to
 /// the stator roundness (see [Hut04])
 pub fn curvature_factor(
@@ -1259,6 +1609,7 @@ where
     }
 }
 
+// TODO
 pub fn repeating_pattern_count<C>(collection: &C, collection_len: NonZeroUsize) -> NonZeroUsize
 where
     C: RandomAccess,
@@ -1339,6 +1690,7 @@ where
     return NonZeroUsize::new(c2 / pattern_len_cand).unwrap_or(NonZeroUsize::MIN);
 }
 
+// TODO
 /// Calculate the number of basic windings with the formulae from [Pyr08],
 /// section 2.11 (p. 102 ff)
 ///
@@ -1406,13 +1758,22 @@ pub fn base_winding_count_repeating_coil_groups(
     }
 }
 
-/// Returns the (electrical) angle between two  slots in radians. In [Pyr08],
-/// this value is designated as α_u.
+/// Returns the electrical angle between the phasors of two neighboring
+/// slots.
+///
+/// The angle is calculated as
+///
+/// `phasor_angle = 2π * pole_pairs / slots`.
+///
+/// This relation is given by Pyrhönen, J., Jokinen, T., Hrabovcová, V.:
+/// *Design of Rotating Electrical Machines*, 1st edition, John Wiley &
+/// Sons, 2008, eq. (2.66).
 pub fn phasor_angle(slots: NonZeroU16, pole_pairs: NonZeroU16) -> f64 {
     return TAU * (pole_pairs.get() as f64) / (slots.get() as f64);
 }
 
 /**
+TODO
 Calculate the staggering angle for a given segment of a staggered component (stator or rotor).
 Each segment in a staggered component has the same angular offset to its neighbors, which
 is calculated from the total number of segments and the resulting skew angle:

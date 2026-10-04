@@ -136,6 +136,10 @@ impl DistributedWinding {
         &self.winding_table_constructor
     }
 
+    pub fn end_winding_leakage_coefficient(&self) -> f64 {
+        self.end_winding_leakage_coefficient
+    }
+
     /**
     Returns `true`, if the winding is build with concentric coils.
      */
@@ -485,24 +489,20 @@ impl Winding for DistributedWinding {
         }
     }
 
-    fn turns_per_phase(&self, _phase: NonZeroU16) -> Ratio<usize> {
+    fn series_turns_per_phase(&self, phase: NonZeroU16) -> Ratio<usize> {
         return Ratio::new_raw(
             usize::from(self.layers().get() * self.slots().get()) * self.turns_per_coil.get()
-                / usize::from(2 * self.phases().get() * self.parallel_paths().get()),
+                / usize::from(2 * self.phases().get() * self.parallel_paths(phase).get()),
             1,
         );
     }
 
-    fn parallel_paths(&self) -> NonZeroU16 {
+    fn parallel_paths(&self, _phase: NonZeroU16) -> NonZeroU16 {
         return self.parallel_paths;
     }
 
     fn connection(&self) -> Connection {
         return self.connection;
-    }
-
-    fn end_winding_leakage_coefficient(&self) -> f64 {
-        return self.end_winding_leakage_coefficient;
     }
 
     fn coil_at(&self, zone: Zone) -> Option<&Coil> {
@@ -525,7 +525,12 @@ impl Winding for DistributedWinding {
         _phase: NonZeroU16,
         end_winding_half_turn_length: Option<Length>,
     ) -> Inductance {
-        end_winding_leakage_inductance_distributed(self, core, end_winding_half_turn_length)
+        end_winding_leakage_inductance_distributed(
+            self,
+            core,
+            end_winding_half_turn_length,
+            self.end_winding_leakage_coefficient,
+        )
     }
 
     #[cfg(feature = "stem_core")]

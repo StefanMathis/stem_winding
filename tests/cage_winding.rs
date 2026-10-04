@@ -15,7 +15,7 @@ fn test_cage_winding_properties() {
     assert_eq!(cage_winding.slots().get(), 18); // Holds true for all cage windings
     assert_eq!(cage_winding.phases().get(), 18); // Holds true for all cage windings
     assert_eq!(
-        cage_winding.turns_per_phase(ONE),
+        cage_winding.series_turns_per_phase(ONE),
         num::rational::Ratio::new_raw(1, 2)
     ); // Holds true for all cage windings
     assert_eq!(cage_winding.turns_at(Zone::new(2, 0)), 1); // Holds true for all cage windings
@@ -34,7 +34,7 @@ fn test_air_gap_leakage_factor() {
     assert_eq!(winding.phases().get(), 14);
     assert_eq!(winding.base_winding_count().get(), 1);
     assert_eq!(
-        winding.turns_per_phase(ONE),
+        winding.series_turns_per_phase(ONE),
         num::rational::Ratio::new(1, 2)
     ); // Holds true for all cage windings
     approxim::assert_abs_diff_eq!(0.01696, winding.air_gap_leakage_factor(), epsilon = 0.0001);
@@ -46,7 +46,7 @@ fn test_air_gap_leakage_factor() {
     assert_eq!(winding.phases().get(), 28);
     assert_eq!(winding.base_winding_count().get(), 2);
     assert_eq!(
-        winding.turns_per_phase(ONE),
+        winding.series_turns_per_phase(ONE),
         num::rational::Ratio::new(1, 2)
     ); // Holds true for all cage windings
     approxim::assert_abs_diff_eq!(0.01696, winding.air_gap_leakage_factor(), epsilon = 0.0001);
@@ -58,7 +58,7 @@ fn test_air_gap_leakage_factor() {
     assert_eq!(winding.phases().get(), 56);
     assert_eq!(winding.base_winding_count().get(), 4);
     assert_eq!(
-        winding.turns_per_phase(ONE),
+        winding.series_turns_per_phase(ONE),
         num::rational::Ratio::new(1, 2)
     ); // Holds true for all cage windings
     approxim::assert_abs_diff_eq!(0.01696, winding.air_gap_leakage_factor(), epsilon = 0.0001);

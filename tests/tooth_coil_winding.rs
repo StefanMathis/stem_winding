@@ -481,8 +481,8 @@ mod serde_tests {
         let winding: ToothCoilWinding = yaml_serde::from_str(yaml).unwrap();
 
         assert_eq!(winding.turns_in_slot(0), 20);
-        assert_eq!(winding.turns_per_phase(ONE).numer().clone(), 20);
-        assert_eq!(winding.parallel_paths().get(), 2);
+        assert_eq!(winding.series_turns_per_phase(ONE).numer().clone(), 20);
+        assert_eq!(winding.parallel_paths(ONE).get(), 2);
     }
 
     #[test]

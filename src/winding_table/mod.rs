@@ -682,6 +682,12 @@ impl WindingTable {
     }
 }
 
+impl<W: crate::winding::Winding> From<&W> for WindingTable {
+    fn from(winding: &W) -> Self {
+        winding.winding_table(false)
+    }
+}
+
 impl std::fmt::Display for WindingTable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let slots = self.slots().get();
