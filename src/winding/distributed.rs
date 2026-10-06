@@ -1,3 +1,5 @@
+#[cfg(feature = "stem_core")]
+use std::collections::HashMap;
 use std::num::{NonZeroU16, NonZeroUsize};
 
 use compare_variables::compare_variables;
@@ -31,7 +33,7 @@ Arguments:
  - `concentric_coils`: If `true`, the coils of a coil group are constructed from concentric coils, otherwise each coil of a group has the same span.
 
 Example concentric coils:
-```ignore
+```text
 ┌─────────────────┐
 │ ┌────────────┐  │
 1 1 -3 -3 2 2 -1 -1
@@ -40,7 +42,7 @@ Example concentric coils:
 ```
 
 Example coils with same span:
-```ignore
+```text
 ┌──────────────┐
 │ ┌────────────│──┐
 1 1 -3 -3 2 2 -1 -1
@@ -514,7 +516,11 @@ impl Winding for DistributedWinding {
     }
 
     #[cfg(feature = "stem_core")]
-    fn is_symmetric(&self, _core: CoreRef<'_>, _overrides: &Overrides) -> bool {
+    fn is_symmetric(
+        &self,
+        _core: CoreRef<'_>,
+        _end_winding_half_turn_lengths: &HashMap<Zone, Length>,
+    ) -> bool {
         return true;
     }
 

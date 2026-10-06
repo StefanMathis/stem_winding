@@ -40,9 +40,7 @@ mod cairo_tests {
 
         let zone_config = ZoneDrawablesConfig::new(
             ZoneBackgroundColor::Phase,
-            Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
-                false, 0.8, None,
-            ))),
+            ZoneCenterConfig::Arrow(ZoneArrowConfig::new(false, 0.8, None)),
             true,
         );
 
@@ -82,7 +80,7 @@ mod cairo_tests {
 
         let zone_config = ZoneDrawablesConfig::new(
             ZoneBackgroundColor::Phase,
-            Some(ZoneCenterConfig::AmpereTurns(15.0)),
+            ZoneCenterConfig::AmpereTurns(15.0),
             true,
         );
 
@@ -123,9 +121,7 @@ mod cairo_tests {
 
             let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::Phase,
-                Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
-                    false, 0.8, None,
-                ))),
+                ZoneCenterConfig::Arrow(ZoneArrowConfig::new(false, 0.8, None)),
                 true,
             );
 
@@ -166,9 +162,7 @@ mod cairo_tests {
 
             let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::Phase,
-                Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
-                    false, 0.8, None,
-                ))),
+                ZoneCenterConfig::Arrow(ZoneArrowConfig::new(false, 0.8, None)),
                 true,
             );
 
@@ -210,7 +204,7 @@ mod cairo_tests {
             // Test with ampere turns
             let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::Phase,
-                Some(ZoneCenterConfig::AmpereTurns(15.0)),
+                ZoneCenterConfig::AmpereTurns(15.0),
                 true,
             );
 
@@ -251,11 +245,11 @@ mod cairo_tests {
         {
             let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::Phase,
-                Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
+                ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
                     false,
                     0.8,
                     Some(vec![0.0, -0.5, 0.5]),
-                ))),
+                )),
                 true,
             );
 
@@ -280,11 +274,11 @@ mod cairo_tests {
         {
             let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::None,
-                Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
+                ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
                     true,
                     1.0,
                     Some(vec![0.0, -0.5, 0.5]),
-                ))),
+                )),
                 true,
             );
 

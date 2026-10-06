@@ -15,7 +15,7 @@ use crate::{
     winding::Winding,
 };
 
-use super::{DrawableType, EndWindingLayouter, get_phase_color};
+use super::{DrawableType, EndWindingLayouter, phase_color};
 
 const BLACK: Color = Color {
     r: 0.0,
@@ -48,7 +48,7 @@ impl<'a> CoilDrawables<'a> {
     pub fn new(winding: &'a dyn Winding, parameters: &'a CoilDrawablesParameters) -> Self {
         let colors: Vec<Color> = (0..winding.phases().get())
             .map(|p| {
-                get_phase_color(
+                phase_color(
                     NonZeroU16::new(p + 1).expect("is always larger than zero"),
                     winding.phases(),
                 )
@@ -466,12 +466,12 @@ impl CoilDrawablesParameters {
     ) -> [Option<(CoilOrAnnotation, Drawable)>; 6] {
         // Cannot underflow, since phase is NonZeroU16, i.e. larger than 0.
         let color_idx = usize::from(coil.phase().get()) - 1;
-        let phase_color = colors.get(color_idx).cloned().unwrap_or(BLACK);
+        let phase_col = colors.get(color_idx).cloned().unwrap_or(BLACK);
 
         let mut coil_style = Style::default();
         coil_style.line_width = self.line_width;
         coil_style.line_style = LineStyle::Solid;
-        coil_style.line_color = phase_color.clone();
+        coil_style.line_color = phase_col.clone();
 
         match coil {
             Coil::Half(coil_half) => {

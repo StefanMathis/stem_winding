@@ -11,7 +11,7 @@ pub mod winding;
 pub mod winding_table;
 
 pub use stem_coil_layout;
-pub use stem_wire::{self, stem_material};
+pub use stem_wire::{self, stem_material, stem_material::var_quantity};
 
 #[cfg(feature = "stem_core")]
 pub use stem_core::{self, stem_magnet, stem_slot};
@@ -36,7 +36,7 @@ pub mod prelude {
     #[cfg(feature = "cairo")]
     pub use crate::draw::{
         CoilDrawablesParameters, EndWindingLayouter, EndWindingStyle, ZoneArrowConfig,
-        ZoneBackgroundColor, ZoneCenterConfig, ZoneDrawablesConfig, get_phase_color,
+        ZoneBackgroundColor, ZoneCenterConfig, ZoneDrawablesConfig, phase_color,
     };
 
     #[doc(hidden)]
@@ -50,7 +50,7 @@ pub mod prelude {
     pub use stem_coil_layout::*;
 
     #[cfg(feature = "stem_core")]
-    pub use crate::core_support::{FromWinding, Overrides};
+    pub use crate::core_support::*;
 
     #[doc(hidden)]
     #[cfg(feature = "stem_core")]
@@ -72,5 +72,5 @@ pub mod prelude {
     pub use stem_material;
 
     #[doc(hidden)]
-    pub use si::inductance::{henry, kilohenry, megahenry, microhenry, millihenry, nanohenry};
+    pub use stem_material::var_quantity;
 }

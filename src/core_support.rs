@@ -151,9 +151,84 @@ impl<W: Winding> FromWinding<W> for LinCore {
     }
 }
 
+/// A decomposition of the phase resistance of a [`Winding`] into a
+/// geometry-dependent resistance constant and the electrical resistivity of the
+/// winding material. It can be created using the
+/// [`Winding::resistance_decomposition`] trait method.
+///
+/// The phase resistance is calculated as
+///
+/// `R = k_R * rho`,
+///
+/// where R is the phase resistance, `k_R` is
+/// [`resistance_constant`](ResistanceDecomposition::resistance_constant), and
+/// `rho` is the electrical resistivity of
+/// [`material`](ResistanceDecomposition::material).
+///
+/// The resistance constant depends on the winding and core geometry but not on
+/// the electrical resistivity. This allows the decomposition to be calculated
+/// once and reused to efficiently evaluate the resistance under different
+/// environmental conditions.
+///
+/// # Examples
+///
+/// This example uses arbitrary values for the fields; in a real-world usage,
+/// it is recommended to use [`Winding::resistance_decomposition`].
+///
+/// ```
+/// use std::str::FromStr;
+/// use std::sync::Arc;
+///
+/// use approxim::assert_abs_diff_eq;
+/// use stem_winding::prelude::*;
+/// use stem_winding::var_quantity::unary::FirstOrderTaylor;
+///
+/// // Define a material with an electrical resistivity which changes linearly
+/// // with the temperature.
+/// let copper = {
+///     let mut material = Material::default();
+///     material.electrical_resistivity = VarQuantity::Function(
+///         QuantityFunction::new(Box::new(
+///         FirstOrderTaylor::new(
+///         DynQuantity::from_str("1 m/S").expect("parseable"),
+///         DynQuantity::from_str("0.4 % / K").expect("parseable"),
+///         DynQuantity::from_str("20.0 °C").expect("parseable"),
+///         )
+///         .expect("units match"),
+///     ))
+///     .expect("units match"),
+///     );
+///     Arc::new(material)
+/// };
+///
+/// let decomposed = ResistanceDecomposition {
+///     resistance_constant: ReciprocalLength::new::<reciprocal_meter>(10.0),
+///     material: copper,
+/// };
+///
+/// // 20 °C
+/// let conditions = [DynQuantity::from(ThermodynamicTemperature::new::<degree_celsius>(20.0))];
+/// assert_abs_diff_eq!(
+///     decomposed.resistance(&conditions).get::<ohm>(),
+///     10.0,
+///     epsilon = 0.0001
+/// );
+///
+/// // 120 °C -> Resistance has increased by 40 %
+/// let conditions = [DynQuantity::from(ThermodynamicTemperature::new::<degree_celsius>(120.0))];
+/// assert_abs_diff_eq!(
+///     decomposed.resistance(&conditions).get::<ohm>(),
+///     14.0,
+///     epsilon = 0.0001
+/// );
+/// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct ResistanceComponents {
+pub struct ResistanceDecomposition {
+    /// The resistance constant `k_R` summarizing the phase winding coil
+    /// geometry influence on the resistance.
+    ///
+    /// Its unit is reciprocal length (1 / Length).
     #[cfg_attr(feature = "serde", serde(default))]
     #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_quantity"))]
     pub resistance_constant: ReciprocalLength,
@@ -164,10 +239,17 @@ pub struct ResistanceComponents {
             deserialize_with = "deserialize_arc_link"
         )
     )]
+    /// The material from which the electrical resistivity `rho` is obtained.
     pub material: std::sync::Arc<Material>,
 }
 
-impl ResistanceComponents {
+impl ResistanceDecomposition {
+    /// Calculates the phase resistance for the specified environmental
+    /// conditions.
+    ///
+    /// The electrical resistivity is obtained from [`Material`] for the
+    /// specified conditions and multiplied by [`Self::resistance_constant`].
+    /// See the [struct documentation](ResistanceDecomposition) for an example.
     pub fn resistance(&self, conditions: &[DynQuantity<f64>]) -> ElectricalResistance {
         let electrical_resistivity = self.material.electrical_resistivity().get(conditions);
         return self.resistance_constant * electrical_resistivity;

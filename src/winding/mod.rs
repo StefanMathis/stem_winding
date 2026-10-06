@@ -1108,7 +1108,11 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// * The number of turns per phase is identical for all phases.
     /// * All wires have the same material
     #[cfg(feature = "stem_core")]
-    fn is_symmetric(&self, core: CoreRef<'_>, overrides: &Overrides) -> bool {
+    fn is_symmetric(
+        &self,
+        core: CoreRef<'_>,
+        end_winding_half_turn_lengths: &HashMap<Zone, Length>,
+    ) -> bool {
         use uom::si::electrical_resistance::ohm;
 
         // Condition 1: Comparison of winding factors
@@ -1118,12 +1122,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
         // Condition 2: Calculate the phase resistance for some assumed conditions
         let resistance_1 = self
-            .resistance(
-                core,
-                NonZeroU16::MIN,
-                &[],
-                &overrides.end_winding_half_turn_lengths,
-            )
+            .resistance(core, NonZeroU16::MIN, &[], end_winding_half_turn_lengths)
             .get::<ohm>();
         for phase in 2..(self.phases().get() + 1) {
             if approxim::abs_diff_ne!(
@@ -1131,7 +1130,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
                     core,
                     NonZeroU16::new(phase).unwrap_or(NonZeroU16::MIN),
                     &[],
-                    &overrides.end_winding_half_turn_lengths
+                    end_winding_half_turn_lengths
                 )
                 .get::<ohm>(),
                 resistance_1,
@@ -1155,41 +1154,145 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return true;
     }
 
-    // TODO
-    /**
-    If the phase resistance of the winding can be represented as `resistance = resistance_constant * electric_resistivity`,
-    this function returns the `resistance_constant` as well as the material from which the electric resistivity can be taken.
-    */
-    #[cfg(feature = "stem_core")]
-    fn resistance_components(
-        &self,
-        core: CoreRef<'_>,
-        overrides: &Overrides,
-    ) -> Option<ResistanceComponents> {
-        if !self.is_symmetric(core, overrides) {
-            return None;
-        }
+    //     /// Return the air gap leakage inductance ("doppeltverkettete Streuung")
+    // as /// defined in e.g. [MVP08] or [Bin12].
+    // fn air_gap_leakage_inductance(&self, phase: u16) -> Inductance {
+    //     let winding = match self.winding() {
+    //         Some(winding) => winding,
+    //         None => return Inductance::new::<henry>(0.0),
+    //     };
 
-        let material = self.coils_iter().next()?.wire().material_arc().clone();
-        if let Some(resistance_constant) = overrides.resistance_constant {
-            return Some(ResistanceComponents {
-                resistance_constant,
-                material,
-            });
-        }
+    //     let main_inductance = self.main_inductance(phase);
+    //     let leakage_factor = self
+    //         .overrides()
+    //         .air_gap_leakage_factor
+    //         .unwrap_or_else(|| winding.air_gap_leakage_factor());
+    //     return main_inductance * leakage_factor;
+    // }
 
-        let resistance = self.resistance(
-            core,
-            NonZeroU16::MIN,
-            &[],
-            &overrides.end_winding_half_turn_lengths,
-        );
-        let electrical_resistivity = material.electrical_resistivity().get(&[]);
-        return Some(ResistanceComponents {
-            resistance_constant: resistance / electrical_resistivity,
-            material,
-        });
-    }
+    // /// Return the total air gap inductance, which equals the sum of
+    // /// `self.air_gap_leakage_inductance(effective_air_gap)` and
+    // /// `self.main_inductance(effective_air_gap)`.
+    // fn air_gap_inductance(&self, phase: u16) -> Inductance {
+    //     let winding = match self.winding() {
+    //         Some(winding) => winding,
+    //         None => return Inductance::new::<henry>(0.0),
+    //     };
+
+    //     let leakage_factor = self
+    //         .overrides()
+    //         .air_gap_leakage_factor
+    //         .unwrap_or_else(|| winding.air_gap_leakage_factor());
+
+    //     return self.main_inductance(phase) * (1.0 + leakage_factor);
+    // }
+
+    // /// Return the total leakage inductance. The temperature and frequency
+    // /// parameters are used to take AC effects like current displacement into
+    // /// account. If only the DC behaviour is of interest, those values can
+    // /// be set to zero.
+    // fn leakage_inductance(&self, phase: u16, conditions: &[InfluencingQuantity])
+    // -> Inductance {     return self.air_gap_leakage_inductance(phase)
+    //         + self.end_winding_leakage_inductance(phase)
+    //         + self.slot_leakage_inductance(phase, conditions);
+    // }
+
+    // /// Return the total inductance.
+    // fn inductance(&self, phase: u16, conditions: &[InfluencingQuantity]) ->
+    // Inductance {     return self.air_gap_inductance(phase)
+    //         + self.end_winding_leakage_inductance(phase)
+    //         + self.slot_leakage_inductance(phase, conditions);
+    // }
+
+    // /// Return the electrical filling factor for the given slot.
+    // fn slot_filling_factor_electrical_at(&self, slot: u16) -> Option<f64> {
+    //     let winding = self.winding()?;
+
+    //     if slot >= winding.slots() {
+    //         return None;
+    //     }
+
+    //     let layers = winding.layers() as f64;
+    //     let zone_area = self.zone_area() / layers;
+
+    //     let range = 0..winding.layers();
+    //     let sum_sff: f64 = range
+    //         .into_iter()
+    //         .map(|layer| {
+    //             let turns = winding.turns_at(Zone::new(slot, layer));
+    //             return winding
+    //                 .wire_at(Zone::new(slot, layer))
+    //                 .map(|wire| wire.slot_fill_factor_conductor(zone_area,
+    // turns))                 .unwrap_or(0.0);
+    //         })
+    //         .sum();
+
+    //     return Some(sum_sff / layers);
+    // }
+
+    // /// Return the electrical filling factor for the given slot.
+    // fn slot_filling_factor_mechanical_at(&self, slot: u16) -> Option<f64> {
+    //     let winding = self.winding()?;
+
+    //     if slot >= winding.slots() {
+    //         return None;
+    //     }
+
+    //     let layers = winding.layers() as f64;
+    //     let zone_area = self.zone_area() / layers;
+
+    //     let range = 0..winding.layers();
+    //     let sum_sff: f64 = range
+    //         .into_iter()
+    //         .map(|layer| {
+    //             let turns = winding.turns_at(Zone::new(slot, layer));
+    //             return winding
+    //                 .wire_at(Zone::new(slot, layer))
+    //                 .map(|wire| wire.slot_fill_factor_overall(zone_area, turns))
+    //                 .unwrap_or(0.0);
+    //         })
+    //         .sum();
+
+    //     return Some(sum_sff / layers);
+    // }
+
+    //     /**
+    // Calculate the coupling factor k between the air gap flux B and the flux
+    // linkage psi: psi = B * k
+
+    // If the component has no winding, this factor is 0 (since no coupling occurs)
+    // See eq. (5.34) and (5.35) from [Mat19].
+    //  */
+    // fn convert_air_gap_flux_to_winding_linkage(&self) -> Area {
+    //     if let Some(winding) = self.winding() {
+    //         let series_turns_per_phase = winding.series_turns_per_phase(1);
+    //         let tpf_float = *series_turns_per_phase.numer() as f64 /
+    // *series_turns_per_phase.denom() as f64;         let ag_area = match
+    // self.core() {             CoreRef::Lin(c) => c.air_gap_area(),
+    //             CoreRef::Rot(c) => c.air_gap_area(),
+    //         };
+    //         return ag_area * tpf_float * self.winding_factor(1, 1.0)
+    //             / (std::f64::consts::PI * winding.pole_pairs() as f64);
+    //     } else {
+    //         return Area::new::<square_meter>(0.0);
+    //     }
+    // }
+
+    // /**
+    // Calculate the Joule losses in the winding phases for the given d-q-current.
+    // The winding is assumed to be symmetric.  */
+    // fn joule_losses_dq(
+    //     &self,
+    //     d_current: ElectricCurrent,
+    //     q_current: ElectricCurrent,
+    //     conditions: &[InfluencingQuantity],
+    // ) -> Power {
+    //     let phases = match self.winding() {
+    //         Some(wdg) => wdg.phases(),
+    //         None => return Power::new::<watt>(0.0),
+    //     };
+    //     return joule_losses_dq(self.resistance(1, conditions), phases, d_current,
+    // q_current); }
 
     // TODO
     /**
@@ -1208,104 +1311,186 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
             return slot_leakage_inductance;
         }
 
-        if let Some(slot) = core.slot() {
-            // Opening and tooth tip inductance are independent of the layer configuration
-            let lambda_opening_and_tooth_tip = slot.leakage_coefficient_opening()
-                + slot.leakage_coefficient_tooth_tip(effective_air_gap);
+        let slot = match core.slot() {
+            Some(s) => s,
+            None => return Inductance::new::<si::inductance::henry>(0.0),
+        };
 
-            // Calculate the total slot leakage inductance by iterating over all slots of a
-            // basic winding and calculating the sum of the slot flux leakage inductance.
-            let number_basic_slots = self.slots().get() / self.base_winding_count();
-            let slots = 0..number_basic_slots;
-            let number_layers = self.layers().get();
-            let number_layers_squared = number_layers.pow(2);
+        // Opening and tooth tip inductance are independent of the layer configuration
+        let lambda_opening_and_tooth_tip = slot.leakage_coefficient_opening()
+            + slot.leakage_coefficient_tooth_tip(effective_air_gap);
 
-            // Calculate the normalized current of all phases
-            let normalized_current: Vec<f64> = multiphase_system(
-                Time::new::<second>(0.0),
-                Frequency::new::<hertz>(0.0),
-                0.0,
-                self.phases(),
-            )
-            .collect();
+        // Calculate the total slot leakage inductance by iterating over all slots of a
+        // basic winding and calculating the sum of the slot flux leakage inductance.
+        let number_basic_slots = self.slots().get() / self.base_winding_count();
+        let slots = 0..number_basic_slots;
+        let number_layers = self.layers().get();
+        let number_layers_squared = number_layers.pow(2);
 
-            // Precalculate the leakage coefficient matrix
-            let lambda_slot = slot.leakage_coefficient_matrix(&self.coil_layout());
+        // Calculate the normalized current of all phases
+        let normalized_current: Vec<f64> = multiphase_system(
+            Time::new::<second>(0.0),
+            Frequency::new::<hertz>(0.0),
+            0.0,
+            self.phases(),
+        )
+        .collect();
 
-            // Precalculate the product of axial length and vacuum permeability
-            let single_turn_inductance =
-                (*VACUUM_PERMEABILITY * core.axial_coil_length()).get::<si::inductance::henry>();
+        // Precalculate the leakage coefficient matrix
+        let lambda_slot = slot.leakage_coefficient_matrix(&self.coil_layout());
 
-            // Calculate the total slot inductance for the selected phase
-            let basic_winding_slot_inductance: f64 = slots
-                .into_par_iter()
-                .map(|slot_idx| {
-                    // Calculate the self-inductance of a single slot according to [MVP08], section
-                    // 3.5.2.1 (p. 311)
-                    return (0..number_layers_squared)
-                        .into_iter()
-                        .map(|lin_idx| {
-                            let [linked_layer, excitation_layer] = cart_lin::lin_to_cart_unchecked(
-                                lin_idx.into(),
-                                &[number_layers.into(), number_layers.into()],
-                            );
-                            let linked_layer = u16::try_from(linked_layer)
-                                .expect("the input values to lin_to_cart must be in the u16 range");
-                            let excitation_layer = u16::try_from(excitation_layer)
-                                .expect("the input values to lin_to_cart must be in the u16 range");
+        // Precalculate the product of axial length and vacuum permeability
+        let single_turn_inductance =
+            (*VACUUM_PERMEABILITY * core.axial_coil_length()).get::<si::inductance::henry>();
 
-                            if let Some(linked_coil) =
-                                self.coil_at(Zone::new(slot_idx, linked_layer))
+        // Calculate the total slot inductance for the selected phase
+        let basic_winding_slot_inductance: f64 = slots
+            .into_par_iter()
+            .map(|slot_idx| {
+                // Calculate the self-inductance of a single slot according to [MVP08], section
+                // 3.5.2.1 (p. 311)
+                return (0..number_layers_squared)
+                    .into_iter()
+                    .map(|lin_idx| {
+                        let [linked_layer, excitation_layer] = cart_lin::lin_to_cart_unchecked(
+                            lin_idx.into(),
+                            &[number_layers.into(), number_layers.into()],
+                        );
+                        let linked_layer = u16::try_from(linked_layer)
+                            .expect("the input values to lin_to_cart must be in the u16 range");
+                        let excitation_layer = u16::try_from(excitation_layer)
+                            .expect("the input values to lin_to_cart must be in the u16 range");
+
+                        if let Some(linked_coil) = self.coil_at(Zone::new(slot_idx, linked_layer)) {
+                            // Only consider the selected phase
+                            if linked_coil.phase() != phase {
+                                return 0.0;
+                            }
+
+                            if let Some(excitation_coil) =
+                                self.coil_at(Zone::new(slot_idx, excitation_layer))
                             {
-                                // Only consider the selected phase
-                                if linked_coil.phase() != phase {
-                                    return 0.0;
-                                }
+                                // Calculate the coupling direction between the linked coil and
+                                // the excitation coil
+                                let coupling = 1
+                                    * self.phase_at(Zone::new(slot_idx, linked_layer)).signum()
+                                    * self
+                                        .phase_at(Zone::new(slot_idx, excitation_layer))
+                                        .signum();
 
-                                if let Some(excitation_coil) =
-                                    self.coil_at(Zone::new(slot_idx, excitation_layer))
-                                {
-                                    // Calculate the coupling direction between the linked coil and
-                                    // the excitation coil
-                                    let coupling = 1
-                                        * self.phase_at(Zone::new(slot_idx, linked_layer)).signum()
-                                        * self
-                                            .phase_at(Zone::new(slot_idx, excitation_layer))
-                                            .signum();
+                                // Get the normalized excitation current and modify its
+                                // direction according to the coupling calculated above
+                                let idx = excitation_coil.phase().get() as usize - 1;
+                                let excitation_current = normalized_current[idx] * coupling as f64;
 
-                                    // Get the normalized excitation current and modify its
-                                    // direction according to the coupling calculated above
-                                    let idx = excitation_coil.phase().get() as usize - 1;
-                                    let excitation_current =
-                                        normalized_current[idx] * coupling as f64;
-
-                                    // Calculate the inductance
-                                    return single_turn_inductance
-                                        * linked_coil.turns().get() as f64
-                                        * excitation_coil.turns().get() as f64
-                                        * excitation_current
-                                        * (lambda_slot
-                                            [(linked_layer as usize, excitation_layer as usize)]
-                                            + lambda_opening_and_tooth_tip);
-                                } else {
-                                    return 0.0;
-                                }
+                                // Calculate the inductance
+                                return single_turn_inductance
+                                    * linked_coil.turns().get() as f64
+                                    * excitation_coil.turns().get() as f64
+                                    * excitation_current
+                                    * (lambda_slot
+                                        [(linked_layer as usize, excitation_layer as usize)]
+                                        + lambda_opening_and_tooth_tip);
                             } else {
                                 return 0.0;
                             }
-                        })
-                        .sum::<f64>();
-                })
-                .sum();
+                        } else {
+                            return 0.0;
+                        }
+                    })
+                    .sum::<f64>();
+            })
+            .sum();
 
-            // Scale with the winding base_winding_count and the number of parallel paths
-            return Inductance::new::<si::inductance::henry>(basic_winding_slot_inductance)
-                * self.base_winding_count().get() as f64
-                / self.parallel_paths(phase).get() as f64;
-        } else {
-            return Inductance::new::<si::inductance::henry>(0.0);
-        }
+        // Scale with the winding base_winding_count and the number of parallel paths
+        return Inductance::new::<si::inductance::henry>(basic_winding_slot_inductance)
+            * self.base_winding_count().get() as f64
+            / self.parallel_paths(phase).get() as f64;
     }
+
+    //     /// Calculate the main inductance of the component.
+    // fn main_inductance(&self, phase: u16) -> Inductance;
+
+    // /**
+    // Convert the given current in A to the electric loading in A/m, if the
+    // component has a winding. If the component has no winding, the electric
+    // loading defaults to zero. The conversion is based on eq. (9.1.23c) from
+    // [MVP08].
+
+    // In [MVP08], table 9.1.4, the following typical values for the electric
+    // loading are given:
+
+    // # DC machines
+    // * Indirect air cooling: 20 ... 80 A/mm
+
+    // # Synchronous machines
+    // * Indirect air cooling: 30 ... 120 A/mm
+    // * Indirect hydrogen cooling: 90 ... 150 A/mm
+    // * Direct hydrogen cooling: 120 ... 200 A/mm
+    // * Direct water cooling: 160 ... 300 A/mm
+
+    // # Induction machines:
+    // * Indirect air cooling: 20 ... 120 A/mm
+    //  */
+    // fn convert_current_to_electric_loading(&self) -> ReciprocalLength;
+
+    //     /**
+    // Convert the given current in A to the electric loading in A/m, if the
+    // component has a winding. If the component has no winding, the electric
+    // loading defaults to zero. The conversion is based on eq. (9.1.23c) from
+    // [MVP08].
+
+    // In [MVP08], table 9.1.4, the following typical values for the electric
+    // loading are given:
+
+    // # DC machines
+    // * Indirect air cooling: 20 ... 80 A/mm
+
+    // # Synchronous machines
+    // * Indirect air cooling: 30 ... 120 A/mm
+    // * Indirect hydrogen cooling: 90 ... 150 A/mm
+    // * Direct hydrogen cooling: 120 ... 200 A/mm
+    // * Direct water cooling: 160 ... 300 A/mm
+
+    // # Induction machines:
+    // * Indirect air cooling: 20 ... 120 A/mm
+    //  */
+    // fn convert_current_to_electric_loading(&self) -> ReciprocalLength {
+    //     match self.winding() {
+    //         Some(wdg) => {
+    //             let series_turns_per_phase = wdg.series_turns_per_phase(1);
+    //             let tpf_float = *series_turns_per_phase.numer() as f64 /
+    // *series_turns_per_phase.denom() as f64;             return tpf_float *
+    // wdg.phases() as f64 / (PI * self.core_rot().air_gap_radius());         }
+    //         None => return ReciprocalLength::new::<reciprocal_meter>(0.0),
+    //     }
+    // }
+
+    //     /**
+    // Return the total wire volume in m³. If the motor has no winding, return 0.
+    //  */
+    // fn wire_volume(&self) -> Volume {
+    //     match self.winding() {
+    //         Some(wdg) => wdg
+    //             .coil_properties(self.core(), self.overrides())
+    //             .map(|cp| cp.volume())
+    //             .sum::<Volume>(),
+    //         None => Volume::new::<cubic_meter>(0.0),
+    //     }
+    // }
+
+    // /**
+    // Return the winding (copper) mass in kg. If the component doesn't have a
+    // winding, this value is zero.  */
+    // fn wire_mass(&self) -> Mass {
+    //     match self.winding() {
+    //         Some(wdg) => wdg
+    //             .coil_properties(self.core(), self.overrides())
+    //             .map(|cp| cp.mass())
+    //             .sum::<Mass>(),
+    //         None => return Mass::new::<kilogram>(0.0),
+    //     }
+    // }
 
     // TODO
     /// Return an iterator over the coils of the winding and their properties
@@ -1462,7 +1647,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     ///
     /// use approxim::assert_abs_diff_eq;
     /// use stem_winding::prelude::*;
-    /// use stem_material::var_quantity::unary::FirstOrderTaylor;
+    /// use stem_winding::var_quantity::unary::FirstOrderTaylor;
     ///
     /// // Define a material with an electrical resistivity which changes linearly
     /// // with the temperature.
@@ -1636,6 +1821,49 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         }
         let parallel_paths = f64::from(self.parallel_paths(phase).get());
         return resistance / parallel_paths.powi(2);
+    }
+
+    /// Returns the [`ResistanceDecomposition`] of the phase
+    /// [`resistance`](Winding::resistance).
+    ///
+    /// The phase resistance is decomposed as
+    ///
+    /// `R = k_R * rho`,
+    ///
+    /// where `R` is the phase resistance, `k_R` is a resistance constant, and
+    /// `rho` is the electrical resistivity of the winding material.
+    ///
+    /// The resistance constant depends only on the winding and core geometry,
+    /// including the end-winding geometry specified by
+    /// `end_winding_half_turn_lengths`, and has the unit reciprocal length
+    /// (`1 / Length`). Separating it from the electrical resistivity allows it
+    /// to be calculated once and reused, for example when evaluating the
+    /// resistance of the same winding at different temperatures. See
+    /// [`ResistanceDecomposition`] for an example.
+    ///
+    /// This method returns `None` if the winding is not symmetric with respect
+    /// to the specified `core` and `end_winding_half_turn_lengths`, or if
+    /// it contains no coils. The returned material is that of the first
+    /// coil returned by [`Winding::coils_iter`], so all coils must have the
+    /// same electrical resistivity.
+    #[cfg(feature = "stem_core")]
+    fn resistance_decomposition(
+        &self,
+        core: CoreRef<'_>,
+        end_winding_half_turn_lengths: &HashMap<Zone, Length>,
+    ) -> Option<ResistanceDecomposition> {
+        if !self.is_symmetric(core, end_winding_half_turn_lengths) {
+            return None;
+        }
+
+        let material = self.coils_iter().next()?.wire().material_arc().clone();
+
+        let resistance = self.resistance(core, NonZeroU16::MIN, &[], end_winding_half_turn_lengths);
+        let electrical_resistivity = material.electrical_resistivity().get(&[]);
+        return Some(ResistanceDecomposition {
+            resistance_constant: resistance / electrical_resistivity,
+            material,
+        });
     }
 
     // TODO

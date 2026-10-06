@@ -3,7 +3,7 @@ use std::{f64::consts::SQRT_2, num::NonZeroU16};
 use stem_coil_layout::Zone;
 use stem_core::prelude::*;
 
-use super::{DrawableType, get_phase_color};
+use super::{DrawableType, phase_color};
 use crate::winding::Winding;
 
 const INVISIBLE: Color = Color {
@@ -31,16 +31,13 @@ impl<'a> WindingZoneDrawables<'a> {
         zone_config: &'a ZoneDrawablesConfig,
     ) -> Self {
         let [arrow_circle_diameter, arrow_tip_diameter] = match &zone_config.center_config {
-            Some(c) => match c {
-                ZoneCenterConfig::AmpereTurns(_) => [0.0, 0.0],
-                ZoneCenterConfig::Arrow(zone_arrow_config) => {
-                    let contours = core
-                        .winding_zones(&winding.coil_layout())
-                        .map(|c| c.contour);
-                    arrow_diameters(contours, zone_arrow_config.relative_diameter)
-                }
-            },
-            None => [0.0, 0.0],
+            ZoneCenterConfig::Arrow(zone_arrow_config) => {
+                let contours = core
+                    .winding_zones(&winding.coil_layout())
+                    .map(|c| c.contour);
+                arrow_diameters(contours, zone_arrow_config.relative_diameter)
+            }
+            _ => [0.0, 0.0],
         };
 
         return WindingZoneDrawables {
@@ -85,20 +82,57 @@ impl<'a> Iterator for WindingZoneDrawables<'a> {
     }
 }
 
-/**
-This struct describes the options for creating the winding shapes.
- */
+/// Options for customizing the [`Drawable`]s produced by the
+/// [`Winding::zone_drawables`] method.
+///
+/// The documentation of the individual fields showcases how the resulting image
+/// changes based on the field values. All images have been created using
+/// _examples/winding_plots.rs_.
 #[derive(Clone, Debug)]
 pub struct ZoneDrawablesConfig {
+    /// The background color for the individual zones. See the
+    /// [`ZoneBackgroundColor`] documentation for examples.
     pub background_color: ZoneBackgroundColor,
-    pub center_config: Option<ZoneCenterConfig>,
+    /// Visualization options for the coil side in the zone center. See the
+    /// [`ZoneCenterConfig`] documentation for examples.
+    pub center_config: ZoneCenterConfig,
+    /// Whether to show zones which don't contain a coil side. If set to true,
+    /// empty zones are shown with a dashed contour.
+    ///
+    /// **Empty zones shown**
+    #[doc = ""]
+    #[cfg_attr(
+    feature = "doc-images",
+    doc = ::embed_doc_image::embed_image!("show_empty_zones",
+        "docs/img/zone_drawables_config_show_empty_zones.svg")
+)]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    /// ![Empty zones shown][show_empty_zones]
+    ///
+    /// **Empty zones hidden**
+    #[doc = ""]
+    #[cfg_attr(
+    feature = "doc-images",
+    doc = ::embed_doc_image::embed_image!("hide_empty_zones",
+        "docs/img/zone_drawables_config_hide_empty_zones.svg")
+)]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    /// ![Empty zones hidden][hide_empty_zones]
     pub show_empty_zones: bool,
 }
 
 impl ZoneDrawablesConfig {
     pub fn new(
         background_color: ZoneBackgroundColor,
-        center_config: Option<ZoneCenterConfig>,
+        center_config: ZoneCenterConfig,
         show_empty_zones: bool,
     ) -> Self {
         return Self {
@@ -135,55 +169,50 @@ impl ZoneDrawablesConfig {
 
         let centroid = contour.centroid();
 
-        if let Some(zone_center_config) = &self.center_config {
-            match zone_center_config {
-                ZoneCenterConfig::AmpereTurns(font_size) => {
-                    let text = if phase > 0 {
-                        format!("{turns}")
-                    } else {
-                        format!("-{turns}")
-                    };
-                    zone_style.text = Some(Box::new(Text::new(
-                        text,
-                        Anchor::Centroid,
-                        [0.0, 0.0],
-                        [0.0, 0.0],
-                        Color {
-                            r: 0.0,
-                            g: 0.0,
-                            b: 0.0,
-                            a: 1.0,
-                        },
-                        *font_size,
-                        0.0,
-                    )));
-                    drawables[0] = Some((
-                        DrawableType::Annotation(zone),
-                        Drawable::new(contour, zone_style),
-                    ));
-                }
-                ZoneCenterConfig::Arrow(zone_arrow_config) => {
-                    if !zone_arrow_config.color_by_phase {
-                        drawables[0] = Some((drawable_type, Drawable::new(contour, zone_style)));
+        match &self.center_config {
+            ZoneCenterConfig::None => {
+                drawables[0] = Some((drawable_type, Drawable::new(contour, zone_style)))
+            }
+            ZoneCenterConfig::AmpereTurns(font_size) => {
+                let text = if phase >= 0 {
+                    format!("{turns}")
+                } else {
+                    format!("-{turns}")
+                };
+                zone_style.text = Some(Box::new(Text::new(
+                    text,
+                    Anchor::Centroid,
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                    Color {
+                        r: 0.0,
+                        g: 0.0,
+                        b: 0.0,
+                        a: 1.0,
+                    },
+                    *font_size,
+                    0.0,
+                )));
+                drawables[0] = Some((
+                    DrawableType::Annotation(zone),
+                    Drawable::new(contour, zone_style),
+                ));
+            }
+            ZoneCenterConfig::Arrow(zone_arrow_config) => {
+                drawables[0] = Some((drawable_type, Drawable::new(contour, zone_style)));
+                let arrow_drawables = zone_arrow_config.arrow(
+                    phase,
+                    phases,
+                    arrow_circle_diameter,
+                    arrow_tip_diameter,
+                );
+                for (idx, mut drawable) in arrow_drawables.into_iter().enumerate() {
+                    if let Some(d) = drawable.as_mut() {
+                        d.translate(centroid);
                     }
-
-                    let arrow_drawables = zone_arrow_config.arrow(
-                        phase,
-                        phases,
-                        arrow_circle_diameter,
-                        arrow_tip_diameter,
-                    );
-                    let offset = !(zone_arrow_config.color_by_phase) as usize;
-                    for (idx, mut drawable) in arrow_drawables.into_iter().enumerate() {
-                        if let Some(d) = drawable.as_mut() {
-                            d.translate(centroid);
-                        }
-                        drawables[idx + offset] = drawable.map(|d| (DrawableType::Arrow(zone), d));
-                    }
+                    drawables[idx + 1] = drawable.map(|d| (DrawableType::Arrow(zone), d));
                 }
             }
-        } else {
-            drawables[0] = Some((drawable_type, Drawable::new(contour, zone_style)));
         }
 
         return drawables;
@@ -194,17 +223,65 @@ impl Default for ZoneDrawablesConfig {
     fn default() -> Self {
         Self {
             background_color: Default::default(),
-            center_config: None,
+            center_config: ZoneCenterConfig::None,
             show_empty_zones: true,
         }
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+/// The background color of the zone [`Drawable`]s produced by the
+/// [`Winding::zone_drawables`] method.
+///
+/// This enum is used to define the [`ZoneDrawablesConfig`] which is given as an
+/// argument to [`Winding::zone_drawables`]. See the variant documentation for
+/// examples.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum ZoneBackgroundColor {
+    /// If a coil occupies the zone, its phase is used to dermine the
+    /// background color from the [`phase_color`] function. If the zone in
+    /// question does not contain a coil side, it has no background color.
+    #[doc = ""]
+    #[cfg_attr(
+    feature = "doc-images",
+    doc = ::embed_doc_image::embed_image!("phase_color",
+        "docs/img/zone_drawables_config_phase.svg")
+)]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    /// ![Individual phase color][phase_color]
     Phase,
+    /// The [`ORANGE`](stem_slot::ORANGE) color from the [stem_slot] crate which
+    /// is used as the "default" color when visualizing a slot and its zones.
+    #[doc = ""]
+    #[cfg_attr(
+    feature = "doc-images",
+    doc = ::embed_doc_image::embed_image!("slot_color",
+        "docs/img/zone_drawables_config_default.svg")
+)]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    /// ![Default slot color][slot_color]
     #[default]
     Default,
+    /// No background color.
+    #[doc = ""]
+    #[cfg_attr(
+    feature = "doc-images",
+    doc = ::embed_doc_image::embed_image!("no_bg_color",
+        "docs/img/zone_drawables_config_none.svg")
+)]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    /// ![No background color example][no_bg_color]
     None,
 }
 
@@ -212,7 +289,7 @@ impl ZoneBackgroundColor {
     pub fn color(&self, phase: u16, phases: NonZeroU16) -> Color {
         match self {
             ZoneBackgroundColor::Phase => match NonZeroU16::new(phase) {
-                Some(ph) => get_phase_color(ph, phases),
+                Some(ph) => phase_color(ph, phases),
                 None => Color {
                     r: 0.0,
                     g: 0.0,
@@ -233,25 +310,145 @@ This struct describes the inner element of the zone shape.
 * `AmpereTurns`: Write the number of ampere turns in the shape middle, taking into account the polarity of the zone according to the zone plan.
 * `Arrow`: Draw an arrow inside the zone shape which is defined by a `ZoneArrowConfig` struct.
  */
+/// Visualization of coil side properties in the zone center.
+///
+/// This enum is used to define the [`ZoneDrawablesConfig`] which is given as an
+/// argument to [`Winding::zone_drawables`]. See the variant documentation for
+/// examples.
 #[derive(Clone, Debug)]
 pub enum ZoneCenterConfig {
+    /// No information in the zone center.
+    #[doc = ""]
+    #[cfg_attr(
+    feature = "doc-images",
+    doc = ::embed_doc_image::embed_image!("no_zone_config",
+        "docs/img/zone_drawables_config_no_zone_config.svg")
+)]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    /// ![No zone center configuration][no_zone_config]
+    None,
+    /// Shows the ampere-turns of the coil side for a current of one ampere.
+    ///
+    /// Since the ampere-turns are the product of the directed current times the
+    /// number of coil turns inside the zone, the shown number is either +turns
+    /// or -turns, depending on the current direction / polarity of the coil
+    /// side. The field value defines the font size.
+    #[doc = ""]
+    #[cfg_attr(
+    feature = "doc-images",
+    doc = ::embed_doc_image::embed_image!("ampere_turns",
+        "docs/img/zone_drawables_config_ampere_turns.svg")
+)]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    /// ![Ampere turns][ampere_turns]
     AmpereTurns(f64),
+    /// Shows the current going through the coil as an arrow which either enters
+    /// or exits the image plane (depending on the product of current sign and
+    /// zone polarity). See the documentation of [`ZoneArrowConfig`] for
+    /// examples.
     Arrow(ZoneArrowConfig),
 }
 
-/**
-This struct describes the options for the arrow.
-
-# Fields
-* `color_by_phase`: If true, the phase arrows are drawn in the color of the respective shape. Otherwise, they are drawn in black.
-* `normalized_current`: If a current vector is given, the size and direction of the arrow will be adjusted according to the current value.
-This vector must be normalized (all values between -1 and 1). Outliers will be truncated. If no vector is given, the arrow is always at its maximum size.
-Its direction is then derived from the zone plan.
- */
+/// Visualization configuration for the zone arrow.
+///
+/// The fields of this struct determine the appearance of the zone arrow. This
+/// is best showcased by comparing two examples for a winding with the following
+/// [`WindingTable`](crate::winding_table::WindingTable):
+///
+/// ```text
+/// L \ S │   0   1   2   3   4   5
+/// ──────┼────────────────────────
+///   0   │   1  -3   2   0   0   0
+///   1   │   0   0   0  -1   3  -2
+/// ```
+///
+/// **Example 1**
+/// ```ignore
+/// ZoneArrowConfig {
+///     color_by_phase: true,
+///     relative_diameter: 0.6,
+///     normalized_current: None,
+/// }
+/// ```
+#[doc = ""]
+#[cfg_attr(
+    feature = "doc-images",
+    doc = "![ZoneArrowConfig example 1][color_by_phase]"
+)]
+#[cfg_attr(
+    feature = "doc-images",
+    embed_doc_image::embed_doc_image(
+        "color_by_phase",
+        "docs/img/zone_drawables_config_zone_arrow_color_by_phase.svg"
+    )
+)]
+///
+/// **Example 2**
+/// ```ignore
+/// ZoneArrowConfig {
+///     color_by_phase: false,
+///     relative_diameter: 0.8,
+///     normalized_current: [0.5, 0.5, -1.0],
+/// }
+/// ```
+#[cfg_attr(
+    feature = "doc-images",
+    doc = "![ZoneArrowConfig example 2][black_normalized_current]"
+)]
+#[cfg_attr(
+    feature = "doc-images",
+    embed_doc_image::embed_doc_image(
+        "black_normalized_current",
+        "docs/img/zone_drawables_config_zone_arrow_black_normalized_current.svg"
+    )
+)]
+#[cfg_attr(
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+)]
+///
+/// While the influence of the [`ZoneArrowConfig::color_by_phase`] parameter is
+/// obvious, the other two deserve a detailed discussion. In example 1,
+/// [`ZoneArrowConfig::relative_diameter`] is set to 0.6. Since there is no
+/// current, all arrow circles have the same diameter and the shown polarity
+/// corresponds to that of the coil side.
+///
+/// In contrast, in example 2 the arrow circle diameter is determined as the
+/// product of the [`ZoneArrowConfig::normalized_current`] and the relative
+/// diameter. For phase 1 and 2, the normalized current is 0.5, meaning that the
+/// actual diameter is 0.4 (0.8 * 0.5); for phase 3  it is 0.8 (0.8 * 1).
+/// Furthermore, the arrow polarity has been inverted for phase 3, because its
+/// phase current is negative.
 #[derive(Clone, Debug)]
 pub struct ZoneArrowConfig {
+    /// If true, the geometric objects (lines, circles) forming the arrow are
+    /// colored with the [`phase_color`] function (using the coil phase as
+    /// the input). If false, the objects are drawn in black.
     pub color_by_phase: bool,
+    /// Relative diameter of the arrow circle. Is clamped to [0, 1]. 0 means no
+    /// arrow, 1 means that the arrow diameter is either the
+    /// [`BoundingBox::height`] or [`BoundingBox::width`] of the zone contour,
+    /// whichever is smaller. Correspondingly, a value of 0.5 will result in a
+    /// diameter half that value.
     pub relative_diameter: f64,
+    /// Normalized current value for each phase which should be between [-1, 1].
+    /// If specified, the coil phase is used to index into the contained
+    /// vector (phase 1 corresponding to the 0th entry, phase 2
+    /// corresponding to the 1st entry and so on). The absolute value at
+    /// that index is clamped to [0, 1] and multiplied
+    /// with the [`ZoneArrowConfig::relative_diameter`] to get an arrow diameter
+    /// whose size corresponds to the current. If the value is negative, the
+    /// arrow polarity is inverted. See the [`ZoneArrowConfig`] documentation
+    /// for an example.
     pub normalized_current: Option<Vec<f64>>,
 }
 
@@ -294,9 +491,9 @@ impl ZoneArrowConfig {
         };
         let adj_arrow_circle_diameter = arrow_circle_diameter * rel_curr.abs();
 
-        let phase_color = if self.color_by_phase {
+        let phase_col = if self.color_by_phase {
             match NonZeroU16::new(phase.abs() as u16) {
-                Some(ph) => get_phase_color(ph, phases),
+                Some(ph) => phase_color(ph, phases),
                 None => INVISIBLE,
             }
         } else {
@@ -310,7 +507,7 @@ impl ZoneArrowConfig {
 
         if rel_curr > 0.0 {
             if let Some(arrow_components) =
-                positive_current_arrow(adj_arrow_circle_diameter, arrow_tip_diameter, phase_color)
+                positive_current_arrow(adj_arrow_circle_diameter, arrow_tip_diameter, phase_col)
             {
                 for (idx, arrow_component) in arrow_components.into_iter().enumerate() {
                     drawables[idx] = Some(arrow_component);
@@ -318,7 +515,7 @@ impl ZoneArrowConfig {
             }
         } else {
             if let Some(arrow_components) =
-                negative_current_arrow(adj_arrow_circle_diameter, phase_color)
+                negative_current_arrow(adj_arrow_circle_diameter, phase_col)
             {
                 for (idx, arrow_component) in arrow_components.into_iter().enumerate() {
                     drawables[idx] = Some(arrow_component);

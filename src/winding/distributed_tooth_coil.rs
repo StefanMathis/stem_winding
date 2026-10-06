@@ -1,3 +1,5 @@
+#[cfg(feature = "stem_core")]
+use std::collections::HashMap;
 use std::num::{NonZeroU16, NonZeroUsize};
 
 use compare_variables::compare_variables;
@@ -323,7 +325,11 @@ impl Winding for DistributedToothCoilWinding {
     }
 
     #[cfg(feature = "stem_core")]
-    fn is_symmetric(&self, _core: CoreRef<'_>, _overrides: &Overrides) -> bool {
+    fn is_symmetric(
+        &self,
+        _core: CoreRef<'_>,
+        _end_winding_half_turn_lengths: &HashMap<Zone, Length>,
+    ) -> bool {
         true
     }
 

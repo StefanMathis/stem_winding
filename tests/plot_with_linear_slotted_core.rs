@@ -57,9 +57,7 @@ mod cairo_tests {
 
         let zone_config = ZoneDrawablesConfig::new(
             ZoneBackgroundColor::Phase,
-            Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
-                false, 0.8, None,
-            ))),
+            ZoneCenterConfig::Arrow(ZoneArrowConfig::new(false, 0.8, None)),
             true,
         );
 
@@ -97,9 +95,7 @@ mod cairo_tests {
 
         let zone_config = ZoneDrawablesConfig::new(
             ZoneBackgroundColor::Phase,
-            Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
-                false, 0.8, None,
-            ))),
+            ZoneCenterConfig::Arrow(ZoneArrowConfig::new(false, 0.8, None)),
             true,
         );
 
@@ -138,9 +134,7 @@ mod cairo_tests {
 
         let zone_config = ZoneDrawablesConfig::new(
             ZoneBackgroundColor::Phase,
-            Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
-                false, 0.8, None,
-            ))),
+            ZoneCenterConfig::Arrow(ZoneArrowConfig::new(false, 0.8, None)),
             true,
         );
 
@@ -179,7 +173,7 @@ mod cairo_tests {
 
         let zone_config = ZoneDrawablesConfig::new(
             ZoneBackgroundColor::Phase,
-            Some(ZoneCenterConfig::AmpereTurns(15.0)),
+            ZoneCenterConfig::AmpereTurns(15.0),
             true,
         );
 
@@ -219,9 +213,7 @@ mod cairo_tests {
 
         let zone_config = ZoneDrawablesConfig::new(
             ZoneBackgroundColor::Phase,
-            Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
-                false, 0.8, None,
-            ))),
+            ZoneCenterConfig::Arrow(ZoneArrowConfig::new(false, 0.8, None)),
             true,
         );
 
@@ -323,9 +315,7 @@ mod cairo_tests {
 
             let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::Phase,
-                Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
-                    false, 0.8, None,
-                ))),
+                ZoneCenterConfig::Arrow(ZoneArrowConfig::new(false, 0.8, None)),
                 true,
             );
 
@@ -365,9 +355,7 @@ mod cairo_tests {
 
             let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::Phase,
-                Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
-                    false, 0.8, None,
-                ))),
+                ZoneCenterConfig::Arrow(ZoneArrowConfig::new(false, 0.8, None)),
                 true,
             );
 
@@ -453,9 +441,7 @@ mod cairo_tests {
         {
             let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::Phase,
-                Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
-                    false, 0.9, None,
-                ))),
+                ZoneCenterConfig::Arrow(ZoneArrowConfig::new(false, 0.9, None)),
                 true,
             );
 
@@ -483,9 +469,7 @@ mod cairo_tests {
         {
             let zone_config = ZoneDrawablesConfig::new(
                 ZoneBackgroundColor::Phase,
-                Some(ZoneCenterConfig::Arrow(ZoneArrowConfig::new(
-                    false, 0.9, None,
-                ))),
+                ZoneCenterConfig::Arrow(ZoneArrowConfig::new(false, 0.9, None)),
                 false,
             );
 
