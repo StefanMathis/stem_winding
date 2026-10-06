@@ -218,7 +218,7 @@ impl<W: Winding + ?Sized> From<&W> for CoilAssembly {
     fn from(winding: &W) -> Self {
         // Build the hashmap
         let mut coils = Coils::with_capacity(winding.num_coils(), winding.num_coils());
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             coils
                 .insert(coil.clone())
                 .expect("two coils occupy the same zone. This is a bug.")

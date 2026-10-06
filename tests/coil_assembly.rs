@@ -142,7 +142,7 @@ fn test_derive_from_winding() {
             winding.series_turns_per_phase(NonZeroU16::MIN)
         );
 
-        let coils: Vec<Coil> = coil_assembly.coils().cloned().collect();
+        let coils: Vec<Coil> = coil_assembly.coils_iter().cloned().collect();
         assert_eq!(coils.len(), 12);
 
         // Compare the zone plans
@@ -181,7 +181,7 @@ fn test_derive_from_winding() {
             winding.series_turns_per_phase(NonZeroU16::MIN)
         );
 
-        let coils: Vec<Coil> = coil_assembly.coils().cloned().collect();
+        let coils: Vec<Coil> = coil_assembly.coils_iter().cloned().collect();
         assert_eq!(coils.len(), 24);
 
         // Compare the zone plans
@@ -231,7 +231,7 @@ fn test_derive_from_winding() {
             winding.series_turns_per_phase(NonZeroU16::MIN)
         );
 
-        let coils: Vec<Coil> = coil_assembly.coils().cloned().collect();
+        let coils: Vec<Coil> = coil_assembly.coils_iter().cloned().collect();
         assert_eq!(coils.len(), 12);
 
         // Compare the zone plans

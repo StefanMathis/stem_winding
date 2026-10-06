@@ -131,7 +131,7 @@ fn test_coil_analysis() {
             double_zone_span: true,
         })
         .unwrap();
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             if let Coil::Full(coil) = coil {
                 let throw = coil.throw(Some(winding.slots()));
                 assert!(throw == 1 || throw == 3); // Coil throw is either 1 or 3

@@ -22,7 +22,7 @@ fn test_end_winding_half_turn_length_semicircle() {
 
         let core = RotCore::from_winding(&winding);
 
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             for zone in coil.zones() {
                 let len =
                     end_winding_half_turn_length_semicircle(&winding, CoreRef::from(&core), zone)
@@ -44,7 +44,7 @@ fn test_end_winding_half_turn_length_semicircle() {
 
         let core = RotCore::from_winding(&winding);
 
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             for zone in coil.zones() {
                 let len =
                     end_winding_half_turn_length_semicircle(&winding, CoreRef::from(&core), zone)
@@ -71,7 +71,7 @@ fn test_end_winding_half_turn_length_circular_arc() {
         .unwrap();
 
         let core = RotCore::from_winding(&winding);
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             for zone in coil.zones() {
                 let len =
                     end_winding_half_turn_length_circular_arc(&winding, &core, zone).get::<meter>();
@@ -93,7 +93,7 @@ fn test_end_winding_half_turn_length_circular_arc() {
         .unwrap();
 
         let core = RotCore::from_winding(&winding);
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             for zone in coil.zones() {
                 let len =
                     end_winding_half_turn_length_circular_arc(&winding, &core, zone).get::<meter>();
@@ -115,7 +115,7 @@ fn test_end_winding_half_turn_length_circular_arc() {
         .unwrap();
 
         let core = RotCore::from_winding(&winding);
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             for zone in coil.zones() {
                 let len =
                     end_winding_half_turn_length_circular_arc(&winding, &core, zone).get::<meter>();
@@ -137,7 +137,7 @@ fn test_end_winding_half_turn_length_circular_arc() {
         .unwrap();
 
         let core = RotCore::from_winding(&winding);
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             for zone in coil.zones() {
                 let len =
                     end_winding_half_turn_length_circular_arc(&winding, &core, zone).get::<meter>();
@@ -204,7 +204,7 @@ fn test_end_winding_half_turn_phd_motor() {
     .try_into()
     .expect("valid magnetic core");
 
-    for coil in winding.coils() {
+    for coil in winding.coils_iter() {
         for zone in coil.zones() {
             let len_func =
                 end_winding_half_turn_length_circular_arc(&winding, &core, zone).get::<meter>();
@@ -233,7 +233,7 @@ fn test_end_winding_half_turn_length_straight() {
         .unwrap();
 
         let core = LinCore::from_winding(&winding);
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             for zone in coil.zones() {
                 let len =
                     end_winding_half_turn_length_straight(&winding, &core, zone).get::<meter>();
@@ -255,7 +255,7 @@ fn test_end_winding_half_turn_length_straight() {
         .unwrap();
 
         let core = LinCore::from_winding(&winding);
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             for zone in coil.zones() {
                 let len =
                     end_winding_half_turn_length_straight(&winding, &core, zone).get::<meter>();
@@ -283,7 +283,7 @@ fn test_end_winding_half_turn_length_straight() {
         .unwrap();
 
         let core = LinCore::from_winding(&winding);
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             for zone in coil.zones() {
                 let len =
                     end_winding_half_turn_length_straight(&winding, &core, zone).get::<meter>();
@@ -311,7 +311,7 @@ fn test_end_winding_half_turn_length_straight() {
         .unwrap();
 
         let core = LinCore::from_winding(&winding);
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             for zone in coil.zones() {
                 let len =
                     end_winding_half_turn_length_straight(&winding, &core, zone).get::<meter>();
@@ -333,7 +333,7 @@ fn test_end_winding_half_turn_length_straight() {
         .unwrap();
 
         let core = LinCore::from_winding(&winding);
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             for zone in coil.zones() {
                 let len =
                     end_winding_half_turn_length_straight(&winding, &core, zone).get::<meter>();
@@ -353,7 +353,7 @@ fn test_end_winding_half_turn_length_straight() {
         .unwrap();
 
         let core = LinCore::from_winding(&winding);
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             for zone in coil.zones() {
                 let len =
                     end_winding_half_turn_length_straight(&winding, &core, zone).get::<meter>();

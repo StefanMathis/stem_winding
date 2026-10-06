@@ -285,7 +285,7 @@ impl CoilDrawablesParameters {
 
                 // Find the coil with the largest throw; it determines the
                 // height of the end winding
-                let max_dist = winding.coils().fold(0.0f64, |acc, c| match c {
+                let max_dist = winding.coils_iter().fold(0.0f64, |acc, c| match c {
                     Coil::Full(full_coil) => {
                         let x1 = self.horizontal_coil_position(full_coil.positive_zone(), layers);
                         let x2 = self.horizontal_coil_position(full_coil.negative_zone(), layers);

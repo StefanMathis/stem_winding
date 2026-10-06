@@ -18,7 +18,7 @@ fn test_winding_12_1_dl_coil_span_reduction() {
     }
     .try_into()
     .unwrap();
-    for coil in winding.coils() {
+    for coil in winding.coils_iter() {
         assert_eq!(coil.throw(Some(winding.slots())), 6);
     }
 
@@ -33,7 +33,7 @@ fn test_winding_12_1_dl_coil_span_reduction() {
     }
     .try_into()
     .unwrap();
-    for coil in winding.coils() {
+    for coil in winding.coils_iter() {
         assert_eq!(coil.throw(Some(winding.slots())), 5);
     }
 
@@ -48,7 +48,7 @@ fn test_winding_12_1_dl_coil_span_reduction() {
     }
     .try_into()
     .unwrap();
-    for coil in winding.coils() {
+    for coil in winding.coils_iter() {
         assert_eq!(coil.throw(Some(winding.slots())), 4);
     }
 
@@ -63,7 +63,7 @@ fn test_winding_12_1_dl_coil_span_reduction() {
     }
     .try_into()
     .unwrap();
-    for coil in winding.coils() {
+    for coil in winding.coils_iter() {
         assert_eq!(coil.throw(Some(winding.slots())), 3);
     }
 }
@@ -216,7 +216,7 @@ fn test_set_concentric() {
     .unwrap();
     wdg_2.set_concentric_coils(true);
 
-    for (coil_1, coil_2) in wdg_1.coils().zip(wdg_2.coils()) {
+    for (coil_1, coil_2) in wdg_1.coils_iter().zip(wdg_2.coils_iter()) {
         assert_eq!(
             coil_1.zones().collect::<Vec<_>>(),
             coil_2.zones().collect::<Vec<_>>()
@@ -239,7 +239,7 @@ fn test_coil_span() {
         }
         .try_into()
         .unwrap();
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             if let Coil::Full(coil) = coil {
                 assert_eq!(coil.throw(Some(winding.slots())), 9); // Coil span is always 9
             }
@@ -259,7 +259,7 @@ fn test_coil_span() {
         .try_into()
         .unwrap();
 
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             if let Coil::Full(coil) = coil {
                 assert_eq!(coil.throw(Some(winding.slots())), 9); // Coil span is always 9
                 assert_ne!(coil.negative_zone().layer, coil.positive_zone().layer);
@@ -280,7 +280,7 @@ fn test_coil_span() {
         .try_into()
         .unwrap();
 
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             if let Coil::Full(coil) = coil {
                 let span = coil.throw(Some(winding.slots()));
                 assert!(span == 1 || span == 2); // Coil span is either 2 or 1
@@ -301,7 +301,7 @@ fn test_coil_span() {
         .try_into()
         .unwrap();
 
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             if let Coil::Full(coil) = coil {
                 let span = coil.throw(Some(winding.slots()));
                 assert!(span == 2); // Coil span is always 2
@@ -323,7 +323,7 @@ fn test_coil_span() {
         .try_into()
         .unwrap();
 
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             if let Coil::Full(coil) = coil {
                 let span = coil.throw(Some(winding.slots()));
                 assert!(span == 3 || span == 4); // Coil span is either 3 or 4
@@ -344,7 +344,7 @@ fn test_coil_span() {
         .try_into()
         .unwrap();
 
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             if let Coil::Full(coil) = coil {
                 let span = coil.throw(Some(winding.slots()));
                 assert!(span == 3); // Coil span is always 3
@@ -448,7 +448,7 @@ fn test_winding_36_4() {
         assert_eq!(winding_table, expected_result);
 
         // Each coil has a slot pitch of 9
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             match coil {
                 Coil::Full(coil) => {
                     assert_eq!(coil.throw(Some(winding.slots())), 9);
@@ -496,7 +496,7 @@ fn test_winding_36_4() {
         .unwrap();
 
         // Each coil must go from the upper to the lower layer and have a span of 8
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             match coil {
                 Coil::Full(coil) => {
                     assert_ne!(coil.positive_zone().layer, coil.negative_zone().layer);
@@ -860,7 +860,7 @@ fn test_derive_coil_assembly() {
     assert_eq!(coil_assembly.slots(), winding.slots());
     assert_eq!(coil_assembly.layers(), winding.layers());
 
-    let coils: Vec<Coil> = coil_assembly.coils().cloned().collect();
+    let coils: Vec<Coil> = coil_assembly.coils_iter().cloned().collect();
     assert_eq!(coils.len(), 9);
 
     // Compare the zone plans
@@ -882,7 +882,7 @@ fn test_derive_coil_assembly() {
         Coil::Full(coil) => coil,
         Coil::Half(_) => panic!("Test failed"),
     };
-    let coils: Vec<Coil> = coil_assembly.coils().cloned().collect();
+    let coils: Vec<Coil> = coil_assembly.coils_iter().cloned().collect();
     assert_eq!(coils.len(), 8);
 
     // Evaluate the coil
@@ -1191,9 +1191,10 @@ mod stem_core_tests {
 
     use super::*;
 
-    use std::{f64::consts::PI, sync::Arc};
+    use std::{f64::consts::PI, str::FromStr, sync::Arc};
 
     use serde_mosaic::{DatabaseManager, SerdeYaml};
+    use stem_core::stem_material::prelude::unary::FirstOrderTaylor;
 
     fn create_core_rect() -> RotCore {
         let opening_height = Length::new::<millimeter>(2.0);
@@ -1225,14 +1226,12 @@ mod stem_core_tests {
     }
 
     fn create_core_trap() -> RotCore {
-        let slot_angle = PI / 18.0;
-        let bottom_width = Length::new::<millimeter>(9.2);
         let slot: SemiTrapezoidSlot = SemiTrapezoidWithoutSlopesBuilder {
-            bottom_width,
+            bottom_width: Length::new::<millimeter>(9.2),
             opening_width: Length::new::<millimeter>(2.0),
             height: Length::new::<millimeter>(17.75),
             opening_height: Length::new::<millimeter>(2.0),
-            slot_angle,
+            slot_angle: PI / 18.0,
             bottom_radius: Length::new::<millimeter>(2.0),
             top_radius: Length::new::<millimeter>(2.0),
             opening_radius: Length::new::<millimeter>(0.5),
@@ -1306,7 +1305,18 @@ mod stem_core_tests {
     fn test_distributed_winding_364_sl() {
         let core = create_core_trap();
 
-        let copper: Material = create_dbm().read("Copper").unwrap();
+        let mut copper: Material = create_dbm().read("Copper").unwrap();
+        copper.electrical_resistivity = VarQuantity::Function(
+            QuantityFunction::new(Box::new(
+                FirstOrderTaylor::new(
+                    DynQuantity::from_str("1 / 56 m/MS").expect("parseable"),
+                    DynQuantity::from_str("0.393 % / K").expect("parseable"),
+                    DynQuantity::from_str("20.0 °C").expect("parseable"),
+                )
+                .expect("units match"),
+            ))
+            .expect("units match"),
+        );
         let copper_arc = Arc::new(copper);
         let wire_1 = RoundWire::new(
             copper_arc.clone(),
@@ -1348,8 +1358,10 @@ mod stem_core_tests {
 
         let end_winding_half_turn_length = Length::new::<millimeter>(157.57);
         let mut overrides = Overrides::default();
-        overrides
-            .set_same_end_winding_half_turn_length(winding.coils(), end_winding_half_turn_length);
+        overrides.set_same_end_winding_half_turn_length(
+            winding.coils_iter(),
+            end_winding_half_turn_length,
+        );
 
         // Check the coil turn length in the core
         approxim::assert_abs_diff_eq!(
@@ -1402,7 +1414,12 @@ mod stem_core_tests {
         );
         approxim::assert_abs_diff_eq!(
             winding
-                .resistance(CoreRef::Rot(&core), 1.try_into().unwrap(), &[], &overrides)
+                .resistance(
+                    CoreRef::Rot(&core),
+                    1.try_into().unwrap(),
+                    &[],
+                    &overrides.end_winding_half_turn_lengths
+                )
                 .get::<ohm>(),
             1.13201,
             epsilon = 0.0001
@@ -1489,8 +1506,10 @@ mod stem_core_tests {
 
         let end_winding_half_turn_length = Length::new::<millimeter>(157.57);
         let mut overrides = Overrides::default();
-        overrides
-            .set_same_end_winding_half_turn_length(winding.coils(), end_winding_half_turn_length);
+        overrides.set_same_end_winding_half_turn_length(
+            winding.coils_iter(),
+            end_winding_half_turn_length,
+        );
 
         // Check the coil turn length in the core
         approxim::assert_abs_diff_eq!(
@@ -1523,7 +1542,12 @@ mod stem_core_tests {
         );
         approxim::assert_abs_diff_eq!(
             winding
-                .resistance(CoreRef::Rot(&core), NonZeroU16::MIN, &[], &overrides,)
+                .resistance(
+                    CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
+                    &[],
+                    &overrides.end_winding_half_turn_lengths
+                )
                 .get::<ohm>(),
             2.26403,
             epsilon = 0.0001
@@ -1598,8 +1622,10 @@ mod stem_core_tests {
 
         let end_winding_half_turn_length = Length::new::<millimeter>(157.57);
         let mut overrides = Overrides::default();
-        overrides
-            .set_same_end_winding_half_turn_length(winding.coils(), end_winding_half_turn_length);
+        overrides.set_same_end_winding_half_turn_length(
+            winding.coils_iter(),
+            end_winding_half_turn_length,
+        );
 
         // Check the phase resistance
         approxim::assert_abs_diff_eq!(
@@ -1616,7 +1642,12 @@ mod stem_core_tests {
         );
         approxim::assert_abs_diff_eq!(
             winding
-                .resistance(CoreRef::Rot(&core), NonZeroU16::MIN, &[], &overrides)
+                .resistance(
+                    CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
+                    &[],
+                    &overrides.end_winding_half_turn_lengths
+                )
                 .get::<ohm>(),
             2.28190, // Expected value in Ohm
             epsilon = 0.0001
@@ -1754,7 +1785,10 @@ mod stem_core_tests {
         let leakage_inductance = 2.0
             * *VACUUM_PERMEABILITY
             * core.axial_coil_length()
-            * winding.series_turns_per_phase(NonZeroU16::MIN).to_integer().pow(2) as f64
+            * winding
+                .series_turns_per_phase(NonZeroU16::MIN)
+                .to_integer()
+                .pow(2) as f64
             / (winding.pole_pairs().get() as f64 * winding.hole_number_float())
             * resulting_leakage_coeff(lambda_l, lambda_res, &winding);
 
@@ -1782,7 +1816,10 @@ mod stem_core_tests {
         let leakage_inductance = 2.0
             * *VACUUM_PERMEABILITY
             * core.axial_coil_length()
-            * winding.series_turns_per_phase(NonZeroU16::MIN).to_integer().pow(2) as f64
+            * winding
+                .series_turns_per_phase(NonZeroU16::MIN)
+                .to_integer()
+                .pow(2) as f64
             / (winding.pole_pairs().get() as f64 * winding.hole_number_float())
             * resulting_leakage_coeff(lambda_l, lambda_res, &winding);
 
@@ -1810,7 +1847,10 @@ mod stem_core_tests {
         let leakage_inductance = 2.0
             * *VACUUM_PERMEABILITY
             * core.axial_coil_length()
-            * winding.series_turns_per_phase(NonZeroU16::MIN).to_integer().pow(2) as f64
+            * winding
+                .series_turns_per_phase(NonZeroU16::MIN)
+                .to_integer()
+                .pow(2) as f64
             / (winding.pole_pairs().get() as f64 * winding.hole_number_float())
             * resulting_leakage_coeff(lambda_l, lambda_res, &winding);
 
@@ -1838,7 +1878,10 @@ mod stem_core_tests {
         let leakage_inductance = 2.0
             * *VACUUM_PERMEABILITY
             * core.axial_coil_length()
-            * winding.series_turns_per_phase(NonZeroU16::MIN).to_integer().pow(2) as f64
+            * winding
+                .series_turns_per_phase(NonZeroU16::MIN)
+                .to_integer()
+                .pow(2) as f64
             / (winding.pole_pairs().get() as f64 * winding.hole_number_float())
             * resulting_leakage_coeff(lambda_l, lambda_res, &winding);
 

@@ -45,7 +45,7 @@ impl<'a> EndWindingLayouter<'a> {
          */
         let s = if cyclic { Some(winding.slots()) } else { None };
         let start_zone =
-            find_left_zone_of_shortest_coil(winding.coils(), s).unwrap_or(Zone::new(0, 0));
+            find_left_zone_of_shortest_coil(winding.coils_iter(), s).unwrap_or(Zone::new(0, 0));
 
         let num_zones = usize::from(winding.layers().get()) * usize::from(winding.slots().get());
 
@@ -319,7 +319,8 @@ mod tests {
         .try_into()
         .unwrap();
         winding.set_concentric_coils(true);
-        let zone = find_left_zone_of_shortest_coil(winding.coils(), Some(winding.slots())).unwrap();
+        let zone =
+            find_left_zone_of_shortest_coil(winding.coils_iter(), Some(winding.slots())).unwrap();
         assert_eq!(zone, Zone::new(11, 0));
     }
 }

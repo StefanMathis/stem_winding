@@ -1,3 +1,5 @@
+#[cfg(feature = "stem_core")]
+use std::collections::HashMap;
 use std::{
     f64::consts::TAU,
     num::{NonZeroU16, NonZeroUsize},
@@ -257,23 +259,10 @@ impl Winding for SquirrelCageWinding {
         core: CoreRef<'_>,
         phase: NonZeroU16,
         conditions: &[DynQuantity<f64>],
-        overrides: &Overrides,
+        _end_winding_half_turn_lengths: &HashMap<Zone, Length>,
     ) -> ElectricalResistance {
         use std::f64::consts::PI;
         use uom::si::frequency::hertz;
-
-        let electrical_resistivity = self
-            .wire()
-            .material()
-            .electrical_resistivity()
-            .get(conditions);
-
-        // Use resistance constant only if current displacement is not considered
-        if !self.consider_current_displacement() {
-            if let Some(resistance_constant) = overrides.resistance_constant {
-                return resistance_constant * electrical_resistivity;
-            }
-        }
 
         let end_winding_area = self.end_ring_width() * self.end_ring_height();
         let resistivity = self

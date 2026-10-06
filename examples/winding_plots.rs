@@ -10,6 +10,7 @@ use stem_winding::prelude::*;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     zone_polarity()?;
     winding_table_reference_img()?;
+    phd_stator()?;
     return Ok(());
 }
 

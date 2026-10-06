@@ -264,7 +264,7 @@ pub enum WindingTableConstructor {
     use std::num::NonZeroU16;
     use stem_winding::prelude::*;
 
-    let winding_table = WindingTable::from_constructor(
+    let table = WindingTable::from_constructor(
         &WindingTableConstructor::Algebraic,
         NonZeroU16::new(10).expect("not zero"),
         NonZeroU16::new(1).expect("not zero"),

@@ -1,5 +1,7 @@
 use dyn_clone::DynClone;
 use num::{Complex, Integer, integer::gcd};
+#[cfg(feature = "stem_core")]
+use std::collections::HashMap;
 use std::{
     any::Any,
     f64::consts::{PI, TAU},
@@ -219,7 +221,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         // Sum of the turns in all coil sides belonging to that phase
         let mut turns = 0;
 
-        for coil in self.coils() {
+        for coil in self.coils_iter() {
             if coil.phase() == phase {
                 turns = turns
                     + match coil {
@@ -427,7 +429,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
     // Returns the number of [`Coil`]s in the winding.
     fn num_coils(&self) -> usize {
-        self.coils().count()
+        self.coils_iter().count()
     }
 
     /**
@@ -545,13 +547,6 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
             turns += self.turns_at(Zone::new(slot, layer));
         }
         return turns;
-    }
-
-    // TODO
-    /// Calculate the number of phasors skipped in the numbering of the voltage
-    /// phasor star.
-    fn skipped_phasors(&self) -> usize {
-        return usize::from(self.pole_pairs().get() / self.base_winding_count().get()) - 1;
     }
 
     /// Returns the lowest order of the radial force resulting from the winding
@@ -1070,7 +1065,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
     // TODO
     /// Returns an iterator over all coils of the winding.
-    fn coils(&self) -> CoilsIterator<'_> {
+    fn coils_iter(&self) -> CoilsIterator<'_> {
         return CoilsIterator::new(self.as_dyn());
     }
 
@@ -1123,7 +1118,12 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
         // Condition 2: Calculate the phase resistance for some assumed conditions
         let resistance_1 = self
-            .resistance(core, NonZeroU16::MIN, &[], overrides)
+            .resistance(
+                core,
+                NonZeroU16::MIN,
+                &[],
+                &overrides.end_winding_half_turn_lengths,
+            )
             .get::<ohm>();
         for phase in 2..(self.phases().get() + 1) {
             if approxim::abs_diff_ne!(
@@ -1131,7 +1131,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
                     core,
                     NonZeroU16::new(phase).unwrap_or(NonZeroU16::MIN),
                     &[],
-                    overrides
+                    &overrides.end_winding_half_turn_lengths
                 )
                 .get::<ohm>(),
                 resistance_1,
@@ -1170,7 +1170,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
             return None;
         }
 
-        let material = self.coils().next()?.wire().material_arc().clone();
+        let material = self.coils_iter().next()?.wire().material_arc().clone();
         if let Some(resistance_constant) = overrides.resistance_constant {
             return Some(ResistanceComponents {
                 resistance_constant,
@@ -1178,7 +1178,12 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
             });
         }
 
-        let resistance = self.resistance(core, NonZeroU16::MIN, &[], overrides);
+        let resistance = self.resistance(
+            core,
+            NonZeroU16::MIN,
+            &[],
+            &overrides.end_winding_half_turn_lengths,
+        );
         let electrical_resistivity = material.electrical_resistivity().get(&[]);
         return Some(ResistanceComponents {
             resistance_constant: resistance / electrical_resistivity,
@@ -1311,7 +1316,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         overrides: &'a Overrides,
     ) -> crate::core_support::CoilPropertyIterator<'a> {
         return crate::core_support::CoilPropertyIterator {
-            coils: self.coils(),
+            coils: self.coils_iter(),
             winding: self.as_dyn(),
             core,
             overrides,
@@ -1335,14 +1340,38 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         });
     }
 
-    // TODO
+    /**
+    Returns the resistance of the [`Coil`] containing the coil side at the
+    specified [`Zone`].
+
+    The coil resistance is calculated by summing the resistance contributions of
+    its [`Zone`]s for which a winding zone contour can be obtained from `core`
+    via [`CoreExt::winding_zone_at`]. The turn length is calculated as
+
+    `turn_length = axial_coil_length + axial_coil_overhang + end_winding_half_turn_length`.
+
+    Here, `axial_coil_length` and `axial_coil_overhang` are obtained from `core`
+    via [`CoreExt::axial_coil_length`] and [`CoreExt::axial_coil_overhang`],
+    respectively. The `end_winding_half_turn_length` is obtained from the
+    `end_winding_half_turn_lengths` map if an override is provided for the zone.
+    Otherwise, it is calculated using
+    [`Winding::end_winding_half_turn_length`].
+
+    If the specified [`Zone`] does not contain a coil, this method returns zero.
+
+    The specified environmental `conditions` are forwarded to
+    [`CoilExt::resistance`].
+
+    For a complete example of calculating the resistance of a winding, see
+    [`Winding::resistance`].
+    */
     #[cfg(feature = "stem_core")]
-    fn coil_resistance(
+    fn coil_resistance_at(
         &self,
         core: CoreRef<'_>,
         zone: Zone,
         conditions: &[DynQuantity<f64>],
-        end_winding_half_turn_length: Option<Length>,
+        end_winding_half_turn_lengths: &HashMap<Zone, Length>,
     ) -> ElectricalResistance {
         let mut resistance = ElectricalResistance::new::<ohm>(0.0);
 
@@ -1351,12 +1380,14 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
             None => return resistance,
         };
 
-        let end_winding_half_turn_length = end_winding_half_turn_length
-            .unwrap_or_else(|| self.end_winding_half_turn_length(core, zone));
-
         for zone in coil.zones() {
             if let Some(zone_contour) = core.winding_zone_at(&self.coil_layout(), zone) {
                 let zone_area = Area::new::<square_meter>(zone_contour.area());
+
+                let end_winding_half_turn_length = end_winding_half_turn_lengths
+                    .get(&zone)
+                    .cloned()
+                    .unwrap_or_else(|| self.end_winding_half_turn_length(core, zone));
 
                 let length = core.axial_coil_length()
                     + core.axial_coil_overhang()
@@ -1367,27 +1398,231 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         resistance
     }
 
-    // TODO
+    /// Returns the phase resistance of the winding.
+    ///
+    /// The phase resistance is calculated as
+    ///
+    /// `R = 1 / a² * Σ R_coil,i`,
+    ///
+    /// where `a` is the number of [parallel paths](Winding::parallel_paths) of
+    /// the phase and `R_coil,i` is the
+    /// [resistance of an individual coil](CoilExt::resistance), with `i`
+    /// indexing all coils belonging to that phase. This calculation assumes
+    /// that the parallel paths are electrically balanced.
+    ///
+    /// The resistance of each coil is calculated by [`CoilExt::resistance`],
+    /// which requires the zone area and the turn length. For each [`Zone`]
+    /// occupied by the coil, the zone area is obtained from core via
+    /// [`CoreExt::winding_zone_at`]. The turn length associated with the zone
+    /// is calculated as
+    ///
+    /// `turn_length = axial_coil_length + axial_coil_overhang +
+    /// end_winding_half_turn_length`.
+    ///
+    /// Here, axial_coil_length and axial_coil_overhang are obtained from `core`
+    /// via [`CoreExt::axial_coil_length`] and [`CoreExt::axial_coil_overhang`],
+    /// respectively. The end_winding_half_turn_length can be supplied
+    /// explicitly for each zone through the `end_winding_half_turn_lengths`
+    /// map. If no override is provided for a zone, it is calculated using
+    /// [`Winding::end_winding_half_turn_length`]. If no overrides are desired,
+    /// an empty map can be provided with [`Default::default`].
+    ///
+    /// The specified environmental conditions are forwarded to
+    /// [`CoilExt::resistance`].
+    ///
+    /// # Examples
+    ///
+    /// The following example calculates the phase resistance in the prototype
+    /// machine developed during the author's PhD [\[1\]](#resistance_1).
+    /// The geometry, winding, and conductor data are constructed explicitly,
+    /// and the result is compared with the measured resistance of 1.0176 Ω
+    /// at 22 °C.
+    ///
+    /// <a id="resistance_1">\[1\]</a>
+    /// Mathis, S.: Permanentmagneterregte Line-Start-Antriebe in Ferrittechnik,
+    /// PhD thesis, Shaker, 2019
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![Stator with winding table of the PhD motor][phd_stator]"
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image("phd_stator", "docs/img/phd_stator.svg")
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    /// ```
+    /// use std::str::FromStr;
+    /// use std::sync::Arc;
+    /// use std::f64::consts::PI;
+    ///
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    /// use stem_material::var_quantity::unary::FirstOrderTaylor;
+    ///
+    /// // Define a material with an electrical resistivity which changes linearly
+    /// // with the temperature.
+    /// let copper = {
+    ///     let mut material = Material::default();
+    ///     material.electrical_resistivity = VarQuantity::Function(
+    ///         QuantityFunction::new(Box::new(
+    ///         FirstOrderTaylor::new(
+    ///         DynQuantity::from_str("1 / 56 m/MS").expect("parseable"),
+    ///         DynQuantity::from_str("0.393 % / K").expect("parseable"),
+    ///         DynQuantity::from_str("20.0 °C").expect("parseable"),
+    ///         )
+    ///         .expect("units match"),
+    ///     ))
+    ///     .expect("units match"),
+    ///     );
+    ///     Arc::new(material)
+    /// };
+    ///
+    /// // Create a stranded wire composed of two wire types. wire_1 occurs twice
+    /// // and wire_2 occurs three times in the strand.
+    /// let wire_1 = RoundWire::new(
+    ///     copper.clone(),
+    ///     Length::new::<millimeter>(0.67),
+    ///     Length::new::<millimeter>(0.0),
+    ///     Length::new::<millimeter>(0.0),
+    /// )
+    /// .expect("valid_geometry");
+    /// let wire_2 = RoundWire::new(
+    ///     copper.clone(),
+    ///     Length::new::<millimeter>(0.71),
+    ///     Length::new::<millimeter>(0.0),
+    ///     Length::new::<millimeter>(0.0),
+    /// )
+    /// .expect("valid_geometry");
+    /// let wire = StrandedWire::new(vec![
+    ///     WireGroup::new(Box::new(wire_1), 2.try_into().expect("not zero")),
+    ///     WireGroup::new(Box::new(wire_2), 3.try_into().expect("not zero")),
+    /// ]).expect("not empty");
+    ///
+    /// // Define the winding using the full constructor
+    /// let winding: DistributedWinding = DistributedBuilder {
+    ///     slots: 36.try_into().expect("not zero"),
+    ///     pole_pairs: 2.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 1.try_into().expect("not zero"),
+    ///     coil_span_reduction: 0,
+    ///     zone_span_variation: 0,
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    ///     turns_per_coil: 31.try_into().expect("not zero"),
+    ///     parallel_paths: 1.try_into().expect("not zero"),
+    ///     connection: Connection::Star,
+    ///     end_winding_leakage_coefficient: 0.25,
+    ///     wire: Box::new(wire),
+    ///     concentric_coils: false,
+    /// }
+    /// .try_into()
+    /// .unwrap();
+    ///
+    /// // Create the core of the machine
+    /// let slot: SemiTrapezoidSlot = SemiTrapezoidWithoutSlopesBuilder {
+    ///     bottom_width: Length::new::<millimeter>(9.2),
+    ///     opening_width: Length::new::<millimeter>(2.0),
+    ///     height: Length::new::<millimeter>(17.75),
+    ///     opening_height: Length::new::<millimeter>(2.0),
+    ///     slot_angle: PI / 18.0,
+    ///     bottom_radius: Length::new::<millimeter>(2.0),
+    ///     top_radius: Length::new::<millimeter>(2.0),
+    ///     opening_radius: Length::new::<millimeter>(0.5),
+    ///     consider_tooth_tip_leakage: false,
+    ///     }.try_into().expect("valid slot geometry");
+    /// let core: RotCore = RotCoreBuilder {
+    ///     air_gap_radius: Length::new::<millimeter>(55.0),
+    ///     yoke_radius: Length::new::<millimeter>(85.0),
+    ///     axial_length: Length::new::<millimeter>(165.0),
+    ///     axial_coil_overhang: Length::new::<millimeter>(0.0),
+    ///     iron_fill_factor: 0.95,
+    ///     material: Arc::new(Material::default()),
+    ///     pole_pairs: 2.try_into().expect("not zero"),
+    ///     skew_angle: 0.0,
+    ///     air_gap: Box::new(SlottedAirGap::new(
+    ///     36.try_into().expect("not zero"),
+    ///     true,
+    ///     CarterFactorModel::Bin12,
+    ///     Box::new(slot),
+    ///     )),
+    ///     flux_barrier: None,
+    /// }.try_into().expect("valid magnetic core");
+    ///
+    /// // The measured phase resistance of this machine was 1.0176 Ω at 22 °C. The
+    /// // calculated value at 22 °C is 1.05673 Ω, corresponding to a deviation of
+    /// // 4 %. This deviation may stem from the following assumptions:
+    /// //
+    /// // 1) Material data: The electrical resistivity of the copper or the
+    /// // temperature relationship might be slightly off.
+    /// //
+    /// // 2) End winding length: Here, we use a calculated value, which is an
+    /// // approximation of an idealized end winding geometry.
+    /// let conditions = [DynQuantity::from_str("22 °C").expect("parseable")];
+    /// assert_abs_diff_eq!(
+    ///     winding
+    ///         .resistance(
+    ///             CoreRef::Rot(&core),
+    ///             1.try_into().unwrap(), // First phase
+    ///             &conditions,
+    ///             &Default::default(),
+    ///         )
+    ///     .get::<ohm>(),
+    ///     1.05673,
+    ///     epsilon = 0.0001
+    /// );
+    ///
+    /// // Since this winding has six identical coils per phase, the resistance
+    /// // of an individual coil is the phase resistance divided by six:
+    /// assert_abs_diff_eq!(
+    ///     winding
+    ///         .coil_resistance_at(
+    ///             CoreRef::Rot(&core),
+    ///             Zone::new(0, 0),
+    ///             &conditions,
+    ///             &Default::default(),
+    ///         )
+    ///     .get::<ohm>(),
+    ///     1.05673 / 6.0,
+    ///     epsilon = 0.0001
+    /// );
+    ///
+    /// // Calculate the phase resistance at 120 °C.
+    /// assert_abs_diff_eq!(
+    ///     winding
+    ///         .resistance(
+    ///             CoreRef::Rot(&core),
+    ///             1.try_into().unwrap(), // First phase
+    ///             &[DynQuantity::from_str("120 °C").expect("parseable")],
+    ///             &Default::default(),
+    ///         )
+    ///     .get::<ohm>(),
+    ///     1.46055,
+    ///     epsilon = 0.0001
+    /// );
+    /// ```
     #[cfg(feature = "stem_core")]
     fn resistance(
         &self,
         core: CoreRef<'_>,
         phase: NonZeroU16,
         conditions: &[DynQuantity<f64>],
-        overrides: &Overrides,
+        end_winding_half_turn_lengths: &HashMap<Zone, Length>,
     ) -> ElectricalResistance {
         // Calculate the phase resistance by calculating the phase resistance of each
         // individual coil and then summing them up
         let mut resistance = ElectricalResistance::new::<ohm>(0.0);
 
-        for coil in self.coils() {
+        for coil in self.coils_iter() {
             if coil.phase() == phase {
                 for zone in coil.zones() {
                     if let Some(zone_contour) = core.winding_zone_at(&self.coil_layout(), zone) {
                         let zone_area = Area::new::<square_meter>(zone_contour.area());
 
-                        let end_winding_half_turn_length = overrides
-                            .end_winding_half_turn_lengths
+                        let end_winding_half_turn_length = end_winding_half_turn_lengths
                             .get(&zone)
                             .cloned()
                             .unwrap_or_else(|| self.end_winding_half_turn_length(core, zone));

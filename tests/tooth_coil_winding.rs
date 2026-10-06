@@ -103,7 +103,7 @@ fn test_coil_direction() {
         .try_into()
         .unwrap();
 
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             if let Coil::Full(coil) = coil {
                 assert_eq!(coil.throw(Some(winding.slots())), 1); // A tooth coil winding always has a throw of 1
 
@@ -131,7 +131,7 @@ fn test_coil_direction() {
         .try_into()
         .unwrap();
 
-        for coil in winding.coils() {
+        for coil in winding.coils_iter() {
             if let Coil::Full(coil) = coil {
                 assert_eq!(coil.throw(Some(winding.slots())), 1); // A tooth coil winding always has a throw of 1
 
@@ -294,7 +294,7 @@ fn test_derive_coil_assembly_12_10_dl() {
     assert_eq!(coil_assembly.slots(), winding.slots());
     assert_eq!(coil_assembly.layers(), winding.layers());
 
-    let coils: Vec<Coil> = coil_assembly.coils().cloned().collect();
+    let coils: Vec<Coil> = coil_assembly.coils_iter().cloned().collect();
     assert_eq!(coils.len(), 12);
 
     // Check the first coil
@@ -338,7 +338,7 @@ fn test_derive_coil_assembly_12_10_sl() {
     assert_eq!(coil_assembly.slots(), winding.slots());
     assert_eq!(coil_assembly.layers(), winding.layers());
 
-    let coils: Vec<Coil> = coil_assembly.coils().cloned().collect();
+    let coils: Vec<Coil> = coil_assembly.coils_iter().cloned().collect();
     assert_eq!(coils.len(), 6);
 
     // Compare the zone plans
