@@ -71,7 +71,7 @@ mod cairo_tests {
 
                 core.drawable().draw(cr)?;
 
-                for (_, drawable) in winding.zone_drawables(core.as_core_ref(), &zone_config) {
+                for (drawable, _) in winding.zone_drawables(core.as_core_ref(), &zone_config) {
                     drawable.draw(cr)?;
                 }
                 return Ok(());
@@ -109,7 +109,7 @@ mod cairo_tests {
 
                 core.drawable().draw(cr)?;
 
-                for (_, drawable) in winding.zone_drawables(core.as_core_ref(), &zone_config) {
+                for (drawable, _) in winding.zone_drawables(core.as_core_ref(), &zone_config) {
                     drawable.draw(cr)?;
                 }
                 return Ok(());
@@ -148,7 +148,7 @@ mod cairo_tests {
 
                 core.drawable().draw(cr)?;
 
-                for (_, drawable) in winding.zone_drawables(core.as_core_ref(), &zone_config) {
+                for (drawable, _) in winding.zone_drawables(core.as_core_ref(), &zone_config) {
                     drawable.draw(cr)?;
                 }
                 return Ok(());
@@ -187,7 +187,7 @@ mod cairo_tests {
 
                 core.drawable().draw(cr)?;
 
-                for (_, drawable) in winding.zone_drawables(core.as_core_ref(), &zone_config) {
+                for (drawable, _) in winding.zone_drawables(core.as_core_ref(), &zone_config) {
                     drawable.draw(cr)?;
                 }
                 return Ok(());
@@ -227,7 +227,7 @@ mod cairo_tests {
 
                 core.drawable().draw(cr)?;
 
-                for (_, drawable) in winding.zone_drawables(core.as_core_ref(), &zone_config) {
+                for (drawable, _) in winding.zone_drawables(core.as_core_ref(), &zone_config) {
                     drawable.draw(cr)?;
                 }
                 return Ok(());
@@ -329,7 +329,7 @@ mod cairo_tests {
 
                     core.drawable().draw(cr)?;
 
-                    for (_, drawable) in
+                    for (drawable, _) in
                         coil_assembly.zone_drawables(core.as_core_ref(), &zone_config)
                     {
                         drawable.draw(cr)?;
@@ -369,7 +369,7 @@ mod cairo_tests {
 
                     core.drawable().draw(cr)?;
 
-                    for (_, drawable) in
+                    for (drawable, _) in
                         coil_assembly.zone_drawables(core.as_core_ref(), &zone_config)
                     {
                         drawable.draw(cr)?;
@@ -456,7 +456,7 @@ mod cairo_tests {
 
                     core.drawable().draw(cr)?;
 
-                    for (_, drawable) in
+                    for (drawable, _) in
                         coil_assembly.zone_drawables(core.as_core_ref(), &zone_config)
                     {
                         drawable.draw(cr)?;
@@ -484,7 +484,7 @@ mod cairo_tests {
 
                     core.drawable().draw(cr)?;
 
-                    for (_, drawable) in
+                    for (drawable, _) in
                         coil_assembly.zone_drawables(core.as_core_ref(), &zone_config)
                     {
                         drawable.draw(cr)?;

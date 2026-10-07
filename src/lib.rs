@@ -35,8 +35,8 @@ pub mod prelude {
 
     #[cfg(feature = "cairo")]
     pub use crate::draw::{
-        CoilDrawablesParameters, EndWindingLayouter, EndWindingStyle, ZoneArrowConfig,
-        ZoneBackgroundColor, ZoneCenterConfig, ZoneDrawablesConfig, phase_color,
+        CoilDrawablesParameters, DrawableKind, EndWindingLayouter, EndWindingStyle,
+        ZoneArrowConfig, ZoneBackgroundColor, ZoneCenterConfig, ZoneDrawablesConfig, phase_color,
     };
 
     #[doc(hidden)]

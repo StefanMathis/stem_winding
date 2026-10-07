@@ -46,7 +46,7 @@ fn winding_table_reference_img() -> Result<(), Box<dyn std::error::Error>> {
     drawables.extend(
         winding
             .zone_drawables(core.as_core_ref(), &config)
-            .map(|z| z.1),
+            .map(|z| z.0),
     );
     drawables
         .iter_mut()
@@ -114,7 +114,7 @@ fn zone_polarity() -> Result<(), Box<dyn std::error::Error>> {
     drawables.extend(
         coil_assembly
             .zone_drawables(core.as_core_ref(), &config)
-            .map(|z| z.1),
+            .map(|z| z.0),
     );
 
     // Coil view
@@ -126,7 +126,7 @@ fn zone_polarity() -> Result<(), Box<dyn std::error::Error>> {
     drawables.extend(
         coil_assembly
             .coil_drawables(&params)
-            .map(|(_, mut drawable)| {
+            .map(|(mut drawable, _)| {
                 drawable.translate([xshift, yshift]);
                 drawable
             }),
@@ -213,7 +213,7 @@ fn phd_stator() -> Result<(), Box<dyn std::error::Error>> {
     drawables.extend(
         winding
             .zone_drawables(core.as_core_ref(), &config)
-            .map(|z| z.1),
+            .map(|z| z.0),
     );
     drawables
         .iter_mut()
@@ -307,7 +307,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
             drawables.extend(
                 winding
                     .zone_drawables(core.as_core_ref(), &config)
-                    .map(|z| z.1),
+                    .map(|z| z.0),
             );
             drawables
                 .iter_mut()
@@ -353,7 +353,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
             drawables.extend(
                 winding
                     .zone_drawables(core.as_core_ref(), &config)
-                    .map(|z| z.1),
+                    .map(|z| z.0),
             );
             drawables
                 .iter_mut()
@@ -394,7 +394,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
         drawables.extend(
             winding
                 .zone_drawables(core.as_core_ref(), &config)
-                .map(|z| z.1),
+                .map(|z| z.0),
         );
         drawables
             .iter_mut()
@@ -429,7 +429,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
         drawables.extend(
             winding
                 .zone_drawables(core.as_core_ref(), &config)
-                .map(|z| z.1),
+                .map(|z| z.0),
         );
         drawables
             .iter_mut()
@@ -467,7 +467,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
         drawables.extend(
             winding
                 .zone_drawables(core.as_core_ref(), &config)
-                .map(|z| z.1),
+                .map(|z| z.0),
         );
         drawables
             .iter_mut()
@@ -506,7 +506,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
         drawables.extend(
             winding
                 .zone_drawables(core.as_core_ref(), &config)
-                .map(|z| z.1),
+                .map(|z| z.0),
         );
         drawables
             .iter_mut()

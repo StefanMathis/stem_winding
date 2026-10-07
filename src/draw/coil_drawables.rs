@@ -15,7 +15,7 @@ use crate::{
     winding::Winding,
 };
 
-use super::{DrawableType, EndWindingLayouter, phase_color};
+use super::{DrawableKind, EndWindingLayouter, phase_color};
 
 const BLACK: Color = Color {
     r: 0.0,
@@ -39,7 +39,7 @@ pub struct CoilDrawables<'a> {
     parameters: &'a CoilDrawablesParameters,
     layer_winding_head_map: Option<HashMap<Zone, usize>>,
     colors: Vec<Color>,
-    drawables: [Option<(DrawableType, Drawable)>; 8],
+    drawables: [Option<(Drawable, DrawableKind)>; 8],
     index: usize,
     zone: Zone,
 }
@@ -81,7 +81,7 @@ impl<'a> CoilDrawables<'a> {
 }
 
 impl<'a> Iterator for CoilDrawables<'a> {
-    type Item = (DrawableType, Drawable);
+    type Item = (Drawable, DrawableKind);
 
     fn next(&mut self) -> Option<Self::Item> {
         // First draw the teeth
@@ -89,7 +89,7 @@ impl<'a> Iterator for CoilDrawables<'a> {
         if self.index <= usize::from(slots.get()) {
             let drawable = self.parameters.tooth_drawable(self.index as u16, slots);
             self.index += 1;
-            return Some((DrawableType::Tooth(self.index as u16), drawable));
+            return Some((drawable, DrawableKind::Tooth(self.index as u16)));
         }
 
         for drawable in self.drawables.iter_mut() {
@@ -133,11 +133,11 @@ impl<'a> Iterator for CoilDrawables<'a> {
                     let offset = coil_drawables.len();
                     for (i, d) in coil_drawables.into_iter().enumerate() {
                         self.drawables[i] = d.map(|(comp, drawable)| {
-                            let drawable_type = match comp {
-                                CoilOrAnnotation::Coil => DrawableType::Coil(self.zone),
-                                CoilOrAnnotation::Annotation => DrawableType::Annotation(self.zone),
+                            let kind = match comp {
+                                CoilOrAnnotation::Coil => DrawableKind::Coil(self.zone),
+                                CoilOrAnnotation::Annotation => DrawableKind::Annotation(self.zone),
                             };
-                            (drawable_type, drawable)
+                            (drawable, kind)
                         });
                     }
 
@@ -151,8 +151,8 @@ impl<'a> Iterator for CoilDrawables<'a> {
                         let style = self.parameters.coil_style(self.colors[color_idx]);
                         for (i, c) in arrowheads.into_iter().enumerate() {
                             self.drawables[offset + i] = Some((
-                                DrawableType::Arrow(self.zone),
                                 Drawable::new(c, style.clone()),
+                                DrawableKind::Arrow(self.zone),
                             ));
                         }
                     }
@@ -162,8 +162,8 @@ impl<'a> Iterator for CoilDrawables<'a> {
                 let contour = self.parameters.empty_zone(self.zone, layers);
                 let style = self.parameters.empty_zone_style();
                 self.drawables[0] = Some((
-                    DrawableType::EmptyZone(self.zone),
                     Drawable::new(contour, style),
+                    DrawableKind::EmptyZone(self.zone),
                 ));
             }
         }

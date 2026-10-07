@@ -168,13 +168,13 @@ mod cairo_tests {
 
     fn check<W: Winding>(winding: &W, params: &CoilDrawablesParameters, name: &str) {
         let mut drawables: Vec<Drawable> = Vec::new();
-        for d in winding.coil_drawables(&params).map(|t| t.1) {
+        for d in winding.coil_drawables(&params).map(|t| t.0) {
             drawables.push(d);
         }
 
         let bb1 = BoundingBox::from_bounded_entities(winding.coil_drawables(&params).filter_map(
-            |(t, d)| match t {
-                stem_winding::draw::DrawableType::Annotation(_) => None,
+            |(d, k)| match k {
+                stem_winding::draw::DrawableKind::Annotation(_) => None,
                 _ => Some(d.bounding_box()),
             },
         ))
@@ -205,8 +205,8 @@ mod cairo_tests {
 
         // Test increasing zone index
         let mut current_zone = Zone { slot: 0, layer: 0 };
-        for (dt, _) in winding.coil_drawables(&params) {
-            if let Some(zone) = dt.zone() {
+        for (_, k) in winding.coil_drawables(&params) {
+            if let Some(zone) = k.zone() {
                 assert!(zone >= current_zone);
                 current_zone = zone;
             }

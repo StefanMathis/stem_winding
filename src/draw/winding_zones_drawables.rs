@@ -3,7 +3,7 @@ use std::{f64::consts::SQRT_2, num::NonZeroU16};
 use stem_coil_layout::Zone;
 use stem_core::prelude::*;
 
-use super::{DrawableType, phase_color};
+use super::{DrawableKind, phase_color};
 use crate::winding::Winding;
 
 const INVISIBLE: Color = Color {
@@ -19,7 +19,7 @@ pub struct WindingZoneDrawables<'a> {
     zone_config: &'a ZoneDrawablesConfig,
     zone: Zone,
     phase: i32,
-    drawables: [Option<(DrawableType, Drawable)>; 4],
+    drawables: [Option<(Drawable, DrawableKind)>; 4],
     arrow_circle_diameter: f64,
     arrow_tip_diameter: f64,
 }
@@ -54,7 +54,7 @@ impl<'a> WindingZoneDrawables<'a> {
 }
 
 impl<'a> Iterator for WindingZoneDrawables<'a> {
-    type Item = (DrawableType, Drawable);
+    type Item = (Drawable, DrawableKind);
 
     fn next(&mut self) -> Option<Self::Item> {
         for drawable in self.drawables.iter_mut() {
@@ -151,7 +151,7 @@ impl ZoneDrawablesConfig {
         phases: NonZeroU16,
         arrow_circle_diameter: f64,
         arrow_tip_diameter: f64,
-    ) -> [Option<(DrawableType, Drawable)>; 4] {
+    ) -> [Option<(Drawable, DrawableKind)>; 4] {
         let mut drawables = [None, None, None, None];
 
         if phase == 0 && !self.show_empty_zones {
@@ -161,17 +161,17 @@ impl ZoneDrawablesConfig {
         // Zone contour
         let mut zone_style = stem_core::stem_slot::SLOT_STYLE;
         zone_style.background_color = self.background_color.color(phase.abs() as u16, phases);
-        let mut drawable_type = DrawableType::Coil(zone);
+        let mut kind = DrawableKind::Coil(zone);
         if phase == 0 {
             zone_style.line_style = LineStyle::default_dashed();
-            drawable_type = DrawableType::EmptyZone(zone)
+            kind = DrawableKind::EmptyZone(zone)
         }
 
         let centroid = contour.centroid();
 
         match &self.center_config {
             ZoneCenterConfig::None => {
-                drawables[0] = Some((drawable_type, Drawable::new(contour, zone_style)))
+                drawables[0] = Some((Drawable::new(contour, zone_style), kind))
             }
             ZoneCenterConfig::AmpereTurns(font_size) => {
                 let text = if phase >= 0 {
@@ -194,12 +194,12 @@ impl ZoneDrawablesConfig {
                     0.0,
                 )));
                 drawables[0] = Some((
-                    DrawableType::Annotation(zone),
                     Drawable::new(contour, zone_style),
+                    DrawableKind::Annotation(zone),
                 ));
             }
             ZoneCenterConfig::Arrow(zone_arrow_config) => {
-                drawables[0] = Some((drawable_type, Drawable::new(contour, zone_style)));
+                drawables[0] = Some((Drawable::new(contour, zone_style), kind));
                 let arrow_drawables = zone_arrow_config.arrow(
                     phase,
                     phases,
@@ -210,7 +210,7 @@ impl ZoneDrawablesConfig {
                     if let Some(d) = drawable.as_mut() {
                         d.translate(centroid);
                     }
-                    drawables[idx + 1] = drawable.map(|d| (DrawableType::Arrow(zone), d));
+                    drawables[idx + 1] = drawable.map(|d| (d, DrawableKind::Arrow(zone)));
                 }
             }
         }
