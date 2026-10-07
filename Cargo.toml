@@ -17,7 +17,6 @@ dyn-clone = "1"
 embed-doc-image = { version = "0.1.4", optional = true }
 keyring_map = "0.1.1"
 num = "0.4.0"
-permutation = "0.4.1"
 rayon = "1.5"
 realfft = "3.5"
 serde = { version = "1", features = ["derive"], optional = true }

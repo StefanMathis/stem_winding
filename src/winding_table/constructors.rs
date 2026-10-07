@@ -13,11 +13,9 @@ use serde::{Deserialize, Serialize};
 use num::Integer;
 use stem_coil_layout::Zone;
 
-use crate::{
-    error::WindingTableConstructionError,
-    winding::{hole_number, phase_sequence},
-    winding_table::WindingTable,
-};
+use crate::{error::WindingTableConstructionError, iterators::PhaseSequence, winding::hole_number};
+
+use super::*;
 
 /**
 An enum specifying an algorithm for constructing a [`WindingTable`].
@@ -622,7 +620,7 @@ impl WindingTable {
         }
 
         // Create the phase sequence
-        let (phase_sequence, _) = phase_sequence(phases);
+        let phase_sequence: Vec<i32> = PhaseSequence::new(phases).collect();
 
         // Initialize empty zone plan.
         let mut winding_table = WindingTable::new(slots, layers);
@@ -804,12 +802,11 @@ impl WindingTable {
         // Create the whole coil side pattern
 
         // Create the phase sequence vector
-        let (phase_sequence, _) = phase_sequence(phases);
         let mut phase_sequence_vector: Vec<i32> =
             Vec::with_capacity(2 * phases_num as usize * n as usize);
         for _ in 0..n {
-            for phase in &phase_sequence {
-                phase_sequence_vector.push(*phase);
+            for phase in PhaseSequence::new(phases) {
+                phase_sequence_vector.push(phase);
             }
         }
 
@@ -1039,12 +1036,11 @@ impl WindingTable {
         // (sector borders) to the phasor angle.
         let mut winding_table = WindingTable::new(slots, NonZeroU16::new(2).expect("not zero"));
         let sector_width = std::f64::consts::PI / phases_num as f64;
-        let (ps, _) = phase_sequence(phases);
 
         // Get the slot phasors for the pole pair harmonic (ν = 1). They are described
         // by their angle
         let slot_angle = TAU * (pole_pairs_num as f64) / (slots_num as f64);
-        for (idx, phase) in ps.iter().enumerate() {
+        for (idx, phase) in PhaseSequence::new(phases).enumerate() {
             // The small offset is necessary to avoid numerical rounding errors when doing
             // the "<=" comparison below.
             let angle_lower_layer = sector_width * (idx as f64 - 0.5) - 1e-10;
@@ -1058,7 +1054,7 @@ impl WindingTable {
                     || (angle_lower_layer + TAU <= phasor_angle
                         && phasor_angle <= angle_upper_layer + TAU)
                 {
-                    winding_table[Zone::new(slot, 0)] = *phase; // First conductor
+                    winding_table[Zone::new(slot, 0)] = phase; // First conductor
 
                     // Return conductor is in the current slot + coil / slot pitch
                     // rem_euclid-operator for circular indexing

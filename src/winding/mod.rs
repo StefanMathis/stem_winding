@@ -860,56 +860,6 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     }
 
     // TODO
-    /// Conversion of the voltage between two symmetric power grid phases to the
-    /// voltage drop over a winding phase.
-    fn line_to_phase_voltage(&self) -> num::Complex<f64> {
-        // Assumption of a symmetric grid
-        let a = Complex::new(0.0, TAU / (self.phases().get() as f64)).exp();
-        match self.connection() {
-            Connection::Star => return Complex::new(1.0, 0.0) / (Complex::new(1.0, 0.0) - a),
-            Connection::Delta => return Complex::new(1.0, 0.0),
-        }
-    }
-
-    // TODO
-    /// Returns the change in amplitude from line voltage to phase voltage.
-    fn ratio_line_to_phase_voltage(&self) -> f64 {
-        return self.line_to_phase_voltage().norm();
-    }
-
-    // TODO
-    /// Returns the phase angle between line voltage and phase voltage.
-    fn angle_line_to_phase_voltage(&self) -> f64 {
-        return -self.line_to_phase_voltage().arg();
-    }
-
-    // TODO
-    /// Conversion of the voltage between two symmetric power grid phases to the
-    /// voltage drop over a winding phase. The voltages are given as complex
-    /// numbers.
-    fn line_to_phase_current(&self) -> num::Complex<f64> {
-        // Assumption of a symmetric grid
-        let a = Complex::new(0.0, TAU / (self.phases().get() as f64)).exp();
-
-        match self.connection() {
-            Connection::Star => return Complex::new(1.0, 0.0) / (Complex::new(1.0, 0.0) * a),
-            Connection::Delta => return Complex::new(1.0, 0.0),
-        }
-    }
-
-    // TODO
-    /// Returns the change in amplitude from line current to phase current.
-    fn ratio_line_to_phase_current(&self) -> f64 {
-        return self.line_to_phase_current().norm();
-    }
-
-    // TODO
-    /// Returns the phase angle between line current and phase current.
-    fn angle_line_to_phase_current(&self) -> f64 {
-        return -self.line_to_phase_current().arg();
-    }
-
-    // TODO
     /// Calculate the air gap leakage factor from the Görges diagram ([MVP08],
     /// p. 97 ff.) A default implementation exists.
     fn air_gap_leakage_factor(&self) -> f64 {
@@ -1153,6 +1103,8 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
         return true;
     }
+
+    // fn curvature_factor(&self, core: CoreRef<'_>)
 
     //     /// Return the air gap leakage inductance ("doppeltverkettete Streuung")
     // as /// defined in e.g. [MVP08] or [Bin12].
@@ -1937,13 +1889,212 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
 dyn_clone::clone_trait_object!(Winding);
 
-// TODO
-/// Connection type used for the winding
+/// Electrical connection of the phases of a [`Winding`].
+///
+/// The connection determines how the winding phase voltages and currents
+/// relate to the line voltages and currents of a symmetric multi-phase power
+/// supply.
+///
+/// [`Connection::Star`] connects one terminal of each phase to a common
+/// neutral point. [`Connection::Delta`] connects the phases in a closed
+/// loop, with the line terminals connected at the phase junctions.
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub enum Connection {
+    /// Star (Y) connection with a common neutral point.
     Star,
+    /// Delta (Δ) connection.
     Delta,
+}
+
+impl Connection {
+    /// Returns the complex conversion factor from line voltage to phase voltage
+    /// for a symmetric multi-phase power supply.
+    ///
+    /// The returned value `k` relates the line voltage `U_line` to the winding
+    /// phase voltage `U_phase` as
+    ///
+    /// `U_phase = k * U_line`.
+    ///
+    /// For a [`Connection::Star`] connection, the phase voltage is the voltage
+    /// between a phase terminal and the neutral point. For a
+    /// [`Connection::Delta`] connection, the phase voltage is equal to the line
+    /// voltage.
+    ///
+    /// The conversion assumes a symmetric power supply with `phases` equally
+    /// spaced phase voltages.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    ///
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let phases = NonZeroU16::new(3).unwrap();
+    ///
+    /// let factor = Connection::Star.line_to_phase_voltage(phases);
+    /// assert_abs_diff_eq!(0.57735, factor.norm(), epsilon = 0.0001);
+    /// assert_abs_diff_eq!(0.5, factor.re, epsilon = 0.0001);
+    /// assert_abs_diff_eq!(0.288675, factor.im, epsilon = 0.0001);
+    ///
+    /// let factor = Connection::Delta.line_to_phase_voltage(phases);
+    /// assert_abs_diff_eq!(1.0, factor.norm(), epsilon = 0.0001);
+    /// assert_abs_diff_eq!(1.0, factor.re, epsilon = 0.0001);
+    /// assert_abs_diff_eq!(0.0, factor.im, epsilon = 0.0001);
+    /// ```
+    pub fn line_to_phase_voltage(&self, phases: NonZeroU16) -> num::Complex<f64> {
+        // Assumption of a symmetric grid
+        let a = Complex::new(0.0, TAU / (phases.get() as f64)).exp();
+        match self {
+            Connection::Star => return Complex::new(1.0, 0.0) / (Complex::new(1.0, 0.0) - a),
+            Connection::Delta => return Complex::new(1.0, 0.0),
+        }
+    }
+
+    /// Returns the ratio of the phase-voltage magnitude to the line-voltage
+    /// magnitude for a symmetric multi-phase power supply.
+    ///
+    /// This is the magnitude of [`Connection::line_to_phase_voltage`]:
+    ///
+    /// `|U_phase| / |U_line|`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    ///
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let phases = NonZeroU16::new(3).unwrap();
+    ///
+    /// assert_abs_diff_eq!(0.57735, Connection::Star.ratio_line_to_phase_voltage(phases), epsilon = 0.0001);
+    /// assert_abs_diff_eq!(1.0, Connection::Delta.ratio_line_to_phase_voltage(phases), epsilon = 0.0001);
+    /// ```
+    pub fn ratio_line_to_phase_voltage(&self, phases: NonZeroU16) -> f64 {
+        self.line_to_phase_voltage(phases).norm()
+    }
+
+    /// Returns the phase-angle difference from line voltage to phase voltage
+    /// for a symmetric multi-phase power supply.
+    ///
+    /// The returned angle is the phase-voltage angle relative to the
+    /// line-voltage angle, in radians.
+    ///
+    /// This is the argument of [`Connection::line_to_phase_voltage`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    ///
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let phases = NonZeroU16::new(3).unwrap();
+    ///
+    /// assert_abs_diff_eq!(0.52359, Connection::Star.angle_line_to_phase_voltage(phases), epsilon = 0.0001);
+    /// assert_abs_diff_eq!(0.0, Connection::Delta.angle_line_to_phase_voltage(phases), epsilon = 0.0001);
+    /// ```
+    pub fn angle_line_to_phase_voltage(&self, phases: NonZeroU16) -> f64 {
+        self.line_to_phase_voltage(phases).arg()
+    }
+
+    /// Returns the complex conversion factor from line current to phase current
+    /// for a symmetric multi-phase power supply.
+    ///
+    /// The returned value `k` relates the line current `I_line` to the winding
+    /// phase current `I_phase` as
+    ///
+    /// `I_phase = k * I_line`.
+    ///
+    /// For a [`Connection::Star`] connection, the phase current is equal to the
+    /// line current. For a [`Connection::Delta`] connection, the phase current
+    /// is the current through a winding phase between two line terminals.
+    ///
+    /// The conversion assumes a symmetric power supply with `phases` equally
+    /// spaced phase currents.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    ///
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let phases = NonZeroU16::new(3).unwrap();
+    ///
+    /// let factor = Connection::Star.line_to_phase_current(phases);
+    /// assert_abs_diff_eq!(1.0, factor.norm(), epsilon = 0.0001);
+    /// assert_abs_diff_eq!(1.0, factor.re, epsilon = 0.0001);
+    /// assert_abs_diff_eq!(0.0, factor.im, epsilon = 0.0001);
+    ///
+    /// let factor = Connection::Delta.line_to_phase_current(phases);
+    /// assert_abs_diff_eq!(0.57735, factor.norm(), epsilon = 0.0001);
+    /// assert_abs_diff_eq!(0.5, factor.re, epsilon = 0.0001);
+    /// assert_abs_diff_eq!(-0.288675, factor.im, epsilon = 0.0001);
+    /// ```
+    pub fn line_to_phase_current(&self, phases: NonZeroU16) -> num::Complex<f64> {
+        // Assumption of a symmetric grid
+        let a = Complex::new(0.0, -TAU / (phases.get() as f64)).exp();
+        match self {
+            Connection::Star => Complex::new(1.0, 0.0),
+            Connection::Delta => Complex::new(1.0, 0.0) / (Complex::new(1.0, 0.0) - a),
+        }
+    }
+
+    /// Returns the ratio of the phase-current magnitude to the line-current
+    /// magnitude for a symmetric multi-phase power supply.
+    ///
+    /// This is the magnitude of [`Connection::line_to_phase_current`]:
+    ///
+    /// `|I_phase| / |I_line|`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    ///
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let phases = NonZeroU16::new(3).unwrap();
+    ///
+    /// assert_abs_diff_eq!(1.0, Connection::Star.ratio_line_to_phase_current(phases), epsilon = 0.0001);
+    /// assert_abs_diff_eq!(0.57735, Connection::Delta.ratio_line_to_phase_current(phases), epsilon = 0.0001);
+    /// ```
+    pub fn ratio_line_to_phase_current(&self, phases: NonZeroU16) -> f64 {
+        self.line_to_phase_current(phases).norm()
+    }
+
+    /// Returns the phase-angle difference from line current to phase current
+    /// for a symmetric multi-phase power supply.
+    ///
+    /// The returned angle is the phase-current angle relative to the
+    /// line-current angle, in radians.
+    ///
+    /// This is the argument of [`Connection::line_to_phase_current`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    ///
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let phases = NonZeroU16::new(3).unwrap();
+    ///
+    /// assert_abs_diff_eq!(0.0, Connection::Star.angle_line_to_phase_current(phases), epsilon = 0.0001);
+    /// assert_abs_diff_eq!(-0.52359, Connection::Delta.angle_line_to_phase_current(phases), epsilon = 0.0001);
+    /// ```
+    pub fn angle_line_to_phase_current(&self, phases: NonZeroU16) -> f64 {
+        self.line_to_phase_current(phases).arg()
+    }
 }
 
 /// Returns the hole number `q` of a winding as a reduced fraction.
@@ -2002,37 +2153,6 @@ pub fn hole_number(
     let n = (2 * pole_pairs.get() * phases.get()) / val;
     let z = slots.get() / val;
     return num::rational::Ratio::new_raw(z, n);
-}
-
-// TODO
-/// Calculate the phase sequence for the given number of phases to generate a
-/// rotating field. The sequence is calculated with the star of slots as shown
-/// in e.g. [Pyr08] or [Mat20a] The phase sequence star consists of 2*m beams
-/// (each phase in positive and negative direction) with the angle (2*pi)/(2*m)
-/// between neighboring beams. It is created by creating a positive star first
-/// and then inverting it by adding pi to each angle. The positive star has an
-/// angle of (2*pi)/m between two neighboring beams.
-pub fn phase_sequence(phases: NonZeroU16) -> (Vec<i32>, Vec<f64>) {
-    // Phase angles
-    let phase_angle = TAU / (phases.get() as f64);
-    let mut angles: Vec<f64> = Vec::with_capacity(2 * usize::from(phases.get()));
-    let mut phase_indices: Vec<i32> = Vec::with_capacity(2 * usize::from(phases.get()));
-    for phase in 0..phases.get() {
-        // The angles are normalized by dividing them through 2*pi and just keeping
-        // the rest (modulo operation)
-        angles.push(phase_angle * phase as f64);
-        phase_indices.push(i32::from(phase) + 1);
-        angles.push((phase_angle * phase as f64 + PI) % TAU);
-        phase_indices.push(-(i32::from(phase) + 1));
-    }
-    // The phase sequence is now created by going through the star in mathematical
-    // positive (counter-clockwise) direction and noting the beam indices in order
-    // of appearance.
-    let mut permutation = permutation::sort_unstable_by(angles.as_slice(), |a, b| a.total_cmp(&b));
-    permutation.apply_slice_in_place(&mut phase_indices);
-    permutation.apply_slice_in_place(&mut angles);
-
-    return (phase_indices, angles);
 }
 
 // TODO
@@ -2281,38 +2401,8 @@ pub fn base_winding_count_repeating_coil_groups(
 /// `phasor_angle = 2π * pole_pairs / slots`.
 ///
 /// This relation is given by Pyrhönen, J., Jokinen, T., Hrabovcová, V.:
-/// *Design of Rotating Electrical Machines*, 1st edition, John Wiley &
+/// Design of Rotating Electrical Machines, 1st edition, John Wiley &
 /// Sons, 2008, eq. (2.66).
 pub fn phasor_angle(slots: NonZeroU16, pole_pairs: NonZeroU16) -> f64 {
     return TAU * (pole_pairs.get() as f64) / (slots.get() as f64);
-}
-
-/**
-TODO
-Calculate the staggering angle for a given segment of a staggered component (stator or rotor).
-Each segment in a staggered component has the same angular offset to its neighbors, which
-is calculated from the total number of segments and the resulting skew angle:
-`offset_angle = skew_angle / num_segments`.
-
-The segment count starts at zero, the last segment of a staggered component has therefore the index `num_segments-1`.
-
-The reference axis lies on the cross section of skew line and axial stack length, therefore the sum of all segment angles is always zero.
-
-```
-use winding::common::segment_angle;
-use approxim::assert_abs_diff_eq;
-
-// Two segments
-assert_abs_diff_eq!(segment_angle(0, 6.0, 2), -1.5);
-assert_abs_diff_eq!(segment_angle(1, 6.0, 2), 1.5);
-
-// Three segments
-assert_abs_diff_eq!(segment_angle(0, 6.0, 3), -2.0);
-assert_abs_diff_eq!(segment_angle(1, 6.0, 3), 0.0);
-assert_abs_diff_eq!(segment_angle(2, 6.0, 3), 2.0);
-```
- */
-pub fn segment_angle(segment: usize, skew_angle: f64, num_segments: NonZeroUsize) -> f64 {
-    let beta = skew_angle / num_segments.get() as f64;
-    return (0.5 + segment as f64) * beta - 0.5 * skew_angle;
 }

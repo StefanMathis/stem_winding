@@ -989,65 +989,6 @@ fn test_harmonic_order_and_amplitude() {
     }
 }
 
-#[test]
-fn test_line_to_phase_voltage() {
-    // Star
-    let winding = DistributedWinding::try_from(DistributedBuilder {
-        slots: 18.try_into().expect("not zero"),
-        pole_pairs: 2.try_into().expect("not zero"),
-        phases: 3.try_into().expect("not zero"),
-        layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
-        turns_per_coil: 1.try_into().expect("not zero"),
-        parallel_paths: 1.try_into().expect("not zero"),
-        connection: Connection::Star,
-        end_winding_leakage_coefficient: 0.0,
-        wire: Box::new(SffWire::default()),
-        concentric_coils: false,
-        winding_table_constructor: WindingTableConstructor::Tingley,
-    })
-    .unwrap();
-
-    approxim::assert_abs_diff_eq!(
-        0.57735,
-        winding.line_to_phase_voltage().norm(),
-        epsilon = 0.0001
-    );
-    approxim::assert_abs_diff_eq!(0.5, winding.line_to_phase_voltage().re, epsilon = 0.0001);
-    approxim::assert_abs_diff_eq!(
-        0.288675,
-        winding.line_to_phase_voltage().im,
-        epsilon = 0.0001
-    );
-
-    // Delta
-    let winding = DistributedWinding::try_from(DistributedBuilder {
-        slots: 18.try_into().expect("not zero"),
-        pole_pairs: 2.try_into().expect("not zero"),
-        phases: 3.try_into().expect("not zero"),
-        layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
-        turns_per_coil: 1.try_into().expect("not zero"),
-        parallel_paths: 1.try_into().expect("not zero"),
-        connection: Connection::Delta,
-        end_winding_leakage_coefficient: 0.0,
-        wire: Box::new(SffWire::default()),
-        concentric_coils: false,
-        winding_table_constructor: WindingTableConstructor::Tingley,
-    })
-    .unwrap();
-
-    approxim::assert_abs_diff_eq!(
-        1.0,
-        winding.line_to_phase_voltage().norm(),
-        epsilon = 0.0001
-    );
-    approxim::assert_abs_diff_eq!(1.0, winding.line_to_phase_voltage().re, epsilon = 0.0001);
-    approxim::assert_abs_diff_eq!(0.0, winding.line_to_phase_voltage().im, epsilon = 0.0001);
-}
-
 #[cfg(feature = "serde")]
 mod serde_tests {
 

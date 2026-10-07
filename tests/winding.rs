@@ -1,5 +1,6 @@
 use std::num::{NonZeroU16, NonZeroUsize};
 
+use approxim::assert_abs_diff_eq;
 use stem_winding::stem_material::prelude::*;
 use stem_winding::winding::*;
 
@@ -221,7 +222,7 @@ fn test_base_winding_count_repeating_coil_groups() {
 
 #[test]
 fn test_curvature_factor() {
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         curvature_factor(
             NonZeroU16::new(2).expect("not zero"),
             Length::new::<millimeter>(55.0),
@@ -232,7 +233,7 @@ fn test_curvature_factor() {
         0.994695,
         epsilon = 0.001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         curvature_factor(
             NonZeroU16::new(2).expect("not zero"),
             Length::new::<millimeter>(55.0),
@@ -243,7 +244,7 @@ fn test_curvature_factor() {
         1.002341,
         epsilon = 0.001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         curvature_factor(
             NonZeroU16::new(10).expect("not zero"),
             Length::new::<millimeter>(55.0),
@@ -255,7 +256,7 @@ fn test_curvature_factor() {
         epsilon = 0.001
     );
 
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         curvature_factor(
             NonZeroU16::new(5).expect("not zero"),
             Length::new::<millimeter>(37.5),
@@ -269,13 +270,73 @@ fn test_curvature_factor() {
 }
 
 #[test]
-fn test_phase_sequence() {
-    let (ps, a) = phase_sequence(NonZeroU16::new(3).expect("not zero"));
-    assert_eq!(ps, vec![1i32, -3, 2, -1, 3, -2]);
-    approxim::assert_abs_diff_eq!(a[0], 0.0, epsilon = 0.001);
-    approxim::assert_abs_diff_eq!(a[1], 1.047197, epsilon = 0.001);
-    approxim::assert_abs_diff_eq!(a[2], 2.094395, epsilon = 0.001);
-    approxim::assert_abs_diff_eq!(a[3], 3.141592, epsilon = 0.001);
-    approxim::assert_abs_diff_eq!(a[4], 4.188790, epsilon = 0.001);
-    approxim::assert_abs_diff_eq!(a[5], 5.235988, epsilon = 0.001);
+fn test_line_to_phase_voltage() {
+    let phases = NonZeroU16::new(3).unwrap();
+
+    {
+        let factor = Connection::Star.line_to_phase_voltage(phases);
+        assert_abs_diff_eq!(0.57735, factor.norm(), epsilon = 0.0001);
+        assert_abs_diff_eq!(0.5, factor.re, epsilon = 0.0001);
+        assert_abs_diff_eq!(0.288675, factor.im, epsilon = 0.0001);
+        assert_abs_diff_eq!(
+            factor.norm(),
+            Connection::Star.ratio_line_to_phase_voltage(phases),
+        );
+        assert_abs_diff_eq!(
+            factor.arg(),
+            Connection::Star.angle_line_to_phase_voltage(phases),
+            epsilon = 0.0001
+        );
+    }
+    {
+        let factor = Connection::Delta.line_to_phase_voltage(phases);
+        assert_abs_diff_eq!(1.0, factor.norm(), epsilon = 0.0001);
+        assert_abs_diff_eq!(1.0, factor.re, epsilon = 0.0001);
+        assert_abs_diff_eq!(0.0, factor.im, epsilon = 0.0001);
+        assert_abs_diff_eq!(
+            factor.norm(),
+            Connection::Delta.ratio_line_to_phase_voltage(phases),
+        );
+        assert_abs_diff_eq!(
+            factor.arg(),
+            Connection::Delta.angle_line_to_phase_voltage(phases),
+            epsilon = 0.0001
+        );
+    }
+}
+
+#[test]
+fn test_line_to_phase_current() {
+    let phases = NonZeroU16::new(3).unwrap();
+
+    {
+        let factor = Connection::Star.line_to_phase_current(phases);
+        assert_abs_diff_eq!(1.0, factor.norm(), epsilon = 0.0001);
+        assert_abs_diff_eq!(1.0, factor.re, epsilon = 0.0001);
+        assert_abs_diff_eq!(0.0, factor.im, epsilon = 0.0001);
+        assert_abs_diff_eq!(
+            factor.norm(),
+            Connection::Star.ratio_line_to_phase_current(phases),
+        );
+        assert_abs_diff_eq!(
+            factor.arg(),
+            Connection::Star.angle_line_to_phase_current(phases),
+            epsilon = 0.0001
+        );
+    }
+    {
+        let factor = Connection::Delta.line_to_phase_current(phases);
+        assert_abs_diff_eq!(0.57735, factor.norm(), epsilon = 0.0001);
+        assert_abs_diff_eq!(0.5, factor.re, epsilon = 0.0001);
+        assert_abs_diff_eq!(-0.288675, factor.im, epsilon = 0.0001);
+        assert_abs_diff_eq!(
+            factor.norm(),
+            Connection::Delta.ratio_line_to_phase_current(phases),
+        );
+        assert_abs_diff_eq!(
+            factor.arg(),
+            Connection::Delta.angle_line_to_phase_current(phases),
+            epsilon = 0.0001
+        );
+    }
 }

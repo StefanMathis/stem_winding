@@ -1,9 +1,7 @@
 use std::num::NonZeroU16;
 
-use stem_winding::iterators::ParallelPathIterator;
+use stem_winding::iterators::*;
 use stem_winding::prelude::*;
-use stem_winding::winding::distributed::DistributedMinimalBuilder;
-use stem_winding::winding::tooth_coil::ToothCoilMinimalBuilder;
 
 #[test]
 fn test_parallel_paths() {
@@ -292,4 +290,34 @@ fn test_coils_per_coil_group() {
             NonZeroU16::new(4).expect("not zero")
         );
     }
+}
+
+#[test]
+fn test_phase_sequence() {
+    {
+        let sequence: Vec<_> = PhaseSequence::new(NonZeroU16::new(1).expect("not zero")).collect();
+        assert_eq!(sequence, vec![1, -1]);
+    }
+    {
+        let sequence: Vec<_> = PhaseSequence::new(NonZeroU16::new(2).expect("not zero")).collect();
+        assert_eq!(sequence, vec![1, -2, 2, -1]);
+    }
+    {
+        let sequence: Vec<_> = PhaseSequence::new(NonZeroU16::new(3).expect("not zero")).collect();
+        assert_eq!(sequence, vec![1, -3, 2, -1, 3, -2]);
+    }
+    {
+        let sequence: Vec<_> = PhaseSequence::new(NonZeroU16::new(4).expect("not zero")).collect();
+        assert_eq!(sequence, vec![1, -3, 2, -4, 3, -1, 4, -2]);
+    }
+    {
+        let sequence: Vec<_> = PhaseSequence::new(NonZeroU16::new(5).expect("not zero")).collect();
+        assert_eq!(sequence, vec![1, -4, 2, -5, 3, -1, 4, -2, 5, -3]);
+    }
+
+    // Test the size hint
+    let mut iter = PhaseSequence::new(NonZeroU16::new(5).expect("not zero"));
+    assert_eq!(iter.size_hint().0, 10);
+    iter.next();
+    assert_eq!(iter.size_hint().0, 9);
 }

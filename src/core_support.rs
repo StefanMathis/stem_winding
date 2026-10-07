@@ -474,7 +474,7 @@ impl<'a> CoilProperties<'a> {
 /// Estimates the mean length of a single wire in the end winding of a
 /// tooth-coil winding, approximating the half-turn as a semicircle spanning the
 /// two winding-zone centroids.
-/// Tooth coil winding, symmetric winding
+/// Example. Tooth coil winding
 pub fn end_winding_leakage_inductance_semicircle<W: Winding>(
     winding: &W,
     core: CoreRef<'_>,
@@ -528,11 +528,35 @@ pub fn end_winding_leakage_inductance_cage<W: Winding>(
     return ring_segment_inductance / (2.0 * (PI * poles_per_slot).sin());
 }
 
-/// Estimates the mean length of a single wire in the end winding of a
-/// tooth-coil winding, approximating the half-turn as a semicircle spanning the
-/// two winding-zone centroids.
-/// Tooth coil winding
-/// The end winding is approximated by the centerline of the conductor path.
+/// Approximates the length of an end-winding half turn for a [`FullCoil`] at
+/// the specified `zone` with a semi-circle.
+#[doc = ""]
+#[cfg_attr(
+    feature = "doc-images",
+    doc = "![Approximation of the end winding geometry as a semicircle][cad_end_winding_semicircle]"
+)]
+#[cfg_attr(
+    feature = "doc-images",
+    embed_doc_image::embed_doc_image(
+        "cad_end_winding_semicircle",
+        "docs/img/cad_end_winding_semicircle.svg"
+    )
+)]
+#[cfg_attr(
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+)]
+///
+/// The half-turn length is approximated as a semicircle connecting the
+/// centroids of the two winding zones of the coil:
+///
+/// `ew_turn_length = π * bending_radius`
+///
+/// with `2 * bending_radius` being the distance between the centroids.
+///
+/// If the coil at `zone` is not a [`FullCoil`], this function returns zero.
+/// The returned length corresponds to the centerline of the conductor path.
 pub fn end_winding_half_turn_length_semicircle<W: Winding + ?Sized>(
     winding: &W,
     core: CoreRef<'_>,
@@ -566,22 +590,63 @@ pub fn end_winding_half_turn_length_semicircle<W: Winding + ?Sized>(
     }
 }
 
-/// Approximates the mean length of a single wire in the end winding of a
-/// tooth-coil winding as a circular arc at the mean radius of the two coil
-/// sides. The arc angle is determined from the coil throw.
+/// Approximates the length of an end-winding half turn for a [`FullCoil`] at
+/// the specified `zone` with a circular arc along the front side of the `core`.
+#[doc = ""]
+#[cfg_attr(
+    feature = "doc-images",
+    doc = "![Approximation of the end winding geometry for a rotary core][cad_end_winding_circular_arc]"
+)]
+#[cfg_attr(
+    feature = "doc-images",
+    embed_doc_image::embed_doc_image(
+        "cad_end_winding_circular_arc",
+        "docs/img/cad_end_winding_circular_arc.svg"
+    )
+)]
+#[cfg_attr(
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+)]
+/// As shown in the image, the end winding coil geometry is composed of two
+/// straight parts whose length is equal to `coil_diameter`, two quarter-circles
+/// and a circular arc between the zone centroids.
 ///
-/// This approximation follows the common mean-radius/coil-pitch approach used
-/// for analytical end-winding length calculations [1].
-/// https://ansyshelp.ansys.com/public/account/secured?returnurl=/Views/Secured/MotorCAD/v252/en/Motor-CAD_UG/MotorCAD/topics/end_winding_length_calculation.html?utm_source=chatgpt.com
-/// Gundogdu, T. and Komurgoz, G. (2020), Comparative study on performance characteristics of PM and reluctance machines equipped with overlapping, semi-overlapping, and non-overlapping windings. IET Electric Power Applications, 14: 991-1001. https://doi.org/10.1049/iet-epa.2019.0743
-/// The end winding is approximated by the centerline of the conductor path.
+/// The straight parts model the overlap with other coils. Since this end
+/// winding approximation is meant to be used for distributed windings, it can
+/// be expected that the end winding has to cross at least one other coil and
+/// therefore has to cover the `coil_diameter` distance twice.
 ///
-/// Approximation of the coil diameter. This diameter has to be
-/// travelled up and down if the coil overlaps at least one other
-/// coil, which is usually the case for non tooth-coil windings.
-/// The coil is approximated as a circle which covers the same area
-/// as the mean value of the two contours:
-/// coil_dia = 2 * sqrt((Apos + Aneg) / (2 * PI))
+/// The bending radii are assumed to be the distance between the zone centroids
+/// and the teeth middle. The quarter-circle length is `π/2 * radius`, but the
+/// bending correspondingly also shortens the circular arc, so that the full
+/// contribution of a bending becomes `(π/2 - 1) * radius`.
+///
+/// The circular arc goes from the centroids centers and its readius is the mean
+/// radius of the two zones `eq_center_radius`.
+///
+/// If the coil at `zone` is not a [`FullCoil`], this function returns zero.
+/// The returned length corresponds to the centerline of the conductor path.
+///
+/// This function is the equivalent of [`end_winding_half_turn_length_straight`]
+/// for rotary cores.
+///
+/// This analytical approach is inspired by
+/// [\[1\]](#end_winding_half_turn_length_circular_arc_1),
+/// [\[2\]](#end_winding_half_turn_length_circular_arc_2).
+///
+/// # Literature
+///
+/// <a id="end_winding_half_turn_length_circular_arc_1">[1]</a>
+/// [ANSYS Motor-CAD: End winding length calculation](https://ansyshelp.ansys.com/public/account/secured?returnurl=/Views/Secured/MotorCAD/v252/en/Motor-CAD_UG/MotorCAD/topics/end_winding_length_calculation.html)
+///
+/// <a id="end_winding_half_turn_length_circular_arc_2">[2]</a>
+/// Gundogdu, T. and Komurgoz, G.: Comparative study on performance
+/// characteristics of PM and reluctance machines equipped with overlapping,
+/// semi-overlapping, and non-overlapping windings. IET Electric Power
+/// Applications, 14, 991–1001, 2020.
+/// <https://doi.org/10.1049/iet-epa.2019.0743>
 pub fn end_winding_half_turn_length_circular_arc<W: Winding + ?Sized>(
     winding: &W,
     core: &RotCore,
@@ -663,29 +728,61 @@ pub fn end_winding_half_turn_length_circular_arc<W: Winding + ?Sized>(
     }
 }
 
-/// Estimates the mean length of a single wire in the end winding of a linear
-/// distributed winding.
+/// Approximates the length of an end-winding half turn for a [`FullCoil`] at
+/// the specified `zone` with a straight line along the front side of the
+/// `core`.
+#[doc = ""]
+#[cfg_attr(
+    feature = "doc-images",
+    doc = "![Approximation of the end winding geometry for a linear core][cad_end_winding_straight]"
+)]
+#[cfg_attr(
+    feature = "doc-images",
+    embed_doc_image::embed_doc_image(
+        "cad_end_winding_straight",
+        "docs/img/cad_end_winding_straight.svg"
+    )
+)]
+#[cfg_attr(
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+)]
+/// As shown in the image, the end winding coil geometry is composed of two
+/// straight parts whose length is equal to `coil_diameter`, two quarter-circles
+/// and a straight line between the zone centroids.
 ///
-/// The end winding is approximated by a straight section connecting the two
-/// winding-zone centroids, with a quarter-circle at each end to account for
-/// the transition from the winding zone to the end winding. The radius of
-/// each quarter-circle is approximated by the distance between the winding-zone
-/// centroid and the center of the adjacent tooth.
-/// The resulting length is therefore approximated as
+/// The straight parts model the overlap with other coils. Since this end
+/// winding approximation is meant to be used for distributed windings, it can
+/// be expected that the end winding has to cross at least one other coil and
+/// therefore has to cover the `coil_diameter` distance twice.
 ///
-/// `d + π * r`
+/// The bending radii are assumed to be the distance between the zone centroids
+/// and the teeth middle. The quarter-circle length is `π/2 * radius`, but the
+/// bending correspondingly also shortens the circular arc, so that the full
+/// contribution of a bending becomes `(π/2 - 1) * radius`.
 ///
-/// where `d` is the distance between the two winding-zone centroids and `r`
-/// is the bend radius described above.
-/// Special case: coil throw = 0 (start and stop slot are identical) => d * π/2
-/// The end winding is approximated by the centerline of the conductor path.
+/// If the coil at `zone` is not a [`FullCoil`], this function returns zero.
+/// The returned length corresponds to the centerline of the conductor path.
 ///
-/// Approximation of the coil diameter. This diameter has to be
-/// travelled up and down if the coil overlaps at least one other
-/// coil, which is usually the case for non tooth-coil windings.
-/// The coil is approximated as a circle which covers the same area
-/// as the mean value of the two contours:
-/// coil_dia = 2 * sqrt((Apos + Aneg) / (2 * PI))
+/// This function is the equivalent of
+/// [`end_winding_half_turn_length_circular_arc`] for linear cores.
+///
+/// This analytical approach is inspired by
+/// [\[1\]](#end_winding_half_turn_length_circular_arc_1),
+/// [\[2\]](#end_winding_half_turn_length_circular_arc_2).
+///
+/// # Literature
+///
+/// <a id="end_winding_half_turn_length_circular_arc_1">[1]</a>
+/// [ANSYS Motor-CAD: End winding length calculation](https://ansyshelp.ansys.com/public/account/secured?returnurl=/Views/Secured/MotorCAD/v252/en/Motor-CAD_UG/MotorCAD/topics/end_winding_length_calculation.html)
+///
+/// <a id="end_winding_half_turn_length_circular_arc_2">[2]</a>
+/// Gundogdu, T. and Komurgoz, G.: Comparative study on performance
+/// characteristics of PM and reluctance machines equipped with overlapping,
+/// semi-overlapping, and non-overlapping windings. IET Electric Power
+/// Applications, 14, 991–1001, 2020.
+/// <https://doi.org/10.1049/iet-epa.2019.0743>
 pub fn end_winding_half_turn_length_straight<W: Winding + ?Sized>(
     winding: &W,
     core: &LinCore,

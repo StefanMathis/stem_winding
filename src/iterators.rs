@@ -457,3 +457,99 @@ pub fn multiphase_system(
             .cos()
     });
 }
+
+/// An iterator over the phase sequence that creates a rotating magnetic field.
+///
+/// The phase sequence can be determined from the voltage phasor star
+/// [\(1\)](#phase_sequence_1), section 2.2. The phasor star consists of
+/// `2 * phases` beams, representing the positive and negative directions of
+/// each phase, with an angular separation of `π / phases` between neighboring
+/// beams.
+///
+/// The positive-phase beams are separated by `2 * π / phases` and are
+/// enumerated counter-clockwise. The negative-phase beams are obtained by
+/// reversing this enumeration and rotating it by `π`. Superimposing the two
+/// stars produces the complete phasor star. For a counter-clockwise rotating
+/// magnetic field, the phase sequence is given by the resulting sequence of
+/// beam indices.
+#[doc = ""]
+#[cfg_attr(feature = "doc-images", doc = "![Phase sequence][phase_sequence]")]
+#[cfg_attr(
+    feature = "doc-images",
+    embed_doc_image::embed_doc_image("phase_sequence", "docs/img/cad_phase_sequence.svg")
+)]
+#[cfg_attr(
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+)]
+///
+/// # Literature
+/// <a id="phase_sequence_1">\(1\)</a>
+/// Pyrhönen, J., Jokinen, T., Hrabovcová, V.:
+/// *Design of Rotating Electrical Machines*, 1st edition, John Wiley &
+/// Sons, 2008
+///
+/// # Examples
+///
+/// ```
+/// use stem_winding::iterators::PhaseSequence;
+///
+/// // 2-phase winding
+/// let sequence: Vec<_> = PhaseSequence::new(2.try_into().expect("not zero")).collect();
+/// assert_eq!(sequence, vec![1, -2, 2, -1]);
+///
+/// // 3-phase winding
+/// let sequence: Vec<_> = PhaseSequence::new(3.try_into().expect("not zero")).collect();
+/// assert_eq!(sequence, vec![1, -3, 2, -1, 3, -2]);
+///
+/// // 5-phase winding
+/// let sequence: Vec<_> = PhaseSequence::new(5.try_into().expect("not zero")).collect();
+/// assert_eq!(sequence, vec![1, -4, 2, -5, 3, -1, 4, -2, 5, -3]);
+/// ```
+pub struct PhaseSequence {
+    phases: i32,
+    index: i32,
+    prev_pos: i32,
+    prev_neg: i32,
+}
+
+impl PhaseSequence {
+    /// Returns a new [`PhaseSequence`] for the given number of `phases`.
+    pub fn new(phases: NonZeroU16) -> Self {
+        PhaseSequence {
+            phases: i32::from(phases.get()),
+            index: 0,
+            prev_pos: i32::from(phases.get()),
+            prev_neg: (i32::from(phases.get()) + 1) / 2,
+        }
+    }
+}
+
+impl Iterator for PhaseSequence {
+    type Item = i32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index == 2 * self.phases {
+            return None;
+        }
+        self.index += 1;
+
+        if self.index % 2 == 0 {
+            let next = self.prev_neg % self.phases + 1;
+            self.prev_neg = next;
+            Some(-next)
+        } else {
+            let next = self.prev_pos % self.phases + 1;
+            self.prev_pos = next;
+            Some(next)
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = (2 * self.phases - self.index).abs() as usize;
+        (len, Some(len))
+    }
+}
+
+impl ExactSizeIterator for PhaseSequence {}
