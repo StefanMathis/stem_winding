@@ -443,7 +443,7 @@ impl Default for DistributedWinding {
             parallel_paths: NonZeroU16::MIN,
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(RoundWire::default()),
+            wire: Box::new(SffWire::default()),
             winding_table_constructor: WindingTableConstructor::Tingley,
             concentric_coils: false,
         }
@@ -726,7 +726,7 @@ impl TryFrom<DistributedMinimalBuilder> for DistributedWinding {
             parallel_paths: NonZeroU16::MIN,
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(RoundWire::default()),
+            wire: Box::new(SffWire::default()),
             concentric_coils: false,
         }
         .try_into();

@@ -4,7 +4,7 @@ use std::num::{NonZeroU16, NonZeroUsize};
 
 use num::Integer;
 use stem_coil_layout::{CoilLayout, Zone};
-use stem_wire::{round::RoundWire, wire::Wire};
+use stem_wire::{sff::SffWire, wire::Wire};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -169,7 +169,7 @@ impl Default for ToothCoilWinding {
             parallel_paths: NonZeroU16::MIN,
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(RoundWire::default()),
+            wire: Box::new(SffWire::default()),
             winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
@@ -297,12 +297,12 @@ pub struct ToothCoilBuilder {
     pub pole_pairs: NonZeroU16,
     pub phases: NonZeroU16,
     pub layers: NonZeroU16,
+    pub winding_table_constructor: WindingTableConstructor,
     pub turns_per_coil: NonZeroUsize,
     pub parallel_paths: NonZeroU16,
     pub connection: Connection,
     pub end_winding_leakage_coefficient: f64,
     pub wire: Box<dyn Wire>,
-    pub winding_table_constructor: WindingTableConstructor,
 }
 
 impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
@@ -391,7 +391,7 @@ impl TryFrom<ToothCoilMinimalBuilder> for ToothCoilWinding {
             parallel_paths: NonZeroU16::MIN,
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(RoundWire::default()),
+            wire: Box::new(SffWire::default()),
             winding_table_constructor: builder.winding_table_constructor,
         }
         .try_into()

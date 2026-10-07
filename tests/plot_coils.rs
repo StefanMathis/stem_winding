@@ -376,7 +376,7 @@ mod cairo_tests {
                         true,
                         NonZeroUsize::MIN,
                         NonZeroU16::MIN,
-                        Box::new(RoundWire::default()),
+                        Box::new(SffWire::default()),
                     )
                     .expect("zones not identical")
                     .into(),
@@ -496,7 +496,7 @@ mod cairo_tests {
                 false,
                 1.try_into().unwrap(),
                 1.try_into().unwrap(),
-                Box::new(RoundWire::default()),
+                Box::new(SffWire::default()),
             )
             .unwrap();
 
@@ -507,7 +507,7 @@ mod cairo_tests {
                 false,
                 1.try_into().unwrap(),
                 1.try_into().unwrap(),
-                Box::new(RoundWire::default()),
+                Box::new(SffWire::default()),
             )
             .unwrap();
             coils.insert(coil.into()).unwrap();
@@ -518,7 +518,7 @@ mod cairo_tests {
                 false,
                 1.try_into().unwrap(),
                 2.try_into().unwrap(),
-                Box::new(RoundWire::default()),
+                Box::new(SffWire::default()),
             )
             .unwrap();
             coils.insert(coil.into()).unwrap();
@@ -529,7 +529,7 @@ mod cairo_tests {
                 false,
                 1.try_into().unwrap(),
                 2.try_into().unwrap(),
-                Box::new(RoundWire::default()),
+                Box::new(SffWire::default()),
             )
             .unwrap();
             coils.insert(coil.into()).unwrap();

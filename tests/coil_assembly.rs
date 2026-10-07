@@ -17,7 +17,7 @@ fn test_build_from_scratch() {
     .unwrap();
 
     // Add a coil, make sure it's there and then remove it
-    let wire = RoundWire::default();
+    let wire = SffWire::default();
     coil_assembly
         .insert(HalfCoil::new(
             Zone::new(0, 0),
@@ -31,7 +31,7 @@ fn test_build_from_scratch() {
     assert!(coil_assembly.remove(Zone::new(0, 0)).is_some());
 
     // Add another coil, make sure it's there and then remove it
-    let wire = RoundWire::default();
+    let wire = SffWire::default();
     coil_assembly
         .insert(
             FullCoil::new(
@@ -116,7 +116,7 @@ fn test_derive_from_winding() {
         for turns in 2..4 {
             wires.push((
                 NonZeroUsize::new(turns).unwrap(),
-                Box::new(RoundWire::default()),
+                Box::new(SffWire::default()),
             ));
         }
         let winding: DistributedToothCoilWinding = DistributedToothCoilBuilder {
@@ -328,7 +328,7 @@ fn test_harmonic_order_and_amplitude() {
                         true,
                         1.try_into().expect("not zero"),
                         1.try_into().expect("not zero"),
-                        Box::new(RoundWire::default()),
+                        Box::new(SffWire::default()),
                     )
                     .unwrap(),
                 )
@@ -341,7 +341,7 @@ fn test_harmonic_order_and_amplitude() {
                         true,
                         1.try_into().expect("not zero"),
                         1.try_into().expect("not zero"),
-                        Box::new(RoundWire::default()),
+                        Box::new(SffWire::default()),
                     )
                     .unwrap(),
                 )
@@ -354,7 +354,7 @@ fn test_harmonic_order_and_amplitude() {
                         true,
                         1.try_into().expect("not zero"),
                         1.try_into().expect("not zero"),
-                        Box::new(RoundWire::default()),
+                        Box::new(SffWire::default()),
                     )
                     .unwrap(),
                 )
@@ -369,7 +369,7 @@ fn test_harmonic_order_and_amplitude() {
                         true,
                         1.try_into().expect("not zero"),
                         2.try_into().expect("not zero"),
-                        Box::new(RoundWire::default()),
+                        Box::new(SffWire::default()),
                     )
                     .unwrap(),
                 )
@@ -382,7 +382,7 @@ fn test_harmonic_order_and_amplitude() {
                         true,
                         1.try_into().expect("not zero"),
                         2.try_into().expect("not zero"),
-                        Box::new(RoundWire::default()),
+                        Box::new(SffWire::default()),
                     )
                     .unwrap(),
                 )
@@ -395,7 +395,7 @@ fn test_harmonic_order_and_amplitude() {
                         true,
                         1.try_into().expect("not zero"),
                         2.try_into().expect("not zero"),
-                        Box::new(RoundWire::default()),
+                        Box::new(SffWire::default()),
                     )
                     .unwrap(),
                 )
@@ -410,7 +410,7 @@ fn test_harmonic_order_and_amplitude() {
                         true,
                         1.try_into().expect("not zero"),
                         3.try_into().expect("not zero"),
-                        Box::new(RoundWire::default()),
+                        Box::new(SffWire::default()),
                     )
                     .unwrap(),
                 )
@@ -423,7 +423,7 @@ fn test_harmonic_order_and_amplitude() {
                         true,
                         1.try_into().expect("not zero"),
                         3.try_into().expect("not zero"),
-                        Box::new(RoundWire::default()),
+                        Box::new(SffWire::default()),
                     )
                     .unwrap(),
                 )
@@ -436,7 +436,7 @@ fn test_harmonic_order_and_amplitude() {
                         true,
                         1.try_into().expect("not zero"),
                         3.try_into().expect("not zero"),
-                        Box::new(RoundWire::default()),
+                        Box::new(SffWire::default()),
                     )
                     .unwrap(),
                 )

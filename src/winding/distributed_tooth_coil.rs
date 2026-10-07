@@ -7,7 +7,7 @@ use compare_variables::compare_variables;
 use dyn_clone::clone_box;
 use num::Integer;
 use stem_coil_layout::{CoilLayout, Zone};
-use stem_wire::{round::RoundWire, wire::Wire};
+use stem_wire::{sff::SffWire, wire::Wire};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -492,7 +492,7 @@ impl TryFrom<DistributedToothCoilMinimalBuilder> for DistributedToothCoilWinding
         let mut wires: Vec<(NonZeroUsize, Box<dyn Wire>)> =
             Vec::with_capacity(builder.coil_group_turns.len());
         for turns in builder.coil_group_turns {
-            wires.push((turns, Box::new(RoundWire::default())));
+            wires.push((turns, Box::new(SffWire::default())));
         }
 
         DistributedToothCoilBuilder {

@@ -154,7 +154,7 @@ impl Coils {
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let wire: Box<dyn Wire> = Box::new(SffWire::default());
     ///
     /// let coil = FullCoil::new(
     ///     Zone::new(0, 0),
@@ -191,7 +191,7 @@ impl Coils {
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let wire: Box<dyn Wire> = Box::new(SffWire::default());
     ///
     /// let coil = FullCoil::new(
     ///     Zone::new(0, 0),
@@ -229,7 +229,7 @@ impl Coils {
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let wire: Box<dyn Wire> = Box::new(SffWire::default());
     ///
     /// let coil = FullCoil::new(
     ///     Zone::new(0, 0),
@@ -264,7 +264,7 @@ impl Coils {
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let wire: Box<dyn Wire> = Box::new(SffWire::default());
     ///
     /// let coil = FullCoil::new(
     ///     Zone::new(0, 0),
@@ -294,7 +294,7 @@ impl Coils {
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let wire: Box<dyn Wire> = Box::new(SffWire::default());
     ///
     /// let coil = FullCoil::new(
     ///     Zone::new(0, 0),
@@ -320,7 +320,7 @@ impl Coils {
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let wire: Box<dyn Wire> = Box::new(SffWire::default());
     ///
     /// let coil = FullCoil::new(
     ///     Zone::new(0, 0),
@@ -424,7 +424,7 @@ impl Coil {
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let full_coil_wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let full_coil_wire: Box<dyn Wire> = Box::new(SffWire::default());
     /// let full_coil: Coil = FullCoil::new(
     ///     Zone::new(0, 0),
     ///     Zone::new(1, 0),
@@ -439,7 +439,7 @@ impl Coil {
     /// assert_eq!(zones.next(), Some(Zone::new(1, 0)));
     /// assert_eq!(zones.next(), None);
     ///
-    /// let half_coil_wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let half_coil_wire: Box<dyn Wire> = Box::new(SffWire::default());
     /// let half_coil: Coil = HalfCoil::new(
     ///     Zone::new(0, 0),
     ///     true,
@@ -466,7 +466,7 @@ impl Coil {
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let full_coil_wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let full_coil_wire: Box<dyn Wire> = Box::new(SffWire::default());
     /// let full_coil: Coil = FullCoil::new(
     ///     Zone::new(0, 0),
     ///     Zone::new(1, 0),
@@ -488,7 +488,7 @@ impl Coil {
     ///    is_positive: false,
     /// }));
     ///
-    /// let half_coil_wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let half_coil_wire: Box<dyn Wire> = Box::new(SffWire::default());
     /// let half_coil: Coil = HalfCoil::new(
     ///     Zone::new(0, 0),
     ///     false,
@@ -618,7 +618,7 @@ pub trait CoilExt: private::Sealed {
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let wire: Box<dyn Wire> = Box::new(SffWire::default());
     /// let mut coil: Coil = FullCoil::new(
     ///     Zone::new(0, 0),
     ///     Zone::new(3, 0),
@@ -660,7 +660,7 @@ pub trait CoilExt: private::Sealed {
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    /// let wire: Box<dyn Wire> = Box::new(SffWire::default());
     /// let mut coil: Coil = FullCoil::new(
     ///     Zone::new(0, 0),
     ///     Zone::new(3, 0),
@@ -778,7 +778,7 @@ pub trait CoilExt: private::Sealed {
     use std::num::{NonZeroU16, NonZeroUsize};
     use stem_winding::prelude::*;
 
-    let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    let wire: Box<dyn Wire> = Box::new(SffWire::default());
     let coil = FullCoil::new(
         Zone::new(0, 0),
         Zone::new(5, 0),
@@ -1108,7 +1108,7 @@ impl FullCoil {
         false, // parameter positive_slot_direction
         NonZeroUsize::new(10).expect("not zero"),
         NonZeroU16::MIN,
-        Box::new(RoundWire::default()),
+        Box::new(SffWire::default()),
     )
     .expect("zones identical");
 

@@ -190,7 +190,7 @@ fn test_set_concentric() {
         parallel_paths: 1.try_into().expect("not zero"),
         connection: Connection::Star,
         end_winding_leakage_coefficient: 0.0,
-        wire: Box::new(RoundWire::default()),
+        wire: Box::new(SffWire::default()),
         concentric_coils: true,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
@@ -208,7 +208,7 @@ fn test_set_concentric() {
         parallel_paths: 1.try_into().expect("not zero"),
         connection: Connection::Star,
         end_winding_leakage_coefficient: 0.0,
-        wire: Box::new(RoundWire::default()),
+        wire: Box::new(SffWire::default()),
         concentric_coils: false,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
@@ -366,7 +366,7 @@ fn test_coil_span() {
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(RoundWire::default()),
+            wire: Box::new(SffWire::default()),
             concentric_coils: true,
             winding_table_constructor: WindingTableConstructor::Tingley,
         }
@@ -399,7 +399,7 @@ fn test_coil_span() {
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(RoundWire::default()),
+            wire: Box::new(SffWire::default()),
             concentric_coils: true,
             winding_table_constructor: WindingTableConstructor::Tingley,
         }
@@ -556,7 +556,7 @@ fn test_failed_creation() {
             parallel_paths: 3.try_into().expect("not zero"),
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(RoundWire::default()),
+            wire: Box::new(SffWire::default()),
             concentric_coils: false,
             winding_table_constructor: WindingTableConstructor::Tingley,
         })
@@ -749,7 +749,7 @@ fn test_series_turns_per_phase() {
         parallel_paths: 1.try_into().expect("not zero"),
         connection: Connection::Star,
         end_winding_leakage_coefficient: 0.0,
-        wire: Box::new(RoundWire::default()),
+        wire: Box::new(SffWire::default()),
         concentric_coils: false,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
@@ -770,7 +770,7 @@ fn test_series_turns_per_phase() {
         parallel_paths: 1.try_into().expect("not zero"),
         connection: Connection::Star,
         end_winding_leakage_coefficient: 0.0,
-        wire: Box::new(RoundWire::default()),
+        wire: Box::new(SffWire::default()),
         concentric_coils: false,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
@@ -794,7 +794,7 @@ fn test_doubled_zone_span() {
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(RoundWire::default()),
+            wire: Box::new(SffWire::default()),
             winding_table_constructor: WindingTableConstructor::Tingley,
             concentric_coils: false,
         })
@@ -810,7 +810,7 @@ fn test_doubled_zone_span() {
         parallel_paths: 1.try_into().expect("not zero"),
         connection: Connection::Star,
         end_winding_leakage_coefficient: 0.0,
-        wire: Box::new(RoundWire::default()),
+        wire: Box::new(SffWire::default()),
         winding_table_constructor: WindingTableConstructor::Tingley,
         concentric_coils: false,
     })
@@ -937,7 +937,7 @@ fn test_harmonic_order_and_amplitude() {
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.25,
-            wire: Box::new(RoundWire::default()),
+            wire: Box::new(SffWire::default()),
             concentric_coils: false,
             winding_table_constructor: WindingTableConstructor::Tingley,
         })
@@ -1003,7 +1003,7 @@ fn test_line_to_phase_voltage() {
         parallel_paths: 1.try_into().expect("not zero"),
         connection: Connection::Star,
         end_winding_leakage_coefficient: 0.0,
-        wire: Box::new(RoundWire::default()),
+        wire: Box::new(SffWire::default()),
         concentric_coils: false,
         winding_table_constructor: WindingTableConstructor::Tingley,
     })
@@ -1033,7 +1033,7 @@ fn test_line_to_phase_voltage() {
         parallel_paths: 1.try_into().expect("not zero"),
         connection: Connection::Delta,
         end_winding_leakage_coefficient: 0.0,
-        wire: Box::new(RoundWire::default()),
+        wire: Box::new(SffWire::default()),
         concentric_coils: false,
         winding_table_constructor: WindingTableConstructor::Tingley,
     })
@@ -1306,17 +1306,15 @@ mod stem_core_tests {
         let core = create_core_trap();
 
         let mut copper: Material = create_dbm().read("Copper").unwrap();
-        copper.electrical_resistivity = VarQuantity::Function(
-            QuantityFunction::new(Box::new(
-                FirstOrderTaylor::new(
-                    DynQuantity::from_str("1 / 56 m/MS").expect("parseable"),
-                    DynQuantity::from_str("0.393 % / K").expect("parseable"),
-                    DynQuantity::from_str("20.0 °C").expect("parseable"),
-                )
-                .expect("units match"),
-            ))
+        copper.electrical_resistivity = VarQuantity::new(
+            FirstOrderTaylor::new(
+                DynQuantity::from_str("1 / 56 m/MS").expect("parseable"),
+                DynQuantity::from_str("0.393 % / K").expect("parseable"),
+                DynQuantity::from_str("20.0 °C").expect("parseable"),
+            )
             .expect("units match"),
-        );
+        )
+        .expect("units match");
         let copper_arc = Arc::new(copper);
         let wire_1 = RoundWire::new(
             copper_arc.clone(),

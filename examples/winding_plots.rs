@@ -83,7 +83,7 @@ fn zone_polarity() -> Result<(), Box<dyn std::error::Error>> {
             true,
             NonZeroUsize::MIN,
             NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
+            Box::new(SffWire::default()),
         )
         .expect("zones not identical")
         .into(),
@@ -255,7 +255,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
             true,
             1.try_into().expect("not zero"),
             1.try_into().expect("not zero"),
-            Box::new(RoundWire::default()),
+            Box::new(SffWire::default()),
         )
         .unwrap(),
     )?;
@@ -266,7 +266,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
             true,
             1.try_into().expect("not zero"),
             3.try_into().expect("not zero"),
-            Box::new(RoundWire::default()),
+            Box::new(SffWire::default()),
         )
         .unwrap(),
     )?;
@@ -277,7 +277,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
             true,
             1.try_into().expect("not zero"),
             2.try_into().expect("not zero"),
-            Box::new(RoundWire::default()),
+            Box::new(SffWire::default()),
         )
         .unwrap(),
     )?;

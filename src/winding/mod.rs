@@ -1264,7 +1264,6 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     // See eq. (5.34) and (5.35) from [Mat19].
     //  */
     // fn convert_air_gap_flux_to_winding_linkage(&self) -> Area {
-    //     if let Some(winding) = self.winding() {
     //         let series_turns_per_phase = winding.series_turns_per_phase(1);
     //         let tpf_float = *series_turns_per_phase.numer() as f64 /
     // *series_turns_per_phase.denom() as f64;         let ag_area = match
@@ -1273,26 +1272,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     //         };
     //         return ag_area * tpf_float * self.winding_factor(1, 1.0)
     //             / (std::f64::consts::PI * winding.pole_pairs() as f64);
-    //     } else {
-    //         return Area::new::<square_meter>(0.0);
-    //     }
     // }
-
-    // /**
-    // Calculate the Joule losses in the winding phases for the given d-q-current.
-    // The winding is assumed to be symmetric.  */
-    // fn joule_losses_dq(
-    //     &self,
-    //     d_current: ElectricCurrent,
-    //     q_current: ElectricCurrent,
-    //     conditions: &[InfluencingQuantity],
-    // ) -> Power {
-    //     let phases = match self.winding() {
-    //         Some(wdg) => wdg.phases(),
-    //         None => return Power::new::<watt>(0.0),
-    //     };
-    //     return joule_losses_dq(self.resistance(1, conditions), phases, d_current,
-    // q_current); }
 
     // TODO
     /**
@@ -1653,17 +1633,14 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// // with the temperature.
     /// let copper = {
     ///     let mut material = Material::default();
-    ///     material.electrical_resistivity = VarQuantity::Function(
-    ///         QuantityFunction::new(Box::new(
+    ///     material.electrical_resistivity = VarQuantity::new(
     ///         FirstOrderTaylor::new(
-    ///         DynQuantity::from_str("1 / 56 m/MS").expect("parseable"),
-    ///         DynQuantity::from_str("0.393 % / K").expect("parseable"),
-    ///         DynQuantity::from_str("20.0 °C").expect("parseable"),
+    ///             DynQuantity::from_str("1 / 56 m/MS").expect("parseable"),
+    ///             DynQuantity::from_str("0.393 % / K").expect("parseable"),
+    ///             DynQuantity::from_str("20.0 °C").expect("parseable"),
     ///         )
-    ///         .expect("units match"),
-    ///     ))
-    ///     .expect("units match"),
-    ///     );
+    ///         .expect("units match")
+    ///     ).expect("units match");
     ///     Arc::new(material)
     /// };
     ///
@@ -1729,10 +1706,10 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     ///     pole_pairs: 2.try_into().expect("not zero"),
     ///     skew_angle: 0.0,
     ///     air_gap: Box::new(SlottedAirGap::new(
-    ///     36.try_into().expect("not zero"),
-    ///     true,
-    ///     CarterFactorModel::Bin12,
-    ///     Box::new(slot),
+    ///         36.try_into().expect("not zero"),
+    ///         true,
+    ///         CarterFactorModel::Bin12,
+    ///         Box::new(slot),
     ///     )),
     ///     flux_barrier: None,
     /// }.try_into().expect("valid magnetic core");
@@ -1838,14 +1815,89 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// `end_winding_half_turn_lengths`, and has the unit reciprocal length
     /// (`1 / Length`). Separating it from the electrical resistivity allows it
     /// to be calculated once and reused, for example when evaluating the
-    /// resistance of the same winding at different temperatures. See
-    /// [`ResistanceDecomposition`] for an example.
+    /// resistance of the same winding at different temperatures.
     ///
     /// This method returns `None` if the winding is not symmetric with respect
     /// to the specified `core` and `end_winding_half_turn_lengths`, or if
     /// it contains no coils. The returned material is that of the first
     /// coil returned by [`Winding::coils_iter`], so all coils must have the
     /// same electrical resistivity.
+    ///
+    /// # Examples
+    ///
+    /// This example just serves to demonstrate the workflow, hence we use a
+    /// fictional core and winding here to simplify the setup.
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use std::sync::Arc;
+    ///
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    /// use stem_winding::var_quantity::unary::FirstOrderTaylor;
+    ///
+    /// // Define a material with an electrical resistivity which changes linearly
+    /// // with the temperature.
+    /// let copper = {
+    ///     let mut material = Material::default();
+    ///     material.electrical_resistivity = VarQuantity::new(
+    ///         FirstOrderTaylor::new(
+    ///             DynQuantity::from_str("1 / 56 m/MS").expect("parseable"),
+    ///             DynQuantity::from_str("0.393 % / K").expect("parseable"),
+    ///             DynQuantity::from_str("20.0 °C").expect("parseable"),
+    ///         )
+    ///         .expect("units match")
+    ///     ).expect("units match");
+    ///     Arc::new(material)
+    /// };
+    ///
+    /// let winding: ToothCoilWinding = ToothCoilBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 5.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 1.try_into().expect("not zero"),
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    ///     turns_per_coil: 30.try_into().expect("not zero"),
+    ///     parallel_paths: 1.try_into().expect("not zero"),
+    ///     connection: Connection::Star,
+    ///     end_winding_leakage_coefficient: 0.0,
+    ///     wire: Box::new(SffWire::new(
+    ///         copper,
+    ///         0.5, // slot_fill_factor_conductor
+    ///         0.6, // slot_fill_factor_overall
+    ///     ).expect("valid inputs"))
+    /// }
+    /// .try_into()
+    /// .unwrap();
+    /// let core = RotCore::from_winding(&winding);
+    ///
+    /// let decomposition = winding.resistance_decomposition(
+    ///     core.as_core_ref(),
+    ///     &Default::default()
+    /// ).expect("symmetric winding");
+    ///
+    /// // Phase resistance at 20 °C.
+    /// let conditions = [DynQuantity::from_str("20 °C").expect("parseable")];
+    /// let r20 = winding.resistance(
+    ///     CoreRef::Rot(&core),
+    ///     1.try_into().unwrap(),
+    ///     &conditions,
+    ///     &Default::default()
+    /// ).get::<ohm>();
+    /// assert_abs_diff_eq!(r20, 0.202179, epsilon = 0.0001);
+    /// assert_abs_diff_eq!(r20, decomposition.resistance(&conditions).get::<ohm>(), epsilon = 0.0001);
+    ///
+    /// // Phase resistance at 120 °C.
+    /// let conditions = [DynQuantity::from_str("120 °C").expect("parseable")];
+    /// let r120 = winding.resistance(
+    ///     CoreRef::Rot(&core),
+    ///     1.try_into().unwrap(),
+    ///     &conditions,
+    ///     &Default::default()
+    /// ).get::<ohm>();
+    /// assert_abs_diff_eq!(r120, 0.2816357, epsilon = 0.0001);
+    /// assert_abs_diff_eq!(r120, decomposition.resistance(&conditions).get::<ohm>(), epsilon = 0.0001);
+    /// ```
     #[cfg(feature = "stem_core")]
     fn resistance_decomposition(
         &self,
@@ -2246,9 +2298,6 @@ The segment count starts at zero, the last segment of a staggered component has 
 
 The reference axis lies on the cross section of skew line and axial stack length, therefore the sum of all segment angles is always zero.
 
-# Panics
-Panics if the number of segments (`num_segments`) is zero.
-
 ```
 use winding::common::segment_angle;
 use approxim::assert_abs_diff_eq;
@@ -2263,7 +2312,7 @@ assert_abs_diff_eq!(segment_angle(1, 6.0, 3), 0.0);
 assert_abs_diff_eq!(segment_angle(2, 6.0, 3), 2.0);
 ```
  */
-pub fn segment_angle(segment: usize, skew_angle: f64, num_segments: usize) -> f64 {
-    let beta = skew_angle / num_segments as f64;
+pub fn segment_angle(segment: usize, skew_angle: f64, num_segments: NonZeroUsize) -> f64 {
+    let beta = skew_angle / num_segments.get() as f64;
     return (0.5 + segment as f64) * beta - 0.5 * skew_angle;
 }

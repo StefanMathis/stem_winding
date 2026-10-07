@@ -12,7 +12,7 @@ approxim = { version = "0.6" }
 cart_lin = { version = "0.2.1" }
 colorgrad = { version = "0.8.0", features = ["preset"], optional = true}
 compare_variables = { version = "0.3.0", features = ["proc_macro"] }
-deserialize_untagged_verbose_error = { version = "0.1.7", optional = true }
+deserialize_untagged_verbose_error = { version = "0.1.8", optional = true }
 dyn-clone = "1"
 embed-doc-image = { version = "0.1.4", optional = true }
 keyring_map = "0.1.1"

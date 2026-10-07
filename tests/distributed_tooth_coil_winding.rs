@@ -264,7 +264,7 @@ fn test_three_zones_single_layer_differing_number_of_coils() {
     for turns in 2..4 {
         wires.push((
             NonZeroUsize::new(turns).unwrap(),
-            Box::new(RoundWire::default()),
+            Box::new(SffWire::default()),
         ));
     }
 

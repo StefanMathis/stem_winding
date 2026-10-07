@@ -14,7 +14,7 @@ fn test_coil_zones_iterator() {
             true,
             NonZeroUsize::MIN,
             NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
+            Box::new(SffWire::default()),
         )
         .into();
         let mut iter = coil.zones_and_polarities();
@@ -34,7 +34,7 @@ fn test_coil_zones_iterator() {
             false,
             NonZeroUsize::MIN,
             NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
+            Box::new(SffWire::default()),
         )
         .into();
         let mut iter = coil.zones_and_polarities();
@@ -55,7 +55,7 @@ fn test_coil_zones_iterator() {
             false,
             NonZeroUsize::MIN,
             NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
+            Box::new(SffWire::default()),
         )
         .unwrap()
         .into();
@@ -84,7 +84,7 @@ fn test_coil_zones_iterator() {
             false,
             NonZeroUsize::MIN,
             NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
+            Box::new(SffWire::default()),
         )
         .unwrap()
         .into();
@@ -113,7 +113,7 @@ fn test_coil_zones_iterator() {
             false,
             NonZeroUsize::MIN,
             NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
+            Box::new(SffWire::default()),
         )
         .unwrap()
         .into();
@@ -146,7 +146,7 @@ fn full_coil_same_zones() {
             false,
             NonZeroUsize::MIN,
             NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
+            Box::new(SffWire::default()),
         )
         .is_err()
     );
@@ -251,7 +251,7 @@ fn test_covered_slots() {
             true,
             NonZeroUsize::new(2).unwrap(),
             NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
+            Box::new(SffWire::default()),
         )
         .unwrap();
         let mut covered = coil.covered_slots(Some(NonZeroU16::new(6).unwrap()));
@@ -266,41 +266,7 @@ fn test_covered_slots() {
             false,
             NonZeroUsize::new(2).unwrap(),
             NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
-        )
-        .unwrap();
-        let mut covered = coil.covered_slots(Some(NonZeroU16::new(6).unwrap()));
-        assert_eq!(covered.next(), Some(0));
-        assert_eq!(covered.next(), Some(5));
-        assert_eq!(covered.next(), Some(4));
-        assert_eq!(covered.next(), Some(3));
-        assert_eq!(covered.next(), Some(2));
-        assert_eq!(covered.next(), Some(1));
-        assert_eq!(covered.next(), None);
-    }
-    {
-        let coil = FullCoil::new(
-            Zone::new(0, 0),
-            Zone::new(1, 0),
-            true,
-            NonZeroUsize::new(2).unwrap(),
-            NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
-        )
-        .unwrap();
-        let mut covered = coil.covered_slots(Some(NonZeroU16::new(6).unwrap()));
-        assert_eq!(covered.next(), Some(0));
-        assert_eq!(covered.next(), Some(1));
-        assert_eq!(covered.next(), None);
-    }
-    {
-        let coil = FullCoil::new(
-            Zone::new(0, 0),
-            Zone::new(1, 0),
-            false,
-            NonZeroUsize::new(2).unwrap(),
-            NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
+            Box::new(SffWire::default()),
         )
         .unwrap();
         let mut covered = coil.covered_slots(Some(NonZeroU16::new(6).unwrap()));
@@ -319,7 +285,41 @@ fn test_covered_slots() {
             true,
             NonZeroUsize::new(2).unwrap(),
             NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
+            Box::new(SffWire::default()),
+        )
+        .unwrap();
+        let mut covered = coil.covered_slots(Some(NonZeroU16::new(6).unwrap()));
+        assert_eq!(covered.next(), Some(0));
+        assert_eq!(covered.next(), Some(1));
+        assert_eq!(covered.next(), None);
+    }
+    {
+        let coil = FullCoil::new(
+            Zone::new(0, 0),
+            Zone::new(1, 0),
+            false,
+            NonZeroUsize::new(2).unwrap(),
+            NonZeroU16::MIN,
+            Box::new(SffWire::default()),
+        )
+        .unwrap();
+        let mut covered = coil.covered_slots(Some(NonZeroU16::new(6).unwrap()));
+        assert_eq!(covered.next(), Some(0));
+        assert_eq!(covered.next(), Some(5));
+        assert_eq!(covered.next(), Some(4));
+        assert_eq!(covered.next(), Some(3));
+        assert_eq!(covered.next(), Some(2));
+        assert_eq!(covered.next(), Some(1));
+        assert_eq!(covered.next(), None);
+    }
+    {
+        let coil = FullCoil::new(
+            Zone::new(0, 0),
+            Zone::new(1, 0),
+            true,
+            NonZeroUsize::new(2).unwrap(),
+            NonZeroU16::MIN,
+            Box::new(SffWire::default()),
         )
         .unwrap();
         let mut covered = coil.covered_slots(None);
@@ -334,7 +334,7 @@ fn test_covered_slots() {
             false,
             NonZeroUsize::new(2).unwrap(),
             NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
+            Box::new(SffWire::default()),
         )
         .unwrap();
         let mut covered = coil.covered_slots(None);
@@ -349,7 +349,7 @@ fn test_covered_slots() {
             true,
             NonZeroUsize::new(2).unwrap(),
             NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
+            Box::new(SffWire::default()),
         )
         .unwrap();
         let mut covered = coil.covered_slots(None);
@@ -364,7 +364,7 @@ fn test_covered_slots() {
             false,
             NonZeroUsize::new(2).unwrap(),
             NonZeroU16::MIN,
-            Box::new(RoundWire::default()),
+            Box::new(SffWire::default()),
         )
         .unwrap();
         let mut covered = coil.covered_slots(None);
@@ -383,7 +383,7 @@ fn test_coil_orientation_cyclic() {
         true,
         NonZeroUsize::MIN,
         NonZeroU16::MIN,
-        Box::new(RoundWire::default()),
+        Box::new(SffWire::default()),
     )
     .unwrap();
     assert_eq!(coil.throw(Some(NonZeroU16::new(12).expect("not zero"))), 1);
@@ -393,7 +393,7 @@ fn test_coil_orientation_cyclic() {
         false,
         NonZeroUsize::MIN,
         NonZeroU16::MIN,
-        Box::new(RoundWire::default()),
+        Box::new(SffWire::default()),
     )
     .unwrap();
     assert_eq!(coil.throw(Some(NonZeroU16::new(12).expect("not zero"))), 1);
@@ -405,7 +405,7 @@ fn test_coil_orientation_cyclic() {
         true,
         NonZeroUsize::MIN,
         NonZeroU16::MIN,
-        Box::new(RoundWire::default()),
+        Box::new(SffWire::default()),
     )
     .unwrap();
     assert_eq!(coil.throw(Some(NonZeroU16::new(12).expect("not zero"))), 1);
@@ -415,7 +415,7 @@ fn test_coil_orientation_cyclic() {
         false,
         NonZeroUsize::MIN,
         NonZeroU16::MIN,
-        Box::new(RoundWire::default()),
+        Box::new(SffWire::default()),
     )
     .unwrap();
     assert_eq!(coil.throw(Some(NonZeroU16::new(12).expect("not zero"))), 11);
@@ -425,7 +425,7 @@ fn test_coil_orientation_cyclic() {
         true,
         NonZeroUsize::MIN,
         NonZeroU16::MIN,
-        Box::new(RoundWire::default()),
+        Box::new(SffWire::default()),
     )
     .unwrap();
     assert_eq!(coil.throw(Some(NonZeroU16::new(12).expect("not zero"))), 11);
@@ -435,7 +435,7 @@ fn test_coil_orientation_cyclic() {
         false,
         NonZeroUsize::MIN,
         NonZeroU16::MIN,
-        Box::new(RoundWire::default()),
+        Box::new(SffWire::default()),
     )
     .unwrap();
     assert_eq!(coil.throw(Some(NonZeroU16::new(12).expect("not zero"))), 1);
@@ -447,7 +447,7 @@ fn test_coil_orientation_cyclic() {
         true,
         NonZeroUsize::MIN,
         NonZeroU16::MIN,
-        Box::new(RoundWire::default()),
+        Box::new(SffWire::default()),
     )
     .unwrap();
     assert_eq!(coil.throw(Some(NonZeroU16::new(12).expect("not zero"))), 0);
@@ -459,7 +459,7 @@ fn test_coil_orientation_cyclic() {
         false,
         NonZeroUsize::MIN,
         NonZeroU16::MIN,
-        Box::new(RoundWire::default()),
+        Box::new(SffWire::default()),
     )
     .unwrap();
     assert_eq!(coil.throw(Some(NonZeroU16::new(12).expect("not zero"))), 12);
@@ -474,7 +474,7 @@ fn test_coil_orientation_linear() {
         true,
         NonZeroUsize::MIN,
         NonZeroU16::MIN,
-        Box::new(RoundWire::default()),
+        Box::new(SffWire::default()),
     )
     .unwrap();
     assert_eq!(coil.throw(None), 1);
@@ -484,7 +484,7 @@ fn test_coil_orientation_linear() {
         false,
         NonZeroUsize::MIN,
         NonZeroU16::MIN,
-        Box::new(RoundWire::default()),
+        Box::new(SffWire::default()),
     )
     .unwrap();
     assert_eq!(coil.throw(None), 1);
@@ -496,7 +496,7 @@ fn test_coil_orientation_linear() {
         true,
         NonZeroUsize::MIN,
         NonZeroU16::MIN,
-        Box::new(RoundWire::default()),
+        Box::new(SffWire::default()),
     )
     .unwrap();
     assert_eq!(coil.throw(None), 11);
@@ -506,7 +506,7 @@ fn test_coil_orientation_linear() {
         false,
         NonZeroUsize::MIN,
         NonZeroU16::MIN,
-        Box::new(RoundWire::default()),
+        Box::new(SffWire::default()),
     )
     .unwrap();
     assert_eq!(coil.throw(None), 11);
@@ -516,7 +516,7 @@ fn test_coil_orientation_linear() {
         true,
         NonZeroUsize::MIN,
         NonZeroU16::MIN,
-        Box::new(RoundWire::default()),
+        Box::new(SffWire::default()),
     )
     .unwrap();
     assert_eq!(coil.throw(None), 11);
@@ -526,7 +526,7 @@ fn test_coil_orientation_linear() {
         false,
         NonZeroUsize::MIN,
         NonZeroU16::MIN,
-        Box::new(RoundWire::default()),
+        Box::new(SffWire::default()),
     )
     .unwrap();
     assert_eq!(coil.throw(None), 11);
@@ -538,7 +538,7 @@ fn test_coil_orientation_linear() {
         true,
         NonZeroUsize::MIN,
         NonZeroU16::MIN,
-        Box::new(RoundWire::default()),
+        Box::new(SffWire::default()),
     )
     .unwrap();
     assert_eq!(coil.throw(None), 0);
@@ -550,7 +550,7 @@ fn test_coil_orientation_linear() {
         false,
         NonZeroUsize::MIN,
         NonZeroU16::MIN,
-        Box::new(RoundWire::default()),
+        Box::new(SffWire::default()),
     )
     .unwrap();
     assert_eq!(coil.throw(None), 0);
@@ -558,7 +558,7 @@ fn test_coil_orientation_linear() {
 
 #[test]
 fn test_voltage_phasor() {
-    let wire: Box<dyn Wire> = Box::new(RoundWire::default());
+    let wire: Box<dyn Wire> = Box::new(SffWire::default());
     let mut coil = FullCoil::new(
         Zone::new(0, 0),
         Zone::new(3, 0),

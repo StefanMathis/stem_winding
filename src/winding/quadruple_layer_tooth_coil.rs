@@ -6,7 +6,7 @@ use compare_variables::compare_variables;
 use dyn_clone::clone_box;
 use num::Integer;
 use stem_coil_layout::{CoilLayout, Zone};
-use stem_wire::{round::RoundWire, wire::Wire};
+use stem_wire::{sff::SffWire, wire::Wire};
 
 #[cfg(feature = "stem_core")]
 use stem_core::prelude::*;
@@ -596,7 +596,7 @@ impl TryFrom<QuadrupleLayerToothCoilMinimalBuilder> for QuadrupleLayerToothCoilW
             parallel_paths: NonZeroU16::MIN,
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(RoundWire::default()),
+            wire: Box::new(SffWire::default()),
             winding_table_constructor: builder.winding_table_constructor,
         }
         .try_into()

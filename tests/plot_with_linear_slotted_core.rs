@@ -272,7 +272,7 @@ mod cairo_tests {
         // Create a coil assembly which is used to derive the shapes
         let mut coils = Coils::with_capacity(4, 4);
 
-        let wire = Box::new(RoundWire::default());
+        let wire = Box::new(SffWire::default());
 
         // First slot
         coils
@@ -387,7 +387,7 @@ mod cairo_tests {
         let mut coils = Coils::with_capacity(4, 4);
 
         // Left-most coil
-        let wire = Box::new(RoundWire::default());
+        let wire = Box::new(SffWire::default());
 
         // First slot
         coils
