@@ -226,35 +226,41 @@ impl Winding for SquirrelCageWinding {
         }
     }
 
+    /// TODO: Mention difference to standard implementation?
     #[cfg(feature = "stem_core")]
-    fn end_winding_half_turn_volume(
-        &self,
-        core: CoreRef<'_>,
-        _: Zone,
-        _: Option<Length>,
-    ) -> Volume {
-        use std::f64::consts::FRAC_PI_2;
+    fn coil_properties_at<'a>(
+        &'a self,
+        core: CoreRef<'a>,
+        zone: Zone,
+        end_winding_half_turn_lengths: &'a HashMap<Zone, Length>,
+    ) -> Option<crate::core_support::CoilProperties<'a>> {
+        let coil = self.coil_at(zone)?;
+
+        use std::f64::consts::PI;
         use uom::typenum::P2;
 
-        match core {
-            CoreRef::Rot(core_rot) => {
-                let is_outer_part = core_rot.is_outer();
+        let end_winding_volume = match core {
+            CoreRef::Rot(rot_core) => {
+                let is_outer_part = rot_core.is_outer();
                 let dia_ring_outer =
-                    2.0 * outer_end_ring_radius(is_outer_part, core_rot.air_gap_radius(), self);
+                    2.0 * outer_end_ring_radius(is_outer_part, rot_core.air_gap_radius(), self);
                 let dia_ring_inner =
-                    2.0 * inner_end_ring_radius(is_outer_part, core_rot.air_gap_radius(), self);
-
-                return FRAC_PI_2
-                    * (dia_ring_outer.powi(P2::new()) - dia_ring_inner.powi(P2::new()))
-                    * self.end_ring_width();
-            }
-            CoreRef::Lin(_) => {
-                return self.end_ring_height()
+                    2.0 * inner_end_ring_radius(is_outer_part, rot_core.air_gap_radius(), self);
+                PI * (dia_ring_outer.powi(P2::new()) - dia_ring_inner.powi(P2::new()))
                     * self.end_ring_width()
-                    * core.slot_pitch()
-                    * f64::from(self.slots().get());
             }
-        }
+            CoreRef::Lin(lin_core) => {
+                2.0 * self.end_ring_height() * self.end_ring_width() * lin_core.width()
+            }
+        };
+
+        return Some(crate::core_support::CoilProperties::new(
+            coil,
+            self.as_dyn(),
+            core,
+            end_winding_half_turn_lengths,
+            Some(end_winding_volume),
+        ));
     }
 
     #[cfg(feature = "stem_core")]

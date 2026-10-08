@@ -1,3 +1,14 @@
+//! Helpers for calculating physical properties of a [`Winding`].
+//!
+//! This module provides implementations for some [`Winding`] methods gated
+//! behind the `stem_core` feature, as well as [`CoilProperties`] and
+//! supporting functions for calculating properties such as end-winding
+//! half-turn lengths.
+//!
+//! Users only need to interact with this module directly when implementing
+//! [`Winding`] for their own type and wanting to reuse functionality provided
+//! here, such as the end-winding half-turn length calculations.
+
 use std::{
     collections::HashMap,
     f64::consts::{FRAC_PI_2, PI, TAU},
@@ -21,7 +32,23 @@ use crate::{
     winding::Winding,
 };
 
+/// Constructs a core with a slot configuration matching a [`Winding`].
+///
+/// The resulting core is intended as convenient scaffolding for use cases where
+/// a core is required by an API but its detailed geometry is not important,
+/// such as visualizing winding zones, writing tests, or experimenting with a
+/// winding.
+///
+/// The constructed core uses sensible default geometry and has the same number
+/// of slots as the winding. It should not be assumed to represent a physically
+/// meaningful machine geometry.
+///
+/// This trait serves a similar purpose to [`From`], but is required because
+/// [`LinCore`] and [`RotCore`] are defined in another crate and therefore
+/// cannot implement `From<&W>` directly.
 pub trait FromWinding<W: Winding> {
+    /// Constructs a core with a slot configuration matching the specified
+    /// [`Winding`].
     fn from_winding(winding: &W) -> Self;
 }
 
@@ -365,124 +392,575 @@ pub struct CoilPropertyIterator<'a> {
     pub coils: crate::iterators::CoilsIterator<'a>,
     pub winding: &'a dyn Winding,
     pub core: CoreRef<'a>,
-    pub overrides: &'a Overrides,
+    pub end_winding_half_turn_lengths: &'a HashMap<Zone, Length>,
 }
 
 impl<'a> Iterator for CoilPropertyIterator<'a> {
     type Item = CoilProperties<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.coils.next().map(|coil| CoilProperties {
-            coil,
-            winding: self.winding,
-            core: self.core.clone(),
-            overrides: self.overrides,
-        })
+        self.coils
+            .next()
+            .map(|coil| {
+                self.winding.coil_properties_at(
+                    self.core,
+                    coil.any_zone(),
+                    self.end_winding_half_turn_lengths,
+                )
+            })
+            .flatten()
     }
 }
 
+/// Provides the context required to calculate physical properties of a
+/// [`Coil`].
+///
+/// A `CoilProperties` instance combines a [`Coil`] from a [`Winding`] with a
+/// [`CoreRef`] to allow calculating physical properties like the coil
+/// [resistance](CoilProperties::resistance) or
+/// [volume](CoilProperties::volume).
+///
+/// As with the corresponding methods from [Winding], predefined end-winding
+/// half-turn lengths can be supplied for individual zones; for zones without
+/// an override, the lengths are calculated on demand.
+///
+/// An optional end-winding volume override can be supplied to represent the
+/// total conductor volume of the entire end winding of the [`Winding`]. This
+/// allows winding types whose end winding cannot be adequately represented as a
+/// collection of individual half turns, such as squirrel-cage windings with
+/// conducting end rings. When such an override is provided, its volume is
+/// distributed equally among all coil sides of the winding for the per-zone
+/// [`end_winding_half_turn_volume`](Self::end_winding_half_turn_volume)
+/// calculation.
+///
+/// The properties are calculated on demand by the methods of this type rather
+/// than being stored as precomputed values. This allows the same
+/// `CoilProperties` instance to be used to evaluate properties under
+/// different environmental conditions where applicable.
+///
+/// `CoilProperties` is created by [`Winding::coil_properties_at`].
 pub struct CoilProperties<'a> {
-    pub coil: &'a Coil,
-    pub winding: &'a dyn Winding,
-    pub core: CoreRef<'a>,
-    pub overrides: &'a Overrides,
+    coil: &'a Coil,
+    winding: &'a dyn Winding,
+    core: CoreRef<'a>,
+    end_winding_half_turn_lengths: &'a HashMap<Zone, Length>,
+    end_winding_volume: Option<Volume>,
 }
 
 impl<'a> CoilProperties<'a> {
-    pub fn coil(&self) -> &'a Coil {
-        return self.coil;
+    /// Creates a new [`CoilProperties`] from its components.
+    ///
+    /// This method should only be used to implement
+    /// [`Winding::coil_properties_at`], ensuring that the specified [`Coil`] is
+    /// part of the [`Winding`]. To create [`CoilProperties`] for an existing
+    /// winding, use [`Winding::coil_properties_at`] instead.
+    ///
+    /// `end_winding_half_turn_lengths` can be used to override the calculated
+    /// end-winding half-turn length for individual [`Zone`]s.
+    ///
+    /// If an `end_winding_volume` override is provided, it is interpreted as
+    /// the total conductor volume of the end winding of the winding. The
+    /// volume is distributed equally among all coil sides of the winding so
+    /// that it can be used by the per-zone
+    /// [`end_winding_half_turn_volume`](Self::end_winding_half_turn_volume)
+    /// calculation.
+    ///
+    /// This allows winding types whose end winding cannot be represented as a
+    /// collection of individual half turns, such as squirrel-cage windings with
+    /// conducting end rings, to provide their total end-winding volume while
+    /// retaining the per-zone API.
+    pub fn new(
+        coil: &'a Coil,
+        winding: &'a dyn Winding,
+        core: CoreRef<'a>,
+        end_winding_half_turn_lengths: &'a HashMap<Zone, Length>,
+        end_winding_volume: Option<Volume>,
+    ) -> Self {
+        Self {
+            coil,
+            winding,
+            core,
+            end_winding_half_turn_lengths,
+            end_winding_volume,
+        }
     }
 
-    /**
-    Return the end winding length of a half-turn. A half turn starts in the middle of the end winding
-    on one side and ends in the middle of the end winding of the other side.
+    /// Returns a reference to the underlying [`Coil`].
+    pub fn coil(&self) -> &'a Coil {
+        self.coil
+    }
 
-    If the space of a single character in the ASCII drawing below equals one mm, the return value of
-    this function would be 7 mm (│ + ┌ + 4*─ + ┐).
+    /// Returns a reference to the [`Winding`] containing the coil.
+    pub fn winding(&self) -> &'a dyn Winding {
+        self.winding
+    }
 
-                // Lookup from overrides. If there is no entry, calculate the value instead.
+    /// Returns a reference to the [`CoreRef`] used for the property
+    /// calculations.
+    pub fn core(&self) -> CoreRef<'a> {
+        self.core
+    }
 
-    ```text
-       ┌──────┐
-    ┌──│      │──┐
-    │  │ Core │  │ <-- Coil
-    └──│      │──┘
-       └──────┘
-    ```
-     */
-    pub fn end_winding_half_turn_length(&self) -> Length {
-        let zone = self.coil().any_zone();
-        self.overrides
-            .end_winding_half_turn_lengths
+    /// Returns the end-winding half-turn length overrides.
+    pub fn end_winding_half_turn_lengths_overrides(&self) -> &'a HashMap<Zone, Length> {
+        self.end_winding_half_turn_lengths
+    }
+
+    /// Returns the end-winding volume override.
+    ///
+    /// As described in the struct documentation, this is the total conductor
+    /// volume of the entire end winding of [`CoilProperties::winding`].
+    pub fn end_winding_volume_override(&self) -> Option<Volume> {
+        self.end_winding_volume
+    }
+
+    /// Returns the conductor material of the coil.
+    pub fn material(&self) -> &Material {
+        self.coil.wire().material()
+    }
+
+    /// Returns the length of the axial half turn of the [`Coil`].
+    ///
+    /// The axial half-turn length is the sum of [`CoreExt::axial_coil_length`]
+    /// and the [`CoreExt::axial_coil_overhang`]:
+    ///
+    /// `length = axial_coil_length + axial_coil_overhang`.
+    pub fn axial_half_turn_length(&self) -> Length {
+        self.core.axial_coil_length() + self.core.axial_coil_overhang()
+    }
+
+    /// Returns the conductor volume of the axial half turn associated with the
+    /// specified [`Zone`].
+    ///
+    /// The volume is calculated as the effective conductor cross-sectional area
+    /// multiplied by the axial half-turn length:
+    ///
+    /// `volume = effective_conductor_area * axial_half_turn_length`.
+    ///
+    /// The effective conductor cross-sectional area is calculated from the area
+    /// of the winding zone ([`CoreExt::winding_zone_at`]) and the number of
+    /// turns of the coil using the
+    /// [`Wire::effective_conductor_area`](stem_wire::wire::Wire::effective_conductor_area).
+    /// The axial half-turn length is obtained from
+    /// [CoilProperties::axial_half_turn_length].
+    ///
+    /// Returns zero if the specified zone does not belong to this coil or if no
+    /// winding zone contour is available for the zone
+    pub fn axial_half_turn_volume(&self, zone: Zone) -> Volume {
+        let zone_area = Area::new::<square_meter>(
+            self.core
+                .winding_zone_at(&self.winding.coil_layout(), zone)
+                .map(|c| c.area())
+                .unwrap_or(0.0),
+        );
+        let cross_section = self
+            .coil
+            .wire()
+            .effective_conductor_area(zone_area, self.coil.turns());
+        return cross_section * self.axial_half_turn_length();
+    }
+
+    /// Returns the total conductor volume of the axial coil parts.
+    ///
+    /// The volume is calculated by summing the [conductor volume of the
+    /// axial half turn](CoilProperties::axial_half_turn_volume)
+    /// associated with each [`Zone`] of the coil.
+    pub fn axial_volume(&self) -> Volume {
+        self.coil
+            .zones()
+            .map(|zone| self.end_winding_half_turn_volume(zone))
+            .sum()
+    }
+
+    /// Returns the end-winding half-turn length for the specified [`Zone`].
+    ///
+    /// If an override is provided for the zone in
+    /// [`CoilProperties::end_winding_half_turn_lengths`], that value is
+    /// returned. Otherwise, the length is calculated using
+    /// [`Winding::end_winding_half_turn_length`].
+    ///
+    /// Returns zero if the specified zone does not belong to this coil.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::collections::HashMap;
+    ///
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 5.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 1.try_into().expect("not zero"),
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    /// }
+    /// .try_into()
+    /// .unwrap();
+    ///
+    /// let core = RotCore::from_winding(&winding);
+    ///
+    /// // Override one of the coil half turn lengths
+    /// let mut end_winding_half_turn_lengths = HashMap::new();
+    /// end_winding_half_turn_lengths.insert(Zone::new(11, 0), Length::new::<meter>(0.42));
+    ///
+    /// let coil_properties = winding.coil_properties_at(
+    ///     core.as_core_ref(),
+    ///     Zone::new(0, 0),
+    ///     &end_winding_half_turn_lengths
+    /// ).expect("coil exists");
+    ///
+    /// assert_abs_diff_eq!(
+    ///     coil_properties.end_winding_half_turn_length(Zone::new(0, 0)).get::<meter>(),
+    ///     0.01396,
+    ///     epsilon = 0.0001
+    /// );
+    /// assert_abs_diff_eq!(
+    ///     coil_properties.end_winding_half_turn_length(Zone::new(11, 0)).get::<meter>(),
+    ///     0.42,
+    ///     epsilon = 0.0001
+    /// );
+    ///
+    /// // This zone does not belong to the coil -> Returns zero.
+    /// assert_abs_diff_eq!(
+    ///     coil_properties.end_winding_half_turn_length(Zone::new(2, 0)).get::<meter>(),
+    ///     0.0,
+    ///     epsilon = 0.0001
+    /// );
+    /// ```
+    pub fn end_winding_half_turn_length(&self, zone: Zone) -> Length {
+        if !self.coil().zones().any(|z| z == zone) {
+            return Length::new::<meter>(0.0);
+        }
+        self.end_winding_half_turn_lengths
             .get(&zone)
             .cloned()
             .unwrap_or_else(|| self.winding.end_winding_half_turn_length(self.core, zone))
     }
 
-    pub fn end_winding_half_turn_volume(&self) -> Volume {
-        self.winding.end_winding_half_turn_volume(
-            self.core.clone(),
-            self.coil.zones().next().expect("has at least one zone"),
-            Some(self.end_winding_half_turn_length()),
-        )
-    }
-
-    pub fn end_winding_volume(&self) -> Volume {
-        match self.coil() {
-            Coil::Full(full_coil) => {
-                return 2.0 * self.end_winding_half_turn_volume() * full_coil.turns().get() as f64;
-            }
-            Coil::Half(coil_half) => {
-                return self.end_winding_half_turn_volume() * coil_half.turns().get() as f64;
-            }
+    /// Returns the conductor volume of the end-winding half turn associated
+    /// with the specified [`Zone`].
+    ///
+    /// The volume is calculated as the effective conductor cross-sectional area
+    /// multiplied by the end-winding half-turn length:
+    ///
+    /// `volume = effective_conductor_area * end_winding_half_turn_length`.
+    ///
+    /// The effective conductor cross-sectional area is calculated from the area
+    /// of the winding zone ([`CoreExt::winding_zone_at`]) and the number of
+    /// turns of the coil using the
+    /// [`Wire::effective_conductor_area`](stem_wire::wire::Wire::effective_conductor_area).
+    /// The end-winding half-turn length is obtained from
+    /// [`Self::end_winding_half_turn_length`], including any override
+    /// supplied for the zone.
+    ///
+    /// Returns zero if the specified zone does not belong to this coil or if no
+    /// winding zone contour is available for the zone.
+    pub fn end_winding_half_turn_volume(&self, zone: Zone) -> Volume {
+        if !self.coil.zones().any(|z| z == zone) {
+            return Volume::new::<cubic_meter>(0.0);
         }
+
+        if let Some(end_winding_volume) = self.end_winding_volume {
+            let num_coil_sides = self
+                .winding
+                .coils_iter()
+                .map(|coil| coil.zones().count())
+                .sum::<usize>();
+
+            return end_winding_volume / num_coil_sides as f64;
+        }
+
+        let zone_area = Area::new::<square_meter>(
+            self.core
+                .winding_zone_at(&self.winding.coil_layout(), zone)
+                .map(|c| c.area())
+                .unwrap_or(0.0),
+        );
+        let cross_section = self
+            .coil
+            .wire()
+            .effective_conductor_area(zone_area, self.coil.turns());
+        return cross_section * self.end_winding_half_turn_length(zone);
     }
 
+    /// Returns the total conductor volume of the coil's end winding.
+    ///
+    /// The volume is calculated by summing the [conductor volume of the
+    /// end-winding half turn](CoilProperties::end_winding_half_turn_volume)
+    /// associated with each [`Zone`] of the coil.
+    pub fn end_winding_volume(&self) -> Volume {
+        self.coil
+            .zones()
+            .map(|zone| self.end_winding_half_turn_volume(zone))
+            .sum()
+    }
+
+    /// Returns the total conductor volume of the [`Coil`].
+    ///
+    /// The volume is calculated by summing the conductor volume associated with
+    /// each [`Zone`] of the coil. For each zone, the conductor volume is
+    /// calculated from the effective conductor cross-sectional area and the
+    /// total conductor length:
+    ///
+    /// `volume = effective_conductor_area * turn_length`.
+    ///
+    /// The turn length consists of the axial coil length, axial coil overhang,
+    /// and end-winding half-turn length:
+    ///
+    /// `turn_length = axial_coil_length + axial_coil_overhang +
+    /// end_winding_half_turn_length`.
+    ///
+    /// The effective conductor cross-sectional area is calculated from the
+    /// winding zone area and the number of turns of the coil. Zones for
+    /// which no winding zone contour is available are omitted from the
+    /// calculation.
     pub fn volume(&self) -> Volume {
         let mut volume = Volume::new::<cubic_meter>(0.0);
+        for zone in self.coil.zones() {
+            volume += self.end_winding_half_turn_volume(zone) + self.axial_half_turn_volume(zone);
+        }
+        return volume;
+    }
+
+    /// Returns the resistance of the [`Coil`].
+    ///
+    /// The coil resistance is calculated by summing the resistance
+    /// contributions of its [`Zone`]s for which a winding zone contour can
+    /// be obtained from `core` via [`CoreExt::winding_zone_at`]. The turn
+    /// length is calculated as
+    ///
+    /// `turn_length = axial_coil_length + axial_coil_overhang +
+    /// end_winding_half_turn_length`.
+    ///
+    /// The `axial_coil_length` and `axial_coil_overhang` are obtained from
+    /// [`CoilProperties::core`] via [`CoreExt::axial_coil_length`] and
+    /// [`CoreExt::axial_coil_overhang`]. The `end_winding_half_turn_length` is
+    /// taken from `self.end_winding_half_turn_lengths` map if an override
+    /// is provided for the zone. Otherwise, it is calculated using
+    /// [`CoilProperties::end_winding_half_turn_length`].
+    ///
+    /// The specified environmental `conditions` are forwarded to
+    /// [`CoilExt::resistance`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use std::sync::Arc;
+    /// use std::collections::HashMap;
+    ///
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    /// use stem_winding::var_quantity::unary::FirstOrderTaylor;
+    ///
+    /// // Define a material with an electrical resistivity which changes linearly
+    /// // with the temperature.
+    /// let copper = {
+    ///     let mut material = Material::default();
+    ///     material.electrical_resistivity = VarQuantity::new(
+    ///         FirstOrderTaylor::new(
+    ///             DynQuantity::from_str("1 / 56 m/MS").expect("parseable"),
+    ///             DynQuantity::from_str("0.393 % / K").expect("parseable"),
+    ///             DynQuantity::from_str("20.0 °C").expect("parseable"),
+    ///         )
+    ///         .expect("units match")
+    ///     ).expect("units match");
+    ///     Arc::new(material)
+    /// };
+    ///
+    /// let winding: ToothCoilWinding = ToothCoilBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 5.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 1.try_into().expect("not zero"),
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    ///     turns_per_coil: 30.try_into().expect("not zero"),
+    ///     parallel_paths: 1.try_into().expect("not zero"),
+    ///     connection: Connection::Star,
+    ///     end_winding_leakage_coefficient: 0.0,
+    ///     wire: Box::new(SffWire::new(
+    ///         copper,
+    ///         0.5, // slot_fill_factor_conductor
+    ///         0.6, // slot_fill_factor_overall
+    ///     ).expect("valid inputs"))
+    /// }
+    /// .try_into()
+    /// .unwrap();
+    ///
+    /// let core = RotCore::from_winding(&winding);
+    /// let end_winding_half_turn_lengths = HashMap::new();
+    ///
+    /// let coil_properties = winding.coil_properties_at(
+    ///     core.as_core_ref(),
+    ///     Zone::new(0,0),
+    ///     &end_winding_half_turn_lengths
+    /// ).expect("coil exists");
+    ///
+    /// assert_abs_diff_eq!(
+    ///     coil_properties.resistance(&[DynQuantity::from_str("20 °C").expect("parseable")]).get::<ohm>(),
+    ///     0.10108,
+    ///     epsilon = 0.0001
+    /// );
+    /// assert_abs_diff_eq!(
+    ///     coil_properties.resistance(&[DynQuantity::from_str("120 °C").expect("parseable")]).get::<ohm>(),
+    ///     0.10108,
+    ///     epsilon = 0.0001
+    /// );
+    /// ```
+    pub fn resistance(&self, conditions: &[DynQuantity<f64>]) -> ElectricalResistance {
+        let mut resistance = ElectricalResistance::new::<ohm>(0.0);
         for zone in self.coil.zones() {
             if let Some(zone_contour) = self.core.winding_zone_at(&self.winding.coil_layout(), zone)
             {
                 let zone_area = Area::new::<square_meter>(zone_contour.area());
-                let cross_section = self
-                    .coil
-                    .wire()
-                    .effective_conductor_area(zone_area, self.coil.turns());
-
                 let length = self.core.axial_coil_length()
                     + self.core.axial_coil_overhang()
-                    + self.end_winding_half_turn_length();
-
-                volume += length * cross_section;
+                    + self.end_winding_half_turn_length(zone);
+                resistance += self.coil.resistance(zone_area, length, conditions);
             }
         }
-
-        return volume;
+        resistance
     }
 
-    pub fn mass(&self) -> Mass {
-        let mass_density = self.coil.wire().material().mass_density().get(&[]);
-        return self.volume() * mass_density;
-    }
-
-    pub fn heat_capacity(&self) -> HeatCapacity {
-        let specific_heat_capacity = self.coil.wire().material().heat_capacity().get(&[]);
-        return self.mass() * specific_heat_capacity;
+    /// Returns the [`ResistanceDecomposition`] required to calculate the coil
+    /// [`resistance`](CoilProperties::resistance) as the product
+    ///
+    /// `R = k_R * rho`,
+    ///
+    /// where `R` is the coil resistance, `k_R` is a resistance constant, and
+    /// `rho` is the electrical resistivity of the winding material.
+    ///
+    /// The resistance constant depends only on the coil and core geometry and
+    /// has the unit reciprocal length (`1 / Length`). Separating it from
+    /// the electrical resistivity allows it to be calculated once and
+    /// reused, for example when evaluating the resistance of the same coil
+    /// at different temperatures.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use std::sync::Arc;
+    /// use std::collections::HashMap;
+    ///
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    /// use stem_winding::var_quantity::unary::FirstOrderTaylor;
+    ///
+    /// // Define a material with an electrical resistivity which changes linearly
+    /// // with the temperature.
+    /// let copper = {
+    ///     let mut material = Material::default();
+    ///     material.electrical_resistivity = VarQuantity::new(
+    ///         FirstOrderTaylor::new(
+    ///             DynQuantity::from_str("1 / 56 m/MS").expect("parseable"),
+    ///             DynQuantity::from_str("0.393 % / K").expect("parseable"),
+    ///             DynQuantity::from_str("20.0 °C").expect("parseable"),
+    ///         )
+    ///         .expect("units match")
+    ///     ).expect("units match");
+    ///     Arc::new(material)
+    /// };
+    ///
+    /// let winding: ToothCoilWinding = ToothCoilBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 5.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 1.try_into().expect("not zero"),
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    ///     turns_per_coil: 30.try_into().expect("not zero"),
+    ///     parallel_paths: 1.try_into().expect("not zero"),
+    ///     connection: Connection::Star,
+    ///     end_winding_leakage_coefficient: 0.0,
+    ///     wire: Box::new(SffWire::new(
+    ///         copper,
+    ///         0.5, // slot_fill_factor_conductor
+    ///         0.6, // slot_fill_factor_overall
+    ///     ).expect("valid inputs"))
+    /// }
+    /// .try_into()
+    /// .unwrap();
+    ///
+    /// let core = RotCore::from_winding(&winding);
+    /// let end_winding_half_turn_lengths = HashMap::new();
+    ///
+    /// let coil_properties = winding.coil_properties_at(
+    ///     core.as_core_ref(),
+    ///     Zone::new(0,0),
+    ///     &end_winding_half_turn_lengths
+    /// ).expect("coil exists");
+    ///
+    /// let decomposition = coil_properties.resistance_decomposition();
+    ///
+    /// let conditions = [DynQuantity::from_str("20 °C").expect("parseable")];
+    /// assert_abs_diff_eq!(
+    ///     coil_properties.resistance(&conditions).get::<ohm>(),
+    ///     decomposition.resistance(&conditions).get::<ohm>(),
+    ///     epsilon = 0.0001
+    /// );
+    ///
+    /// let conditions = [DynQuantity::from_str("20 °C").expect("parseable")];
+    /// assert_abs_diff_eq!(
+    ///     coil_properties.resistance(&conditions).get::<ohm>(),
+    ///     decomposition.resistance(&conditions).get::<ohm>(),
+    ///     epsilon = 0.0001
+    /// );
+    /// ```
+    pub fn resistance_decomposition(&self) -> ResistanceDecomposition {
+        let material = self.coil.wire().material_arc().clone();
+        let resistance = self.resistance(&[]);
+        let electrical_resistivity = material.electrical_resistivity().get(&[]);
+        return ResistanceDecomposition {
+            resistance_constant: resistance / electrical_resistivity,
+            material,
+        };
     }
 }
 
-/// Estimates the mean length of a single wire in the end winding of a
-/// tooth-coil winding, approximating the half-turn as a semicircle spanning the
-/// two winding-zone centroids.
-/// Example. Tooth coil winding
-pub fn end_winding_leakage_inductance_semicircle<W: Winding>(
+/// Returns the end-winding leakage inductance for a symmetric tooth-coil
+/// winding.
+///
+/// This function implements a formula for tooth-coil windings provided by
+/// the author's PhD supervisor, Prof. Dr.-Ing. Gerhard Huth:
+///
+/// `L_ew = μ0 * λ_ew * l_ew * N * w_s² / (l * m * a²)`
+///
+/// where `μ0` is the [`VACUUM_PERMEABILITY`], `λ_ew` is the
+/// `end_winding_leakage_coefficient`, `l_ew` is the
+/// `end_winding_half_turn_length`, `N` is the number of [`Winding::slots`],
+/// `w_s` is the number of turns per slot, `l` is the number of winding layers,
+/// `m` is the number of [`Winding::phases`], and `a` is the number of
+/// [`Winding::parallel_paths`].
+///
+/// The formula assumes that the winding is symmetric as defined by
+/// [`Winding::is_symmetric`]. If no `end_winding_half_turn_length` is supplied,
+/// the mean half-turn length of all coils in the winding is used.
+///
+/// Huth proposes a value of `0.25` for the `end_winding_leakage_coefficient`.
+///
+/// The formula was provided directly by Prof. Dr.-Ing. Gerhard Huth; no
+/// published source for it is currently available.
+pub fn end_winding_leakage_inductance_tooth_coil<W: Winding>(
     winding: &W,
     core: CoreRef<'_>,
     end_winding_half_turn_length: Option<Length>,
     end_winding_leakage_coefficient: f64,
 ) -> Inductance {
-    let end_winding_half_turn_length = end_winding_half_turn_length
-        .unwrap_or_else(|| winding.end_winding_half_turn_length(core, Zone { slot: 0, layer: 0 }));
+    let end_winding_half_turn_length = end_winding_half_turn_length.unwrap_or_else(|| {
+        let mut end_winding_half_turn_length = Length::new::<meter>(0.0);
+        let mut counter = 0.0;
+        for coil in winding.coils_iter() {
+            for zone in coil.zones() {
+                end_winding_half_turn_length += winding.end_winding_half_turn_length(core, zone);
+                counter += 1.0;
+            }
+        }
+        // Mean end winding half turn length
+        end_winding_half_turn_length / counter
+    });
+
     *VACUUM_PERMEABILITY * end_winding_leakage_coefficient * f64::from(winding.slots().get())
         / (f64::from(winding.layers().get()) * f64::from(winding.phases().get()))
         * winding.turns_in_slot(0).pow(2) as f64
@@ -490,15 +968,57 @@ pub fn end_winding_leakage_inductance_semicircle<W: Winding>(
         * (end_winding_half_turn_length + core.axial_coil_overhang())
 }
 
-/// Tooth coil winding, symmetric winding
+/// Returns the end winding leakage inductance for a distributed, symmetric
+/// winding.
+///
+/// This function implements
+/// [\[1\]](#end_winding_leakage_inductance_distributed_1), eq. (3.7.24):
+///
+/// `L_ew = 2 * μ0 * λ_ew * l_ew * w² / p`
+///
+/// where `μ0` is the [`VACUUM_PERMEABILITY`], `λ_ew` is the
+/// `end_winding_leakage_coefficient`, `l_ew` is the
+/// `end_winding_half_turn_length`, `w` is the
+/// [`Winding::series_turns_per_phase`] and `p` is the [`Winding::pole_pairs`].
+///
+/// The implementation of this formula assumes that the winding is symmetric as
+/// defined in [`Winding::is_symmetric`]. If no `end_winding_half_turn_length`
+/// is supplied, the mean half-turn length of all coils in the winding is used.
+///
+/// The `end_winding_leakage_coefficient` depends on the specific winding
+/// topology and cannot be calculated for the general case. Table 3.7.2 of
+/// [\[1\]](#end_winding_leakage_inductance_distributed_1) provides the
+/// following reference values, where `m` is the number of phases:
+///
+/// |   | Stator (m = 3) | Rotor (m = 3) | Stator (m = 1) |
+/// |---|---|---|---|
+/// | Single layer | 0.3 | 0.25 | 0.12 |
+/// | Double layer | 0.25 | 0.2 | 0.17 |
+/// | Squirrel cage |  | 0.05 |  |
+///
+/// # Literature
+/// <a id="end_winding_leakage_inductance_distributed_1">\[1\]</a>
+/// Müller, G., Vogt, K. and Ponick, B.: Berechnung elektrischer Maschinen,
+/// 6th edition, Wiley-VCH, 2008
 pub fn end_winding_leakage_inductance_distributed<W: Winding>(
     winding: &W,
     core: CoreRef<'_>,
     end_winding_half_turn_length: Option<Length>,
     end_winding_leakage_coefficient: f64,
 ) -> Inductance {
-    let end_winding_half_turn_length = end_winding_half_turn_length
-        .unwrap_or_else(|| winding.end_winding_half_turn_length(core, Zone { slot: 0, layer: 0 }));
+    let end_winding_half_turn_length = end_winding_half_turn_length.unwrap_or_else(|| {
+        let mut end_winding_half_turn_length = Length::new::<meter>(0.0);
+        let mut counter = 0.0;
+        for coil in winding.coils_iter() {
+            for zone in coil.zones() {
+                end_winding_half_turn_length += winding.end_winding_half_turn_length(core, zone);
+                counter += 1.0;
+            }
+        }
+        // Mean end winding half turn length
+        end_winding_half_turn_length / counter
+    });
+
     2.0 * end_winding_leakage_coefficient
         * *VACUUM_PERMEABILITY
         * winding
@@ -509,8 +1029,36 @@ pub fn end_winding_leakage_inductance_distributed<W: Winding>(
         / f64::from(winding.pole_pairs().get())
 }
 
-// Calculate the end winding inductance according to [Mat19], eq. (3.70) and
-// (3.71).
+/// Returns the end winding leakage inductance for a squirrel-cage winding.
+///
+/// This function implements
+/// [\[1\]](#end_winding_leakage_inductance_distributed_1), eq. (3.70) and eq.
+/// (3.71) in a generalized form:
+///
+/// `L_ew,seg = μ0 * λ_ew * l_ew / p`
+///
+/// and
+///
+/// `L_ew = L_ew,seg / (2 * sin²(π * p / N))`
+///
+/// where `μ0` is the [`VACUUM_PERMEABILITY`], `λ_ew` is the
+/// `end_winding_leakage_coefficient`, `l_ew` is the
+/// `end_winding_half_turn_length`, `p` is the number of
+/// [`Winding::pole_pairs`], `N` is the number of [`Winding::slots`] and
+/// `L_ew,seg` is the inductance of a ring segment.
+///
+/// In eq. (3.70), `l_ew` is written out as `π * (D_ri,a + D_ri,i) / (2 * N)`
+/// where `D_ri,a` and `D_ri,i` are the outer and inner diameters of the end
+/// winding ring. This expression is specific to a rotary core, which is why
+/// this implementation uses the general formula.
+///
+/// A value of 0.35 for the `end_winding_leakage_coefficient` is a reasonable
+/// default.
+///
+/// # Literature
+/// <a id="end_winding_leakage_inductance_cage_1">\[1\]</a>
+/// Mathis, S.: Permanentmagneterregte Line-Start-Antriebe in Ferrittechnik,
+/// PhD thesis, Shaker, 2019
 pub fn end_winding_leakage_inductance_cage<W: Winding>(
     winding: &W,
     core: CoreRef<'_>,
@@ -518,14 +1066,25 @@ pub fn end_winding_leakage_inductance_cage<W: Winding>(
     end_winding_leakage_coefficient: f64,
 ) -> Inductance {
     use std::f64::consts::PI;
-    let end_winding_half_turn_length = end_winding_half_turn_length
-        .unwrap_or_else(|| winding.end_winding_half_turn_length(core, Zone { slot: 0, layer: 0 }));
+    let end_winding_half_turn_length = end_winding_half_turn_length.unwrap_or_else(|| {
+        let mut end_winding_half_turn_length = Length::new::<meter>(0.0);
+        let mut counter = 0.0;
+        for coil in winding.coils_iter() {
+            for zone in coil.zones() {
+                end_winding_half_turn_length += winding.end_winding_half_turn_length(core, zone);
+                counter += 1.0;
+            }
+        }
+        // Mean end winding half turn length
+        end_winding_half_turn_length / counter
+    });
+
     let ring_segment_inductance =
         *VACUUM_PERMEABILITY * end_winding_leakage_coefficient * end_winding_half_turn_length
             / f64::from(winding.pole_pairs().get());
 
     let poles_per_slot = f64::from(winding.pole_pairs().get()) / f64::from(winding.slots().get());
-    return ring_segment_inductance / (2.0 * (PI * poles_per_slot).sin());
+    return ring_segment_inductance / (2.0 * (PI * poles_per_slot).sin().powi(2));
 }
 
 /// Approximates the length of an end-winding half turn for a [`FullCoil`] at

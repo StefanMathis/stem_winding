@@ -68,6 +68,18 @@ Different winding types may use different methods to determine their coil
 arrangement and winding properties, but all provide the common interface
 required by electrical-machine calculations.
 
+# Physical properties
+
+On its own, a [`Winding`] is independent of the machine geometry and therefore
+does not fully define physical properties such as the phase resistance. If the
+`stem_core` feature is enabled, additional methods are available that take a
+[`CoreRef`] as their second argument to calculate these properties.
+
+Properties of the winding as a whole, such as the phase
+[`resistance`](Winding::resistance), are provided directly by [`Winding`].
+Properties of individual coils can be obtained through the
+[`coil_properties_at`](Winding::coil_properties_at) API.
+
 # Implementation notes
 
 Besides the required methods, it is recommended to override the following
@@ -1020,37 +1032,6 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     }
 
     // TODO
-    /**
-    Return the volume of a single half turn of the wire in the specified zone.
-     */
-    #[cfg(feature = "stem_core")]
-    fn end_winding_half_turn_volume(
-        &self,
-        core: CoreRef<'_>,
-        zone: Zone,
-        end_winding_half_turn_length: Option<Length>,
-    ) -> Volume {
-        let coil = match self.coil_at(zone) {
-            Some(c) => c,
-            None => return Volume::new::<cubic_meter>(0.0),
-        };
-        let zone_area = Area::new::<square_meter>(
-            core.winding_zone_at(&self.coil_layout(), zone)
-                .map(|c| c.area())
-                .unwrap_or(0.0),
-        );
-        let cross_section = coil
-            .wire()
-            .effective_conductor_area(zone_area, coil.turns());
-
-        // Check if the end winding length has been overriden.
-
-        let length = end_winding_half_turn_length
-            .unwrap_or_else(|| self.end_winding_half_turn_length(core, zone));
-        return cross_section * length;
-    }
-
-    // TODO
     /// Assert the symmetry of the winding. If true, the following is also true:
     /// * The winding factor is identical for all phases (this holds true for
     ///   all orders individually).
@@ -1398,121 +1379,84 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     //     }
     // }
 
-    //     /**
-    // Return the total wire volume in m³. If the motor has no winding, return 0.
-    //  */
-    // fn wire_volume(&self) -> Volume {
-    //     match self.winding() {
-    //         Some(wdg) => wdg
-    //             .coil_properties(self.core(), self.overrides())
-    //             .map(|cp| cp.volume())
-    //             .sum::<Volume>(),
-    //         None => Volume::new::<cubic_meter>(0.0),
-    //     }
-    // }
-
-    // /**
-    // Return the winding (copper) mass in kg. If the component doesn't have a
-    // winding, this value is zero.  */
-    // fn wire_mass(&self) -> Mass {
-    //     match self.winding() {
-    //         Some(wdg) => wdg
-    //             .coil_properties(self.core(), self.overrides())
-    //             .map(|cp| cp.mass())
-    //             .sum::<Mass>(),
-    //         None => return Mass::new::<kilogram>(0.0),
-    //     }
-    // }
-
-    // TODO
-    /// Return an iterator over the coils of the winding and their properties
+    /// Returns an iterator over all coils of the winding and their physical
+    /// properties.
+    ///
+    /// This method uses [`Winding::coils_iter`] to iterate over all coils of
+    /// the winding. Each coil is wrapped in a
+    /// [`CoilProperties`](crate::core_support::CoilProperties) which is then
+    /// returned as an iterator item.
+    ///
+    /// See [`Winding::coil_properties_at`] for details.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::collections::HashMap;
+    ///
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 5.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 1.try_into().expect("not zero"),
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    /// }
+    /// .try_into()
+    /// .unwrap();
+    ///
+    /// let core = RotCore::from_winding(&winding);
+    /// let end_winding_half_turn_lengths = HashMap::new();
+    ///
+    /// // Calculate the total volume of all coils
+    /// let volume: Volume = winding
+    ///     .coil_properties_iter(core, end_winding_half_turn_lengths)
+    ///     .map(|cp|cp.volume()).sum();
+    ///
+    /// assert_abs_diff_eq!(volume.get::<cubic_millimeter>(), 0.10108, epsilon = 0.0001);
+    /// ```
     #[cfg(feature = "stem_core")]
-    fn coil_properties<'a>(
+    fn coil_properties_iter<'a>(
         &'a self,
         core: CoreRef<'a>,
-        overrides: &'a Overrides,
+        end_winding_half_turn_lengths: &'a HashMap<Zone, Length>,
     ) -> crate::core_support::CoilPropertyIterator<'a> {
         return crate::core_support::CoilPropertyIterator {
             coils: self.coils_iter(),
             winding: self.as_dyn(),
             core,
-            overrides,
+            end_winding_half_turn_lengths,
         };
     }
 
-    // TODO
+    /// Returns a [`CoilProperties`] context for the [`Coil`] containing the
+    /// specified [`Zone`]. The returned `CoilProperties` combines the coil with
+    /// this winding, the specified [`CoreRef`], and the supplied end-winding
+    /// half-turn length overrides. If `end_winding_half_turn_lengths` does not
+    /// contain an override for a zone of the coil, the end winding length is
+    /// calculated on demand with [`Winding::end_winding_half_turn_length`].
+    ///
+    /// These values are used by the physical-property calculations provided by
+    /// [`CoilProperties`].
+    ///
+    /// Returns `None` if the specified zone does not contain a coil.
     #[cfg(feature = "stem_core")]
     fn coil_properties_at<'a>(
         &'a self,
         core: CoreRef<'a>,
         zone: Zone,
-        overrides: &'a Overrides,
+        end_winding_half_turn_lengths: &'a HashMap<Zone, Length>,
     ) -> Option<crate::core_support::CoilProperties<'a>> {
         let coil = self.coil_at(zone)?;
-        return Some(crate::core_support::CoilProperties {
+        return Some(crate::core_support::CoilProperties::new(
             coil,
-            winding: self.as_dyn(),
+            self.as_dyn(),
             core,
-            overrides,
-        });
-    }
-
-    /**
-    Returns the resistance of the [`Coil`] containing the coil side at the
-    specified [`Zone`].
-
-    The coil resistance is calculated by summing the resistance contributions of
-    its [`Zone`]s for which a winding zone contour can be obtained from `core`
-    via [`CoreExt::winding_zone_at`]. The turn length is calculated as
-
-    `turn_length = axial_coil_length + axial_coil_overhang + end_winding_half_turn_length`.
-
-    Here, `axial_coil_length` and `axial_coil_overhang` are obtained from `core`
-    via [`CoreExt::axial_coil_length`] and [`CoreExt::axial_coil_overhang`],
-    respectively. The `end_winding_half_turn_length` is obtained from the
-    `end_winding_half_turn_lengths` map if an override is provided for the zone.
-    Otherwise, it is calculated using
-    [`Winding::end_winding_half_turn_length`].
-
-    If the specified [`Zone`] does not contain a coil, this method returns zero.
-
-    The specified environmental `conditions` are forwarded to
-    [`CoilExt::resistance`].
-
-    For a complete example of calculating the resistance of a winding, see
-    [`Winding::resistance`].
-    */
-    #[cfg(feature = "stem_core")]
-    fn coil_resistance_at(
-        &self,
-        core: CoreRef<'_>,
-        zone: Zone,
-        conditions: &[DynQuantity<f64>],
-        end_winding_half_turn_lengths: &HashMap<Zone, Length>,
-    ) -> ElectricalResistance {
-        let mut resistance = ElectricalResistance::new::<ohm>(0.0);
-
-        let coil = match self.coil_at(zone) {
-            Some(c) => c,
-            None => return resistance,
-        };
-
-        for zone in coil.zones() {
-            if let Some(zone_contour) = core.winding_zone_at(&self.coil_layout(), zone) {
-                let zone_area = Area::new::<square_meter>(zone_contour.area());
-
-                let end_winding_half_turn_length = end_winding_half_turn_lengths
-                    .get(&zone)
-                    .cloned()
-                    .unwrap_or_else(|| self.end_winding_half_turn_length(core, zone));
-
-                let length = core.axial_coil_length()
-                    + core.axial_coil_overhang()
-                    + end_winding_half_turn_length;
-                resistance += coil.resistance(zone_area, length, conditions);
-            }
-        }
-        resistance
+            end_winding_half_turn_lengths,
+            None,
+        ));
     }
 
     /// Returns the phase resistance of the winding.
@@ -1523,7 +1467,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     ///
     /// where `a` is the number of [parallel paths](Winding::parallel_paths) of
     /// the phase and `R_coil,i` is the
-    /// [resistance of an individual coil](CoilExt::resistance), with `i`
+    /// [resistance of an individual coil](CoilProperties::resistance), with `i`
     /// indexing all coils belonging to that phase. This calculation assumes
     /// that the parallel paths are electrically balanced.
     ///
@@ -1686,21 +1630,6 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     ///         )
     ///     .get::<ohm>(),
     ///     1.05673,
-    ///     epsilon = 0.0001
-    /// );
-    ///
-    /// // Since this winding has six identical coils per phase, the resistance
-    /// // of an individual coil is the phase resistance divided by six:
-    /// assert_abs_diff_eq!(
-    ///     winding
-    ///         .coil_resistance_at(
-    ///             CoreRef::Rot(&core),
-    ///             Zone::new(0, 0),
-    ///             &conditions,
-    ///             &Default::default(),
-    ///         )
-    ///     .get::<ohm>(),
-    ///     1.05673 / 6.0,
     ///     epsilon = 0.0001
     /// );
     ///

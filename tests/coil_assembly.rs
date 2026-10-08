@@ -629,7 +629,7 @@ mod stem_core_tests {
         // Check the wire volume
         approxim::assert_abs_diff_eq!(
             winding
-                .coil_properties(CoreRef::Rot(&core), &Default::default())
+                .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
                 .map(|cp| cp.volume())
                 .sum::<Volume>()
                 .get::<cubic_millimeter>(),

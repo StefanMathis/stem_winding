@@ -340,7 +340,7 @@ impl Winding for DistributedToothCoilWinding {
         _phase: NonZeroU16,
         end_winding_half_turn_length: Option<Length>,
     ) -> Inductance {
-        end_winding_leakage_inductance_semicircle(
+        end_winding_leakage_inductance_tooth_coil(
             self,
             core,
             end_winding_half_turn_length,
