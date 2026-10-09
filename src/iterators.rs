@@ -1,7 +1,7 @@
 use approxim;
 use num::rational::Ratio;
 use std::{f64::consts::TAU, num::NonZeroU16};
-use stem_coil_layout::Zone;
+use stem_types::{SpatialOrder, Zone};
 
 use crate::{coils::Coil, winding::Winding};
 
@@ -155,8 +155,10 @@ impl<'a> Iterator for HarmonicOrdersIterator<'a> {
         to calculate the winding factor for a single phase. If the winding factor is zero, the
         current order can be skipped as well.
         */
-        let v = self.v_star as f64 / self.p_bw as f64;
-        let k_w = self.winding.winding_factor(NonZeroU16::MIN, v); // Any other phase would work as well.
+        let v = self.v_star / self.p_bw;
+        let k_w = self
+            .winding
+            .winding_factor(NonZeroU16::MIN, SpatialOrder::Electrical(v.into())); // Any other phase would work as well.
         if approxim::abs_diff_eq!(k_w, 0.0, epsilon = 1e-12) {
             return self.next();
         }
@@ -219,9 +221,13 @@ impl<'a> Iterator for NormalizedInductionIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let ratio = self.0.next()?;
-        let order = *ratio.numer() as f64 / *ratio.denom() as f64;
-        let winding_factor = self.0.winding.winding_factor(NonZeroU16::MIN, order);
-        let amp = (winding_factor / order).abs();
+        let elec_order = u32::try_from((*ratio.numer() / *ratio.denom()).abs())
+            .expect("positive i32 is convertible into u32");
+        let winding_factor = self
+            .0
+            .winding
+            .winding_factor(NonZeroU16::MIN, SpatialOrder::Electrical(elec_order));
+        let amp = (winding_factor / f64::from(elec_order)).abs();
         return Some((ratio, amp));
     }
 

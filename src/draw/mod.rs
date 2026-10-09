@@ -1,7 +1,7 @@
 use std::num::NonZeroU16;
 
 use colorgrad::Gradient;
-use stem_coil_layout::Zone;
+use stem_types::Zone;
 use stem_core::planar_geo::draw::*;
 
 pub mod winding_zones_drawables;

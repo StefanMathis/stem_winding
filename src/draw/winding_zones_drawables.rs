@@ -1,6 +1,6 @@
 use planar_geo::prelude::*;
 use std::{f64::consts::SQRT_2, num::NonZeroU16};
-use stem_coil_layout::Zone;
+use stem_types::Zone;
 use stem_core::prelude::*;
 
 use super::{DrawableKind, phase_color};

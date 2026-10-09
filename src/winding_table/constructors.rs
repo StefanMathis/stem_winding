@@ -11,7 +11,7 @@ use std::num::NonZeroU16;
 use serde::{Deserialize, Serialize};
 
 use num::Integer;
-use stem_coil_layout::Zone;
+use stem_types::Zone;
 
 use crate::{error::WindingTableConstructionError, iterators::PhaseSequence, winding::hole_number};
 

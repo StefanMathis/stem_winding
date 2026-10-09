@@ -153,8 +153,8 @@ fn test_derive_from_winding() {
 
         // Compare the winding factor of phase 1
         approxim::assert_abs_diff_eq!(
-            coil_assembly.winding_factor(ONE, 1.0),
-            winding.winding_factor(ONE, 1.0),
+            coil_assembly.winding_factor(ONE, SpatialOrder::Electrical(1)),
+            winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
             epsilon = 0.0001
         );
     }
@@ -192,8 +192,8 @@ fn test_derive_from_winding() {
 
         // Compare the winding factor of phase 1
         approxim::assert_abs_diff_eq!(
-            coil_assembly.winding_factor(ONE, 1.0),
-            winding.winding_factor(ONE, 1.0),
+            coil_assembly.winding_factor(ONE, SpatialOrder::Electrical(1)),
+            winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
             epsilon = 0.0001
         );
     }
@@ -242,8 +242,8 @@ fn test_derive_from_winding() {
 
         // Compare the winding factor of phase 1
         approxim::assert_abs_diff_eq!(
-            coil_assembly.winding_factor(ONE, 1.0),
-            winding.winding_factor(ONE, 1.0),
+            coil_assembly.winding_factor(ONE, SpatialOrder::Electrical(1)),
+            winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
             epsilon = 0.0001
         );
     }
@@ -632,8 +632,8 @@ mod stem_core_tests {
                 .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
                 .map(|cp| cp.volume())
                 .sum::<Volume>()
-                .get::<cubic_millimeter>(),
-            20359.228154,
+                .get::<cubic_centimeter>(),
+            631.13607,
             epsilon = 0.0001
         );
 

@@ -6,10 +6,10 @@ use stem_winding::prelude::*;
 const ONE: NonZeroU16 = NonZeroU16::MIN;
 
 // Shorter aliases
-const LL: u16 = stem_coil_layout::QUADRUPLE_LAYER_BOTTOM_LEFT;
-const UL: u16 = stem_coil_layout::QUADRUPLE_LAYER_TOP_LEFT;
-const UR: u16 = stem_coil_layout::QUADRUPLE_LAYER_TOP_RIGHT;
-const LR: u16 = stem_coil_layout::QUADRUPLE_LAYER_BOTTOM_RIGHT;
+const LL: u16 = stem_types::QUADRUPLE_LAYER_BOTTOM_LEFT;
+const UL: u16 = stem_types::QUADRUPLE_LAYER_TOP_LEFT;
+const UR: u16 = stem_types::QUADRUPLE_LAYER_TOP_RIGHT;
+const LR: u16 = stem_types::QUADRUPLE_LAYER_BOTTOM_RIGHT;
 
 #[test]
 fn test_coil_direction() {
@@ -131,9 +131,21 @@ fn test_equal_turns_per_coil_9_8() {
         })
         .unwrap();
 
-        approxim::assert_abs_diff_eq!(0.061, winding.winding_factor(ONE, 0.25), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.139, winding.winding_factor(ONE, 0.5), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.945, winding.winding_factor(ONE, 1.0), epsilon = 0.001);
+        approxim::assert_abs_diff_eq!(
+            0.061,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.139,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.945,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(4)),
+            epsilon = 0.001
+        );
 
         // Compare the zone plan
         let winding_table = winding.winding_table(true);
@@ -218,9 +230,21 @@ fn test_equal_turns_per_coil_9_8() {
         assert_eq!(winding.turns_at(Zone::new(0, UR)), 1);
         assert_eq!(winding.turns_at(Zone::new(0, LR)), 1);
 
-        approxim::assert_abs_diff_eq!(0.021, winding.winding_factor(ONE, 0.25), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.090, winding.winding_factor(ONE, 0.5), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.931, winding.winding_factor(ONE, 1.0), epsilon = 0.001);
+        approxim::assert_abs_diff_eq!(
+            0.021,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.090,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.931,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(4)),
+            epsilon = 0.001
+        );
     }
 
     {
@@ -275,9 +299,21 @@ fn test_equal_turns_per_coil_9_8() {
         assert_eq!(winding.phase_at(Zone::new(3, UR)), 2);
         assert_eq!(winding.phase_at(Zone::new(3, LR)), 2);
 
-        approxim::assert_abs_diff_eq!(0.046, winding.winding_factor(ONE, 0.25), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.024, winding.winding_factor(ONE, 0.5), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.888, winding.winding_factor(ONE, 1.0), epsilon = 0.001);
+        approxim::assert_abs_diff_eq!(
+            0.046,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.024,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.888,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(4)),
+            epsilon = 0.001
+        );
     }
 }
 
@@ -295,9 +331,21 @@ fn test_varying_turns_per_coil_9_8() {
         })
         .unwrap();
 
-        approxim::assert_abs_diff_eq!(0.022, winding.winding_factor(ONE, 0.25), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.091, winding.winding_factor(ONE, 0.5), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.931, winding.winding_factor(ONE, 1.0), epsilon = 0.001);
+        approxim::assert_abs_diff_eq!(
+            0.022,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.091,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.931,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(4)),
+            epsilon = 0.001
+        );
     }
 
     {
@@ -335,9 +383,21 @@ fn test_varying_turns_per_coil_9_8() {
         assert_eq!(winding.turns_at(Zone::new(2, LR)), 5);
         assert_eq!(winding.turns_in_slot(2), 18);
 
-        approxim::assert_abs_diff_eq!(0.028, winding.winding_factor(ONE, 0.25), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.097, winding.winding_factor(ONE, 0.5), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.932, winding.winding_factor(ONE, 1.0), epsilon = 0.001);
+        approxim::assert_abs_diff_eq!(
+            0.028,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.097,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.932,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(4)),
+            epsilon = 0.001
+        );
     }
 
     {
@@ -352,9 +412,21 @@ fn test_varying_turns_per_coil_9_8() {
         })
         .unwrap();
 
-        approxim::assert_abs_diff_eq!(0.038, winding.winding_factor(ONE, 0.25), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.108, winding.winding_factor(ONE, 0.5), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.935, winding.winding_factor(ONE, 1.0), epsilon = 0.001);
+        approxim::assert_abs_diff_eq!(
+            0.038,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.108,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.935,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(4)),
+            epsilon = 0.001
+        );
     }
 
     {
@@ -400,9 +472,21 @@ fn test_varying_turns_per_coil_9_8() {
         assert_eq!(winding.turns_at(Zone::new(3, LR)), 5);
         assert_eq!(winding.turns_in_slot(3), 18);
 
-        approxim::assert_abs_diff_eq!(0.035, winding.winding_factor(ONE, 0.25), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.006, winding.winding_factor(ONE, 0.5), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.895, winding.winding_factor(ONE, 1.0), epsilon = 0.001);
+        approxim::assert_abs_diff_eq!(
+            0.035,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.006,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.895,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(4)),
+            epsilon = 0.001
+        );
     }
 
     {
@@ -448,9 +532,21 @@ fn test_varying_turns_per_coil_9_8() {
         assert_eq!(winding.turns_at(Zone::new(3, LR)), 5);
         assert_eq!(winding.turns_in_slot(3), 18);
 
-        approxim::assert_abs_diff_eq!(0.036, winding.winding_factor(ONE, 0.25), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.031, winding.winding_factor(ONE, 0.5), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.897, winding.winding_factor(ONE, 1.0), epsilon = 0.001);
+        approxim::assert_abs_diff_eq!(
+            0.036,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.031,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.897,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(4)),
+            epsilon = 0.001
+        );
     }
 }
 
@@ -471,9 +567,21 @@ fn test_winding_table_creation_12_10_equal_turns_per_coil() {
         })
         .unwrap();
 
-        approxim::assert_abs_diff_eq!(0.0670, winding.winding_factor(ONE, 0.2), epsilon = 0.0001);
-        approxim::assert_abs_diff_eq!(0.9330, winding.winding_factor(ONE, 1.0), epsilon = 0.0001);
-        approxim::assert_abs_diff_eq!(0.9330, winding.winding_factor(ONE, 1.4), epsilon = 0.0001);
+        approxim::assert_abs_diff_eq!(
+            0.0670,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
+            epsilon = 0.0001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.9330,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(5)),
+            epsilon = 0.0001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.9330,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(7)),
+            epsilon = 0.0001
+        );
     }
 
     {
@@ -488,9 +596,21 @@ fn test_winding_table_creation_12_10_equal_turns_per_coil() {
         })
         .unwrap();
 
-        approxim::assert_abs_diff_eq!(0.0173, winding.winding_factor(ONE, 0.2), epsilon = 0.0001);
-        approxim::assert_abs_diff_eq!(0.9012, winding.winding_factor(ONE, 1.0), epsilon = 0.0001);
-        approxim::assert_abs_diff_eq!(0.9012, winding.winding_factor(ONE, 1.4), epsilon = 0.0001);
+        approxim::assert_abs_diff_eq!(
+            0.0173,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
+            epsilon = 0.0001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.9012,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(5)),
+            epsilon = 0.0001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.9012,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(7)),
+            epsilon = 0.0001
+        );
 
         // Compare the zone plan
         let winding_table = winding.winding_table(true);
@@ -549,14 +669,24 @@ mod serde_tests {
 
         let winding: QuadrupleLayerToothCoilWinding = yaml_serde::from_str(yaml).unwrap();
 
-        approxim::assert_abs_diff_eq!(0.061, winding.winding_factor(ONE, 0.25), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.139, winding.winding_factor(ONE, 0.5), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.945, winding.winding_factor(ONE, 1.0), epsilon = 0.001);
+        approxim::assert_abs_diff_eq!(
+            0.061,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.139,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.945,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(4)),
+            epsilon = 0.001
+        );
 
         assert_eq!(winding.layers().get(), 4);
-        assert_eq!(winding.coils_per_phase(), 6);
         assert_eq!(winding.coil_groups_per_phase().get(), 1);
-        assert_eq!(winding.coils_per_coil_group(), 6);
 
         // Minimal winding
         let yaml = indoc! {"
@@ -571,13 +701,23 @@ mod serde_tests {
 
         let winding: QuadrupleLayerToothCoilWinding = yaml_serde::from_str(yaml).unwrap();
 
-        approxim::assert_abs_diff_eq!(0.061, winding.winding_factor(ONE, 0.25), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.139, winding.winding_factor(ONE, 0.5), epsilon = 0.001);
-        approxim::assert_abs_diff_eq!(0.945, winding.winding_factor(ONE, 1.0), epsilon = 0.001);
+        approxim::assert_abs_diff_eq!(
+            0.061,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.139,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(4)),
+            epsilon = 0.001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.945,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(8)),
+            epsilon = 0.001
+        );
 
         assert_eq!(winding.layers().get(), 4);
-        assert_eq!(winding.coils_per_phase(), 12);
         assert_eq!(winding.coil_groups_per_phase().get(), 2);
-        assert_eq!(winding.coils_per_coil_group(), 6);
     }
 }

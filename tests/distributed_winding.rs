@@ -81,7 +81,11 @@ fn test_winding_6_1_dl_coil_span_reduction() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(1.0, winding.winding_factor(ONE, 1.0), epsilon = 0.0001);
+    approxim::assert_abs_diff_eq!(
+        1.0,
+        winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
+        epsilon = 0.0001
+    );
 
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 6.try_into().expect("not zero"),
@@ -96,7 +100,7 @@ fn test_winding_6_1_dl_coil_span_reduction() {
     .unwrap();
     approxim::assert_abs_diff_eq!(
         0.8660254,
-        winding.winding_factor(ONE, 1.0),
+        winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
         epsilon = 0.0001
     );
 
@@ -111,7 +115,11 @@ fn test_winding_6_1_dl_coil_span_reduction() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(0.5, winding.winding_factor(ONE, 1.0), epsilon = 0.0001);
+    approxim::assert_abs_diff_eq!(
+        0.5,
+        winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
+        epsilon = 0.0001
+    );
 
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 6.try_into().expect("not zero"),
@@ -124,7 +132,11 @@ fn test_winding_6_1_dl_coil_span_reduction() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(0.0, winding.winding_factor(ONE, 1.0), epsilon = 0.0001);
+    approxim::assert_abs_diff_eq!(
+        0.0,
+        winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
+        epsilon = 0.0001
+    );
 
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 6.try_into().expect("not zero"),
@@ -137,7 +149,11 @@ fn test_winding_6_1_dl_coil_span_reduction() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(0.5, winding.winding_factor(ONE, 1.0), epsilon = 0.0001);
+    approxim::assert_abs_diff_eq!(
+        0.5,
+        winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
+        epsilon = 0.0001
+    );
 }
 
 #[test]
@@ -174,7 +190,11 @@ fn test_winding_18_4_sl() {
     assert_eq!(orders[9], num::rational::Ratio::new_raw(-14, 4));
 
     // Check the winding factor
-    approxim::assert_abs_diff_eq!(0.9452, winding.winding_factor(ONE, 1.0), epsilon = 0.0001);
+    approxim::assert_abs_diff_eq!(
+        0.9452,
+        winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
+        epsilon = 0.0001
+    );
 }
 
 #[test]
@@ -474,12 +494,36 @@ fn test_winding_36_4() {
         assert_eq!(orders[4], num::rational::Ratio::new(13, 1));
 
         // Check the winding factor
-        approxim::assert_abs_diff_eq!(0.9598, winding.winding_factor(ONE, 1.0), epsilon = 0.0001);
-        approxim::assert_abs_diff_eq!(0.2176, winding.winding_factor(ONE, -5.0), epsilon = 0.0001);
-        approxim::assert_abs_diff_eq!(0.1774, winding.winding_factor(ONE, 7.0), epsilon = 0.0001);
-        approxim::assert_abs_diff_eq!(0.1774, winding.winding_factor(ONE, -11.0), epsilon = 0.0001);
-        approxim::assert_abs_diff_eq!(0.2176, winding.winding_factor(ONE, 13.0), epsilon = 0.0001);
-        approxim::assert_abs_diff_eq!(0.9598, winding.winding_factor(ONE, -17.0), epsilon = 0.0001);
+        approxim::assert_abs_diff_eq!(
+            0.9598,
+            winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
+            epsilon = 0.0001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.2176,
+            winding.winding_factor(ONE, SpatialOrder::Electrical(5)),
+            epsilon = 0.0001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.1774,
+            winding.winding_factor(ONE, SpatialOrder::Electrical(7)),
+            epsilon = 0.0001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.1774,
+            winding.winding_factor(ONE, SpatialOrder::Electrical(11)),
+            epsilon = 0.0001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.2176,
+            winding.winding_factor(ONE, SpatialOrder::Electrical(13)),
+            epsilon = 0.0001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.9598,
+            winding.winding_factor(ONE, SpatialOrder::Electrical(17)),
+            epsilon = 0.0001
+        );
     }
 
     {
@@ -507,10 +551,14 @@ fn test_winding_36_4() {
         }
 
         // Check the winding factor
-        let [w_d, w_q] = winding.distribution_and_pitch_factor(ONE, 1.0);
+        let [w_d, w_q] = winding.distribution_and_pitch_factor(ONE, SpatialOrder::Electrical(1));
         approxim::assert_abs_diff_eq!(0.9598, w_d, epsilon = 0.0001);
         approxim::assert_abs_diff_eq!(0.9848, w_q, epsilon = 0.0001);
-        approxim::assert_abs_diff_eq!(0.9452, winding.winding_factor(ONE, 1.0), epsilon = 0.0001);
+        approxim::assert_abs_diff_eq!(
+            0.9452,
+            winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
+            epsilon = 0.0001
+        );
 
         // ====================================================================================
         let winding: DistributedWinding = DistributedMinimalBuilder {
@@ -524,7 +572,11 @@ fn test_winding_36_4() {
         }
         .try_into()
         .unwrap();
-        approxim::assert_abs_diff_eq!(0.9452, winding.winding_factor(ONE, 1.0), epsilon = 0.0001);
+        approxim::assert_abs_diff_eq!(
+            0.9452,
+            winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
+            epsilon = 0.0001
+        );
     }
 }
 
@@ -567,6 +619,23 @@ fn test_failed_creation() {
 #[test]
 fn test_air_gap_leakage_factor() {
     let winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 12.try_into().expect("not zero"),
+        pole_pairs: 2.try_into().expect("not zero"),
+        phases: 3.try_into().expect("not zero"),
+        layers: 1.try_into().expect("not zero"),
+        coil_span_reduction: 0,
+        zone_span_variation: 0,
+        winding_table_constructor: WindingTableConstructor::Tingley,
+    }
+    .try_into()
+    .unwrap();
+    approxim::assert_abs_diff_eq!(
+        0.096622,
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        epsilon = 0.0001
+    );
+
+    let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 18.try_into().expect("not zero"),
         pole_pairs: 2.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
@@ -577,7 +646,11 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(0.045589, winding.air_gap_leakage_factor(), epsilon = 0.0001);
+    approxim::assert_abs_diff_eq!(
+        0.045589,
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        epsilon = 0.0001
+    );
 
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 18.try_into().expect("not zero"),
@@ -590,7 +663,11 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(0.181971, winding.air_gap_leakage_factor(), epsilon = 0.0001);
+    approxim::assert_abs_diff_eq!(
+        0.181971,
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        epsilon = 0.0001
+    );
 
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 36.try_into().expect("not zero"),
@@ -603,7 +680,11 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(0.014061, winding.air_gap_leakage_factor(), epsilon = 0.0001);
+    approxim::assert_abs_diff_eq!(
+        0.014061,
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        epsilon = 0.0001
+    );
 
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 36.try_into().expect("not zero"),
@@ -616,7 +697,11 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(0.011494, winding.air_gap_leakage_factor(), epsilon = 0.0001);
+    approxim::assert_abs_diff_eq!(
+        0.011494,
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        epsilon = 0.0001
+    );
 
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 36.try_into().expect("not zero"),
@@ -629,7 +714,11 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(0.011090, winding.air_gap_leakage_factor(), epsilon = 0.0001);
+    approxim::assert_abs_diff_eq!(
+        0.011090,
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        epsilon = 0.0001
+    );
 
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 36.try_into().expect("not zero"),
@@ -642,7 +731,11 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(0.011494, winding.air_gap_leakage_factor(), epsilon = 0.0001);
+    approxim::assert_abs_diff_eq!(
+        0.011494,
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        epsilon = 0.0001
+    );
 
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 24.try_into().expect("not zero"),
@@ -655,7 +748,11 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(winding.air_gap_leakage_factor(), 0.75215, epsilon = 1e-3);
+    approxim::assert_abs_diff_eq!(
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        0.75215,
+        epsilon = 1e-3
+    );
 
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 24.try_into().expect("not zero"),
@@ -668,7 +765,11 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(winding.air_gap_leakage_factor(), 0.25154, epsilon = 1e-3);
+    approxim::assert_abs_diff_eq!(
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        0.25154,
+        epsilon = 1e-3
+    );
 
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 30.try_into().expect("not zero"),
@@ -681,7 +782,11 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(winding.air_gap_leakage_factor(), 0.09662, epsilon = 1e-3);
+    approxim::assert_abs_diff_eq!(
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        0.09662,
+        epsilon = 1e-3
+    );
 
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 36.try_into().expect("not zero"),
@@ -694,7 +799,11 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(winding.air_gap_leakage_factor(), 0.35994, epsilon = 1e-3);
+    approxim::assert_abs_diff_eq!(
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        0.35994,
+        epsilon = 1e-3
+    );
 
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 36.try_into().expect("not zero"),
@@ -707,7 +816,11 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(winding.air_gap_leakage_factor(), 0.11601, epsilon = 1e-3);
+    approxim::assert_abs_diff_eq!(
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        0.11601,
+        epsilon = 1e-3
+    );
 
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 60.try_into().expect("not zero"),
@@ -720,7 +833,11 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(winding.air_gap_leakage_factor(), 0.09662, epsilon = 1e-3);
+    approxim::assert_abs_diff_eq!(
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        0.09662,
+        epsilon = 1e-3
+    );
 
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 60.try_into().expect("not zero"),
@@ -733,7 +850,11 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(winding.air_gap_leakage_factor(), 0.02842, epsilon = 1e-3);
+    approxim::assert_abs_diff_eq!(
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        0.02842,
+        epsilon = 1e-3
+    );
 }
 
 #[test]
@@ -838,7 +959,11 @@ fn test_doubled_zone_span() {
     assert_eq!(orders[4], num::rational::Ratio::new_raw(13, 1));
 
     // Check the winding factor
-    approxim::assert_abs_diff_eq!(0.8312, winding.winding_factor(ONE, 1.0), epsilon = 0.0001);
+    approxim::assert_abs_diff_eq!(
+        0.8312,
+        winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
+        epsilon = 0.0001
+    );
 }
 
 #[test]
@@ -871,8 +996,8 @@ fn test_derive_coil_assembly() {
 
     // Compare the winding factor of phase 1
     approxim::assert_abs_diff_eq!(
-        coil_assembly.winding_factor(ONE, 1.0),
-        winding.winding_factor(ONE, 1.0),
+        coil_assembly.winding_factor(ONE, SpatialOrder::Electrical(1)),
+        winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
         epsilon = 0.0001
     );
 
@@ -893,19 +1018,19 @@ fn test_derive_coil_assembly() {
 
     // Check that the winding factor of phase 2 is still identical for both windings
     approxim::assert_abs_diff_eq!(
-        coil_assembly.winding_factor(2.try_into().expect("not zero"), 1.0),
-        winding.winding_factor(2.try_into().expect("not zero"), 1.0),
+        coil_assembly.winding_factor(2.try_into().expect("not zero"), SpatialOrder::Electrical(1)),
+        winding.winding_factor(2.try_into().expect("not zero"), SpatialOrder::Electrical(1)),
         epsilon = 0.0001
     );
 
     // Check that the winding factor of phase 1 has changed
     approxim::assert_abs_diff_ne!(
-        coil_assembly.winding_factor(ONE, 1.0),
-        winding.winding_factor(ONE, 1.0),
+        coil_assembly.winding_factor(ONE, SpatialOrder::Electrical(1)),
+        winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
         epsilon = 0.0001
     );
     approxim::assert_abs_diff_eq!(
-        coil_assembly.winding_factor(ONE, 1.0),
+        coil_assembly.winding_factor(ONE, SpatialOrder::Electrical(1)),
         0.9254,
         epsilon = 0.0001
     );
@@ -914,8 +1039,8 @@ fn test_derive_coil_assembly() {
     // phase 1 is now identical again.
     coil_assembly.insert(removed_coil.clone()).unwrap();
     approxim::assert_abs_diff_eq!(
-        coil_assembly.winding_factor(ONE, 1.0),
-        winding.winding_factor(ONE, 1.0),
+        coil_assembly.winding_factor(ONE, SpatialOrder::Electrical(1)),
+        winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
         epsilon = 0.0001
     );
 
@@ -1246,26 +1371,30 @@ mod stem_core_tests {
     fn test_distributed_winding_364_sl() {
         let core = create_core_trap();
 
-        let mut copper: Material = create_dbm().read("Copper").unwrap();
-        copper.electrical_resistivity = VarQuantity::new(
-            FirstOrderTaylor::new(
-                DynQuantity::from_str("1 / 56 m/MS").expect("parseable"),
-                DynQuantity::from_str("0.393 % / K").expect("parseable"),
-                DynQuantity::from_str("20.0 °C").expect("parseable"),
+        let copper = {
+            let mut material = Material::default();
+            material.electrical_resistivity = VarQuantity::new(
+                FirstOrderTaylor::new(
+                    DynQuantity::from_str("1 / 56 m/MS").expect("parseable"),
+                    DynQuantity::from_str("0.393 % / K").expect("parseable"),
+                    DynQuantity::from_str("20.0 °C").expect("parseable"),
+                )
+                .expect("units match"),
             )
-            .expect("units match"),
-        )
-        .expect("units match");
-        let copper_arc = Arc::new(copper);
+            .expect("units match");
+            material.set_mass_density(MassDensity::new::<kilogram_per_cubic_meter>(8920.0).into());
+            Arc::new(material)
+        };
+
         let wire_1 = RoundWire::new(
-            copper_arc.clone(),
+            copper.clone(),
             Length::new::<millimeter>(0.67),
             Length::new::<millimeter>(0.0),
             Length::new::<millimeter>(0.0),
         )
         .unwrap();
         let wire_2 = RoundWire::new(
-            copper_arc.clone(),
+            copper.clone(),
             Length::new::<millimeter>(0.71),
             Length::new::<millimeter>(0.0),
             Length::new::<millimeter>(0.0),
@@ -1324,10 +1453,29 @@ mod stem_core_tests {
                 .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
                 .map(|cp| cp.volume())
                 .sum::<Volume>()
-                .get::<cubic_millimeter>(),
-            20359.228154,
+                .get::<cubic_centimeter>(),
+            631.13607,
             epsilon = 0.0001
         );
+        approxim::assert_abs_diff_eq!(
+            winding
+                .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
+                .map(|cp| cp.axial_volume())
+                .sum::<Volume>()
+                .get::<cubic_centimeter>(),
+            348.55641,
+            epsilon = 0.0001
+        );
+        approxim::assert_abs_diff_eq!(
+            winding
+                .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
+                .map(|cp| cp.end_winding_volume())
+                .sum::<Volume>()
+                .get::<cubic_centimeter>(),
+            282.57965,
+            epsilon = 0.0001
+        );
+
         approxim::assert_abs_diff_eq!(
             winding
                 .coil_properties_iter(
@@ -1336,9 +1484,44 @@ mod stem_core_tests {
                 )
                 .map(|cp| cp.volume())
                 .sum::<Volume>()
-                .get::<cubic_millimeter>(),
-            21981.20107,
+                .get::<cubic_centimeter>(),
+            681.4172333,
             epsilon = 0.0001
+        );
+        approxim::assert_abs_diff_eq!(
+            winding
+                .coil_properties_iter(
+                    CoreRef::Rot(&core),
+                    &overrides.end_winding_half_turn_lengths
+                )
+                .map(|cp| cp.axial_volume())
+                .sum::<Volume>()
+                .get::<cubic_centimeter>(),
+            348.55641,
+            epsilon = 0.0001
+        );
+        approxim::assert_abs_diff_eq!(
+            winding
+                .coil_properties_iter(
+                    CoreRef::Rot(&core),
+                    &overrides.end_winding_half_turn_lengths
+                )
+                .map(|cp| cp.end_winding_volume())
+                .sum::<Volume>()
+                .get::<cubic_centimeter>(),
+            332.86081,
+            epsilon = 0.0001
+        );
+
+        // Mass of the winding
+        approxim::assert_abs_diff_eq!(
+            winding
+                .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
+                .map(|cp| cp.volume() * cp.material().mass_density().get(&[]))
+                .sum::<Mass>()
+                .get::<kilogram>(),
+            5.6297,
+            epsilon = 1e-3
         );
 
         // Check the phase resistance
@@ -1494,6 +1677,18 @@ mod stem_core_tests {
             2.26403,
             epsilon = 0.0001
         );
+
+        // Check inductances
+        // approxim::assert_abs_diff_eq!(
+        //     component.slot_leakage_inductance(1, &[]).get::<henry>(),
+        //     0.02166509, // H
+        //     epsilon = 1e-6
+        // );
+        // approxim::assert_abs_diff_eq!(
+        //     component.end_winding_leakage_inductance(1).get::<henry>(),
+        //     6.85182748e-3, // H
+        //     epsilon = 1e-6
+        // );
 
         // Slot leakage inductance
         approxim::assert_abs_diff_eq!(
@@ -1660,6 +1855,20 @@ mod stem_core_tests {
                 .get::<henry>(),
             0.0161825,
             epsilon = 1e-6
+        );
+
+        // Check the phase resistance
+        approxim::assert_abs_diff_eq!(
+            winding
+                .resistance(
+                    CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
+                    &[],
+                    &Default::default(),
+                )
+                .get::<ohm>(),
+            1.96508,
+            epsilon = 0.0001
         );
     }
 

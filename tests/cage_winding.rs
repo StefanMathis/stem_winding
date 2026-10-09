@@ -1,4 +1,5 @@
 use std::num::NonZeroU16;
+use std::str::FromStr;
 
 use approxim;
 use stem_winding::prelude::*;
@@ -37,31 +38,43 @@ fn test_air_gap_leakage_factor() {
         winding.series_turns_per_phase(ONE),
         num::rational::Ratio::new(1, 2)
     ); // Holds true for all cage windings
-    approxim::assert_abs_diff_eq!(0.01696, winding.air_gap_leakage_factor(), epsilon = 0.0001);
+    approxim::assert_abs_diff_eq!(
+        0.01696,
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        epsilon = 0.0001
+    );
 
     let winding = SquirrelCageWinding::from(SquirrelCageMinimalBuilder {
         slots: 28.try_into().expect("not zero"),
         pole_pairs: 2.try_into().expect("not zero"),
     });
     assert_eq!(winding.phases().get(), 28);
-    assert_eq!(winding.base_winding_count().get(), 2);
+    assert_eq!(winding.base_winding_count().get(), 1);
     assert_eq!(
         winding.series_turns_per_phase(ONE),
         num::rational::Ratio::new(1, 2)
     ); // Holds true for all cage windings
-    approxim::assert_abs_diff_eq!(0.01696, winding.air_gap_leakage_factor(), epsilon = 0.0001);
+    approxim::assert_abs_diff_eq!(
+        0.01696,
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        epsilon = 0.0001
+    );
 
     let winding = SquirrelCageWinding::from(SquirrelCageMinimalBuilder {
         slots: 56.try_into().expect("not zero"),
         pole_pairs: 4.try_into().expect("not zero"),
     });
     assert_eq!(winding.phases().get(), 56);
-    assert_eq!(winding.base_winding_count().get(), 4);
+    assert_eq!(winding.base_winding_count().get(), 1);
     assert_eq!(
         winding.series_turns_per_phase(ONE),
         num::rational::Ratio::new(1, 2)
     ); // Holds true for all cage windings
-    approxim::assert_abs_diff_eq!(0.01696, winding.air_gap_leakage_factor(), epsilon = 0.0001);
+    approxim::assert_abs_diff_eq!(
+        0.01696,
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        epsilon = 0.0001
+    );
 }
 
 #[cfg(feature = "serde")]
@@ -114,7 +127,11 @@ mod serde_tests {
             "};
 
         let winding: SquirrelCageWinding = yaml_serde::from_str(yaml).unwrap();
-        approxim::assert_abs_diff_eq!(1.0, winding.winding_factor(ONE, 1.0), epsilon = 1e-6);
+        approxim::assert_abs_diff_eq!(
+            1.0,
+            winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
+            epsilon = 1e-6
+        );
     }
 
     #[test]
@@ -140,7 +157,11 @@ mod serde_tests {
 
             let winding: SquirrelCageWinding = yaml_serde::from_str(yaml).unwrap();
 
-            approxim::assert_abs_diff_eq!(1.0, winding.winding_factor(ONE, 1.0), epsilon = 1e-6);
+            approxim::assert_abs_diff_eq!(
+                1.0,
+                winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
+                epsilon = 1e-6
+            );
             assert_eq!(0.25, winding.end_winding_leakage_coefficient());
         }
 
@@ -165,7 +186,11 @@ mod serde_tests {
 
             let winding: SquirrelCageWinding = yaml_serde::from_str(yaml).unwrap();
 
-            approxim::assert_abs_diff_eq!(1.0, winding.winding_factor(ONE, 1.0), epsilon = 1e-6);
+            approxim::assert_abs_diff_eq!(
+                1.0,
+                winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
+                epsilon = 1e-6
+            );
             assert_eq!(0.35, winding.end_winding_leakage_coefficient());
         }
     }
@@ -176,19 +201,32 @@ mod stem_core_tests {
 
     use std::sync::Arc;
 
+    use stem_winding::var_quantity::unary::FirstOrderTaylor;
+
     use super::*;
 
     #[test]
     fn test_resistance_and_properties() {
-        let mut material = Material::default();
-        material
-            .set_electrical_resistivity(ElectricalResistivity::new::<ohm_meter>(1.7857e-8).into());
+        let copper = {
+            let mut material = Material::default();
+            material.electrical_resistivity = VarQuantity::new(
+                FirstOrderTaylor::new(
+                    DynQuantity::from_str("1 / 56 m/MS").expect("parseable"),
+                    DynQuantity::from_str("0.393 % / K").expect("parseable"),
+                    DynQuantity::from_str("20.0 °C").expect("parseable"),
+                )
+                .expect("units match"),
+            )
+            .expect("units match");
+            material.set_mass_density(MassDensity::new::<kilogram_per_cubic_meter>(8920.0).into());
+            Arc::new(material)
+        };
 
-        let rotor_winding: SquirrelCageWinding = SquirrelCageBuilder {
+        let winding: SquirrelCageWinding = SquirrelCageBuilder {
             slots: 28.try_into().expect("not zero"),
             pole_pairs: 2.try_into().expect("not zero"),
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(SffWire::new(Arc::new(material), 1.0, 1.0).unwrap()),
+            wire: Box::new(SffWire::new(copper, 1.0, 1.0).unwrap()),
             end_ring_width: Length::new::<millimeter>(11.0),
             end_ring_height: Length::new::<millimeter>(11.2),
             consider_current_displacement: true,
@@ -236,8 +274,30 @@ mod stem_core_tests {
         .try_into()
         .expect("valid magnetic core");
 
+        // Check the winding factor
         approxim::assert_abs_diff_eq!(
-            rotor_winding
+            winding.winding_factor(NonZeroU16::MIN, SpatialOrder::Electrical(1)),
+            1.0,
+            epsilon = 0.0001
+        );
+
+        approxim::assert_abs_diff_eq!(
+            winding
+                .resistance(
+                    CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
+                    &[
+                        ThermodynamicTemperature::new::<degree_celsius>(20.0).into(),
+                        Frequency::new::<hertz>(0.0).into(),
+                    ],
+                    &Default::default(),
+                )
+                .get::<ohm>(),
+            8.51814834e-5,
+            epsilon = 1e-10
+        );
+        approxim::assert_abs_diff_eq!(
+            winding
                 .resistance(
                     CoreRef::Rot(&core),
                     NonZeroU16::MIN,
@@ -248,22 +308,168 @@ mod stem_core_tests {
                     &Default::default(),
                 )
                 .get::<ohm>(),
-            8.6414323e-5,
+            8.6414995e-5,
+            epsilon = 1e-10
+        );
+        approxim::assert_abs_diff_eq!(
+            winding
+                .resistance(
+                    CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
+                    &[
+                        ThermodynamicTemperature::new::<degree_celsius>(20.0).into(),
+                        Frequency::new::<hertz>(200.0).into(),
+                    ],
+                    &Default::default(),
+                )
+                .get::<ohm>(),
+            10.38810492e-5,
+            epsilon = 1e-10
+        );
+        approxim::assert_abs_diff_eq!(
+            winding
+                .resistance(
+                    CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
+                    &[
+                        ThermodynamicTemperature::new::<degree_celsius>(120.0).into(),
+                        Frequency::new::<hertz>(0.0).into(),
+                    ],
+                    &Default::default(),
+                )
+                .get::<ohm>(),
+            11.8657806e-5,
             epsilon = 1e-10
         );
 
+        // Volume and mass of the winding
         approxim::assert_abs_diff_eq!(
-            rotor_winding
-                .slot_leakage_inductance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    Length::new::<millimeter>(1.0),
-                    &[],
-                    &Default::default(),
-                )
-                .get::<henry>(),
-            2.22086776e-7,
-            epsilon = 1e-12
+            winding
+                .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
+                .map(|cp| cp.axial_volume())
+                .sum::<Volume>()
+                .get::<cubic_centimeter>(),
+            199.862,
+            epsilon = 1e-3
         );
+        approxim::assert_abs_diff_eq!(
+            winding
+                .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
+                .map(|cp| cp.end_winding_volume())
+                .sum::<Volume>()
+                .get::<cubic_centimeter>(),
+            151.102,
+            epsilon = 1e-3
+        );
+        approxim::assert_abs_diff_eq!(
+            winding
+                .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
+                .map(|cp| cp.volume())
+                .sum::<Volume>()
+                .get::<cubic_centimeter>(),
+            350.964,
+            epsilon = 1e-3
+        );
+        approxim::assert_abs_diff_eq!(
+            winding
+                .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
+                .map(|cp| cp.volume() * cp.material().mass_density().get(&[]))
+                .sum::<Mass>()
+                .get::<kilogram>(),
+            3.13060,
+            epsilon = 1e-3
+        );
+
+        // Inductances
+        // approxim::assert_abs_diff_eq!(
+        //     component.main_inductance(1).get::<henry>(),
+        //     1.829569e-5, // H
+        //     epsilon = 1e-9
+        // );
+        // approxim::assert_abs_diff_eq!(
+        //     component.air_gap_leakage_inductance(1).get::<henry>(),
+        //     3.1021167e-7, // H
+        //     epsilon = 1e-11
+        // );
+        // approxim::assert_abs_diff_eq!(
+        //     component.air_gap_inductance(1).get::<henry>(),
+        //     1.860590e-5, // H
+        //     epsilon = 1e-9
+        // );
+        // approxim::assert_abs_diff_eq!(
+        //     component.end_winding_leakage_inductance(1).get::<henry>(),
+        //     5.4111391e-9, // Expected resistance in Ohm
+        //     epsilon = 1e-14
+        // );
+        // approxim::assert_abs_diff_eq!(
+        //     component
+        //         .slot_leakage_inductance(
+        //             1,
+        //             &[
+        //
+        // InfluencingQuantity::Temperature(ThermodynamicTemperature::new::<
+        //                     degree_celsius,
+        //                 >(20.0)),
+        //
+        // InfluencingQuantity::Frequency(Frequency::new::<hertz>(0.0)),
+        //             ]
+        //         )
+        //         .get::<henry>(),
+        //     1.956108e-7, // Expected resistance in Ohm
+        //     epsilon = 1e-12
+        // );
+        // approxim::assert_abs_diff_eq!(
+        //     component.main_inductance(1).get::<henry>(),
+        //     1.8295696e-5, // Expected resistance in Ohm
+        //     epsilon = 1e-9
+        // );
+        // approxim::assert_abs_diff_eq!(
+        //     component
+        //         .inductance(
+        //             1,
+        //             &[
+        //
+        // InfluencingQuantity::Temperature(ThermodynamicTemperature::new::<
+        //                     degree_celsius,
+        //                 >(20.0)),
+        //
+        // InfluencingQuantity::Frequency(Frequency::new::<hertz>(0.0)),
+        //             ]
+        //         )
+        //         .get::<henry>(),
+        //     1.880693e-5, // Expected resistance in Ohm
+        //     epsilon = 1e-9
+        // );
+        // approxim::assert_abs_diff_eq!(
+        //     component
+        //         .slot_leakage_inductance(
+        //             1,
+        //             &[
+        //
+        // InfluencingQuantity::Temperature(ThermodynamicTemperature::new::<
+        //                     degree_celsius,
+        //                 >(20.0)),
+        //
+        // InfluencingQuantity::Frequency(Frequency::new::<hertz>(50.0)),
+        //             ]
+        //         )
+        //         .get::<henry>(),
+        //     1.8749222e-7, // Expected resistance in Ohm
+        //     epsilon = 1e-12
+        // );
+
+        // approxim::assert_abs_diff_eq!(
+        //     winding
+        //         .slot_leakage_inductance(
+        //             CoreRef::Rot(&core),
+        //             NonZeroU16::MIN,
+        //             Length::new::<millimeter>(1.0),
+        //             &[],
+        //             &Default::default(),
+        //         )
+        //         .get::<henry>(),
+        //     2.22086776e-7,
+        //     epsilon = 1e-12
+        // );
     }
 }

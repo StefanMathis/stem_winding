@@ -1,13 +1,10 @@
 #[cfg(feature = "stem_core")]
 use std::collections::HashMap;
-use std::{
-    f64::consts::TAU,
-    num::{NonZeroU16, NonZeroUsize},
-};
+use std::num::{NonZeroU16, NonZeroUsize};
 
 use compare_variables::compare_variables;
 use dyn_clone::clone_box;
-use stem_coil_layout::{CoilLayout, Zone};
+use stem_types::{CoilLayout, Zone};
 use stem_wire::prelude::*;
 
 use crate::{
@@ -113,9 +110,7 @@ impl Winding for SquirrelCageWinding {
     }
 
     fn base_winding_count(&self) -> NonZeroU16 {
-        return num::integer::gcd(self.slots().get(), self.pole_pairs().get())
-            .try_into()
-            .expect("not zero");
+        NonZeroU16::MIN
     }
 
     fn turns_at(&self, _zone: Zone) -> usize {
@@ -134,6 +129,13 @@ impl Winding for SquirrelCageWinding {
         NonZeroU16::MIN
     }
 
+    fn phase_angle(&self, phase: NonZeroU16) -> f64 {
+        // For a squirrel cage with N slots and p pole pairs, the electrical angle
+        // advances by delta = 2 * pi * p / N.
+        std::f64::consts::TAU * f64::from(self.pole_pairs().get()) / f64::from(self.slots().get())
+            * f64::from(phase.get() - 1)
+    }
+
     /// According to the "Stabmodell" as presented in [Hut18], the number of
     /// turns per phase is 0.5 for a cage winding
     fn series_turns_per_phase(&self, _phase: NonZeroU16) -> num::rational::Ratio<usize> {
@@ -142,17 +144,6 @@ impl Winding for SquirrelCageWinding {
 
     fn connection(&self) -> Connection {
         Connection::Star
-    }
-
-    /// Returns the angle between two neighbouring phases.
-    fn phase_angle_difference(&self) -> f64 {
-        TAU / f64::from(self.phases().get() / self.base_winding_count().get())
-    }
-
-    /// Returns the number of wound coils per phase (equals winding_holes in
-    /// case of single-layer winding).
-    fn coils_per_phase(&self) -> u16 {
-        1
     }
 
     fn coil_groups_per_phase(&self) -> NonZeroU16 {
@@ -242,11 +233,10 @@ impl Winding for SquirrelCageWinding {
         let end_winding_volume = match core {
             CoreRef::Rot(rot_core) => {
                 let is_outer_part = rot_core.is_outer();
-                let dia_ring_outer =
-                    2.0 * outer_end_ring_radius(is_outer_part, rot_core.air_gap_radius(), self);
-                let dia_ring_inner =
-                    2.0 * inner_end_ring_radius(is_outer_part, rot_core.air_gap_radius(), self);
-                PI * (dia_ring_outer.powi(P2::new()) - dia_ring_inner.powi(P2::new()))
+                let r_outer = outer_end_ring_radius(is_outer_part, rot_core.air_gap_radius(), self);
+                let r_inner = inner_end_ring_radius(is_outer_part, rot_core.air_gap_radius(), self);
+                4.0 * PI
+                    * (r_outer.powi(P2::new()) - r_inner.powi(P2::new()))
                     * self.end_ring_width()
             }
             CoreRef::Lin(lin_core) => {

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::num::{NonZeroU16, NonZeroUsize};
 
 use num::Integer;
-use stem_coil_layout::{CoilLayout, Zone};
+use stem_types::{CoilLayout, Zone};
 use stem_wire::{sff::SffWire, wire::Wire};
 
 #[cfg(feature = "serde")]
@@ -18,7 +18,7 @@ use crate::core_support::*;
 use crate::{
     coils::{Coil, Coils, FullCoil},
     error::{Error, WindingTableConstructionError},
-    winding::{Connection, Winding, base_winding_count_repeating_coil_groups},
+    winding::{Connection, Winding, base_winding_count_sym},
     winding_table::{WindingTable, WindingTableConstructor},
 };
 
@@ -196,7 +196,7 @@ impl Winding for ToothCoilWinding {
     }
 
     fn base_winding_count(&self) -> NonZeroU16 {
-        base_winding_count_repeating_coil_groups(
+        base_winding_count_sym(
             self.slots(),
             self.pole_pairs(),
             self.phases(),
@@ -314,7 +314,7 @@ impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
         compare_variables::compare_variables!(0.0 <= builder.end_winding_leakage_coefficient)?;
 
         // Calculate the basic winding parameters
-        let t = base_winding_count_repeating_coil_groups(
+        let t = base_winding_count_sym(
             builder.slots,
             builder.pole_pairs,
             builder.phases,

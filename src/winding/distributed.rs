@@ -7,7 +7,7 @@ use compare_variables::compare_variables;
 use dyn_clone::clone_box;
 use num::rational::Ratio;
 
-use stem_coil_layout::{CoilLayout, Zone};
+use stem_types::{CoilLayout, Zone};
 use stem_wire::prelude::*;
 
 #[cfg(feature = "stem_core")]
@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     coils::{Coil, Coils, FullCoil},
     error::{Error, WindingTableConstructionError},
-    winding::{Connection, Winding, base_winding_count_repeating_coil_groups, hole_number},
+    winding::{Connection, Winding, base_winding_count_sym, hole_number},
     winding_table::{WindingTable, WindingTableConstructor},
 };
 
@@ -82,14 +82,18 @@ impl DistributedWinding {
     Return the distribution and the pitch factor as `[distribution, pitch]`.
     The product of those two values equals the winding factor calculated from `self.winding_factor()`
      */
-    pub fn distribution_and_pitch_factor(&self, phase: NonZeroU16, order: f64) -> [f64; 2] {
+    pub fn distribution_and_pitch_factor(
+        &self,
+        phase: NonZeroU16,
+        spatial_order: SpatialOrder,
+    ) -> [f64; 2] {
         // If layers==1, the distribution factor equals the winding factor,
         // meaning that the pitch factor is 1 by default. If layers == 2,
         // distribution and pitch factor are calculated by temporarily changing the
         // pitch to zero.
         let coil_span_reduction = self.coil_span_reduction();
         if self.layers().get() == 1 || coil_span_reduction == 0 {
-            return [self.winding_factor(phase, order), 1.0];
+            return [self.winding_factor(phase, spatial_order), 1.0];
         } else {
             // Create a copy of this winding, but without the short pitch. We use
             // the DistributionTable here, since it can deal with all slot / pole
@@ -108,8 +112,8 @@ impl DistributedWinding {
             .expect("all input parameters result in a valid winding, since self is valid as well");
 
             // Calculate winding factor with and without chording
-            let k_d = temp_winding.winding_factor(phase, order); // The factor without chording equals the distribution factor
-            let k_w_chorded = self.winding_factor(phase, order);
+            let k_d = temp_winding.winding_factor(phase, spatial_order); // The factor without chording equals the distribution factor
+            let k_w_chorded = self.winding_factor(phase, spatial_order);
 
             // The pitch factor is calculated as the quotient of factor_w_chording and
             // factor_wo_chording
@@ -471,7 +475,7 @@ impl Winding for DistributedWinding {
     }
 
     fn base_winding_count(&self) -> NonZeroU16 {
-        return base_winding_count_repeating_coil_groups(
+        return base_winding_count_sym(
             self.slots(),
             self.pole_pairs(),
             self.phases(),
@@ -584,7 +588,7 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
         compare_variables!(0.0 <= builder.end_winding_leakage_coefficient)?;
 
         // Calculate the basic winding parameters
-        let t = base_winding_count_repeating_coil_groups(
+        let t = base_winding_count_sym(
             builder.slots,
             builder.pole_pairs,
             builder.phases,

@@ -1,6 +1,6 @@
 use std::num::NonZeroU16;
 
-use stem_coil_layout::Zone;
+use stem_types::Zone;
 
 use crate::coils::{Coil, CoilExt, FullCoil};
 use crate::iterators::CoilsIterator;

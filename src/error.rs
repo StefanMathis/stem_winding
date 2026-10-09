@@ -1,7 +1,7 @@
 use compare_variables::Comparison;
 use keyring_map::InsertionError;
 use realfft::FftError;
-use stem_coil_layout::Zone;
+use stem_types::Zone;
 use stem_wire::prelude::stem_material::si::Length;
 
 use crate::coils::Coil;

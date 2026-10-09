@@ -1,7 +1,6 @@
 use std::num::{NonZeroU16, NonZeroUsize};
 
 use approxim::assert_abs_diff_eq;
-use stem_winding::stem_material::prelude::*;
 use stem_winding::winding::*;
 
 #[test]
@@ -177,10 +176,10 @@ fn test_repeating_pattern_count() {
 }
 
 #[test]
-fn test_base_winding_count_repeating_coil_groups() {
+fn test_base_winding_count_sym() {
     assert_eq!(
         2,
-        base_winding_count_repeating_coil_groups(
+        base_winding_count_sym(
             NonZeroU16::new(12).expect("not zero"),
             NonZeroU16::new(2).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
@@ -190,7 +189,7 @@ fn test_base_winding_count_repeating_coil_groups() {
     );
     assert_eq!(
         5,
-        base_winding_count_repeating_coil_groups(
+        base_winding_count_sym(
             NonZeroU16::new(15).expect("not zero"),
             NonZeroU16::new(5).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
@@ -200,7 +199,7 @@ fn test_base_winding_count_repeating_coil_groups() {
     );
     assert_eq!(
         2,
-        base_winding_count_repeating_coil_groups(
+        base_winding_count_sym(
             NonZeroU16::new(18).expect("not zero"),
             NonZeroU16::new(10).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
@@ -210,62 +209,13 @@ fn test_base_winding_count_repeating_coil_groups() {
     );
     assert_eq!(
         1,
-        base_winding_count_repeating_coil_groups(
+        base_winding_count_sym(
             NonZeroU16::new(19).expect("not zero"),
             NonZeroU16::new(4).expect("not zero"),
             NonZeroU16::new(3).expect("not zero"),
             NonZeroU16::new(1).expect("not zero")
         )
         .get()
-    );
-}
-
-#[test]
-fn test_curvature_factor() {
-    assert_abs_diff_eq!(
-        curvature_factor(
-            NonZeroU16::new(2).expect("not zero"),
-            Length::new::<millimeter>(55.0),
-            Length::new::<millimeter>(0.6),
-            1.0,
-            true
-        ),
-        0.994695,
-        epsilon = 0.001
-    );
-    assert_abs_diff_eq!(
-        curvature_factor(
-            NonZeroU16::new(2).expect("not zero"),
-            Length::new::<millimeter>(55.0),
-            Length::new::<millimeter>(0.6),
-            7.0,
-            true
-        ),
-        1.002341,
-        epsilon = 0.001
-    );
-    assert_abs_diff_eq!(
-        curvature_factor(
-            NonZeroU16::new(10).expect("not zero"),
-            Length::new::<millimeter>(55.0),
-            Length::new::<millimeter>(0.6),
-            1.0,
-            true
-        ),
-        0.998521,
-        epsilon = 0.001
-    );
-
-    assert_abs_diff_eq!(
-        curvature_factor(
-            NonZeroU16::new(5).expect("not zero"),
-            Length::new::<millimeter>(37.5),
-            Length::new::<millimeter>(0.6),
-            1.0,
-            true
-        ),
-        0.9941281,
-        epsilon = 1e-6
     );
 }
 

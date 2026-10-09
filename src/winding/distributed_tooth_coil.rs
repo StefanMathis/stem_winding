@@ -6,7 +6,7 @@ use compare_variables::compare_variables;
 
 use dyn_clone::clone_box;
 use num::Integer;
-use stem_coil_layout::{CoilLayout, Zone};
+use stem_types::{CoilLayout, Zone};
 use stem_wire::{sff::SffWire, wire::Wire};
 
 #[cfg(feature = "serde")]

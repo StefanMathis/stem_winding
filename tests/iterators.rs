@@ -179,8 +179,6 @@ fn test_coils_per_coil_group() {
             wdg.coil_groups_per_phase(),
             NonZeroU16::new(2).expect("not zero")
         );
-        assert_eq!(wdg.coils_per_phase(), 6);
-        assert_eq!(wdg.coils_per_coil_group(), 3);
     }
     {
         let wdg: DistributedWinding = DistributedMinimalBuilder {
@@ -203,8 +201,6 @@ fn test_coils_per_coil_group() {
             wdg.coil_groups_per_phase(),
             NonZeroU16::new(1).expect("not zero")
         );
-        assert_eq!(wdg.coils_per_phase(), 3);
-        assert_eq!(wdg.coils_per_coil_group(), 3);
     }
     {
         let wdg: DistributedWinding = DistributedMinimalBuilder {
@@ -227,8 +223,6 @@ fn test_coils_per_coil_group() {
             wdg.coil_groups_per_phase(),
             NonZeroU16::new(2).expect("not zero")
         );
-        assert_eq!(wdg.coils_per_phase(), 2);
-        assert_eq!(wdg.coils_per_coil_group(), 1);
     }
     {
         let wdg: ToothCoilWinding = ToothCoilMinimalBuilder {

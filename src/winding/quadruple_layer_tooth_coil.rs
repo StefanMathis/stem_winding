@@ -5,7 +5,7 @@ use std::num::{NonZeroU16, NonZeroUsize};
 use compare_variables::compare_variables;
 use dyn_clone::clone_box;
 use num::Integer;
-use stem_coil_layout::{CoilLayout, Zone};
+use stem_types::{CoilLayout, Zone};
 use stem_wire::{sff::SffWire, wire::Wire};
 
 #[cfg(feature = "stem_core")]
@@ -20,15 +20,15 @@ use serde::{Deserialize, Serialize};
 use crate::{
     coils::{Coil, Coils, FullCoil},
     error::{Error, WindingTableConstructionError},
-    winding::{Connection, Winding, base_winding_count_repeating_coil_groups, hole_number},
+    winding::{Connection, Winding, base_winding_count_sym, hole_number},
     winding_table::{WindingTable, WindingTableConstructor},
 };
 
 // Shorter aliases
-const LL: u16 = stem_coil_layout::QUADRUPLE_LAYER_BOTTOM_LEFT;
-const UL: u16 = stem_coil_layout::QUADRUPLE_LAYER_TOP_LEFT;
-const UR: u16 = stem_coil_layout::QUADRUPLE_LAYER_TOP_RIGHT;
-const LR: u16 = stem_coil_layout::QUADRUPLE_LAYER_BOTTOM_RIGHT;
+const LL: u16 = stem_types::QUADRUPLE_LAYER_BOTTOM_LEFT;
+const UL: u16 = stem_types::QUADRUPLE_LAYER_TOP_LEFT;
+const UR: u16 = stem_types::QUADRUPLE_LAYER_TOP_RIGHT;
+const LR: u16 = stem_types::QUADRUPLE_LAYER_BOTTOM_RIGHT;
 
 /**
 Representation of a quadruple-layer tooth coil winding as presented in [Kim14] and [Alb11].
@@ -340,7 +340,7 @@ impl Winding for QuadrupleLayerToothCoilWinding {
     }
 
     fn base_winding_count(&self) -> NonZeroU16 {
-        base_winding_count_repeating_coil_groups(
+        base_winding_count_sym(
             self.slots(),
             self.pole_pairs(),
             self.phases(),
@@ -457,7 +457,7 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
         }
 
         // Calculate the basic winding parameters
-        let t = base_winding_count_repeating_coil_groups(
+        let t = base_winding_count_sym(
             builder.slots,
             builder.pole_pairs,
             builder.phases,
@@ -524,7 +524,10 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
         /*
         Assert that all coils of a coil group are located next to each other.
          */
-        let coils_per_coil_group = winding.coils_per_coil_group() / 2;
+        let coils_per_coil_group = winding.layers().get() * winding.slots().get()
+            / (2 * winding.phases().get())
+            / winding.coil_groups_per_phase()
+            / 2;
         let mut phase_counter = coils_per_coil_group;
         let mut previous_phase = 0;
         let mut first_coil_group = true;

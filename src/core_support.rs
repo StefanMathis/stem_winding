@@ -557,7 +557,7 @@ impl<'a> CoilProperties<'a> {
             .coil
             .wire()
             .effective_conductor_area(zone_area, self.coil.turns());
-        return cross_section * self.axial_half_turn_length();
+        return self.coil.turns().get() as f64 * cross_section * self.axial_half_turn_length();
     }
 
     /// Returns the total conductor volume of the axial coil parts.
@@ -568,8 +568,8 @@ impl<'a> CoilProperties<'a> {
     pub fn axial_volume(&self) -> Volume {
         self.coil
             .zones()
-            .map(|zone| self.end_winding_half_turn_volume(zone))
-            .sum()
+            .map(|zone| self.axial_half_turn_volume(zone))
+            .sum::<Volume>()
     }
 
     /// Returns the end-winding half-turn length for the specified [`Zone`].
@@ -682,7 +682,9 @@ impl<'a> CoilProperties<'a> {
             .coil
             .wire()
             .effective_conductor_area(zone_area, self.coil.turns());
-        return cross_section * self.end_winding_half_turn_length(zone);
+        return self.coil.turns().get() as f64
+            * cross_section
+            * self.end_winding_half_turn_length(zone);
     }
 
     /// Returns the total conductor volume of the coil's end winding.
@@ -717,11 +719,7 @@ impl<'a> CoilProperties<'a> {
     /// which no winding zone contour is available are omitted from the
     /// calculation.
     pub fn volume(&self) -> Volume {
-        let mut volume = Volume::new::<cubic_meter>(0.0);
-        for zone in self.coil.zones() {
-            volume += self.end_winding_half_turn_volume(zone) + self.axial_half_turn_volume(zone);
-        }
-        return volume;
+        self.axial_volume() + self.end_winding_volume()
     }
 
     /// Returns the resistance of the [`Coil`].

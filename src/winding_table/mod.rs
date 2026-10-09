@@ -9,7 +9,7 @@ use crate::error::WindingTableConstructionError;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-pub use stem_coil_layout::Zone;
+pub use stem_types::Zone;
 
 use std::{marker::PhantomData, num::NonZeroU16};
 

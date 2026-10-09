@@ -3,7 +3,7 @@ use std::num::NonZeroU16;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use stem_coil_layout::{CoilLayout, Zone};
+use stem_types::{CoilLayout, Zone};
 
 #[cfg(feature = "stem_core")]
 use stem_core::prelude::*;

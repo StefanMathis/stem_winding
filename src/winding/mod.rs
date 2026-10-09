@@ -24,7 +24,7 @@ use crate::draw::{
     CoilDrawables, CoilDrawablesParameters, WindingZoneDrawables, ZoneDrawablesConfig,
 };
 
-use stem_coil_layout::{CoilLayout, Zone};
+use stem_types::{CoilLayout, Zone};
 use stem_wire::{stem_material::si::Length, wire::Wire};
 
 use crate::{
@@ -79,6 +79,10 @@ Properties of the winding as a whole, such as the phase
 [`resistance`](Winding::resistance), are provided directly by [`Winding`].
 Properties of individual coils can be obtained through the
 [`coil_properties_at`](Winding::coil_properties_at) API.
+[`coil_properties_iter`](Winding::coil_properties_iter) creates an iterator
+over the coils and their properties; this can e.g. be used to calculate winding
+properties such as the total wire mass. See the documentation of
+[`coil_properties_iter`](Winding::coil_properties_iter) for an example.
 
 # Implementation notes
 
@@ -537,6 +541,14 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         phasor_angle(self.slots(), self.pole_pairs())
     }
 
+    /// Returns the electrical angle associated with a phase.
+    ///
+    /// The default implementation assumes that the phases are evenly spaced
+    /// over one electrical period, with phase 1 at angle 0.
+    fn phase_angle(&self, phase: NonZeroU16) -> f64 {
+        TAU / f64::from(self.phases().get()) * (f64::from(phase.get()) - 1.0)
+    }
+
     /// Returns the hole number of the winding.
     ///
     /// This is equivalent to calling [`hole_number`] with the number of slots,
@@ -690,23 +702,6 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     }
 
     // TODO
-    /// Returns the winding grade (first grade or second grade) according to
-    /// [Phy08]. If the denominator of q is odd, then the winding is of
-    /// first grade, otherwise of second grade. Integer windings are always
-    /// of first grade, since the denominator is always 1.
-    fn winding_grade(&self) -> usize {
-        let n = self.hole_number().denom().clone();
-        return usize::from(2 - n % 2);
-    }
-
-    // TODO
-    /// Returns the number of wound coils per phase (equals winding_holes in
-    /// case of single-layer winding).
-    fn coils_per_phase(&self) -> u16 {
-        return self.layers().get() * self.slots().get() / (2 * self.phases().get());
-    }
-
-    // TODO
     /**
     Returns the number of coil groups per phase. This value is equal to the maximum possible number of parallel paths and can be calculated
     as described in [Seq50], p. 37: First, the number of coils per phase in a basic winding is calculated. Then, it is checked whether this
@@ -729,66 +724,113 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     }
 
     // TODO
-    /**
-    Return the number of coils in a coil group
-     */
-    fn coils_per_coil_group(&self) -> u16 {
-        return self.coils_per_phase() / self.coil_groups_per_phase();
-    }
-
-    // TODO
     /// Returns an iterator for all possible numbers of parallel paths, starting
     /// from 1.
     fn possible_parallel_paths(&self) -> crate::iterators::ParallelPathIterator {
         return crate::iterators::ParallelPathIterator::new(self.coil_groups_per_phase());
     }
 
-    // TODO
-    /// Returns the winding factor for the given phase and harmonic order.
-    /// Note that the phase counting starts with 1 as it usually does in
-    /// scientific literature regarding electrical machines. If the phase is
-    /// set to 0 or to a number larger than the number of phases, this functions
-    /// returns zero. The winding factor is calculated with the voltage
-    /// phasor method as described in e.g. [Pyr08].
-    fn winding_factor(&self, phase: NonZeroU16, order: f64) -> f64 {
-        if phase > self.phases() && phase.get() == 0 {
-            return 0.0;
-        }
-
-        // The winding factor is formally calculated as k_w =
-        // sin(ν*π/2)/Z*Σ_ρ=1^Z(cos(α_ρ)) The angle α_ρ can be derivatived from
-        // the phasor star. To find the beams of a phase and their respective
-        // sign, the zone plan is used.
+    /// Returns the winding factor of the specified `spatial_order` for the
+    /// `phase`.
+    ///
+    /// Since the winding is spatially distributed along the air gap surface,
+    /// the magnetic air gap flux penetrating the winding does not intersect all
+    /// coils of a phase simultaneously, but with an individual phase shift for
+    /// each coil. The phase shifts cause the individual coil contributions to
+    /// partially cancel, reducing the resulting magnitude compared to an
+    /// idealized winding in which all coils are concentrated at the same
+    /// point. The ratio of the two is called the "winding factor".
+    /// [\[1\]](#winding_factor_1), section 2.4.
+    ///
+    /// Mathematically, it can be expressed as the ratio between the geometric
+    /// sum of the voltage phasors and the sum of the phasor lengths. It is
+    /// particularly elegant to calculate the geometric sum in complex
+    /// coordinates:
+    ///
+    /// `k_v = |Σ^(N-1)_s=0 n_s * e^(j * s * α_u * v)| / Σ^(N-1)_s=0 n_s,abs`,
+    ///
+    /// where `N` is the number of [`slots`](Winding::slots), `s` is the slot
+    /// index from `0` to `N-1`, `n_s` is the signed number of turns in slot `s`
+    /// belonging to the `phase`, summed over all layers, and `n_s,abs` is the
+    /// total number of turns in that slot belonging to the `phase`,
+    /// irrespective of polarity. `α_u` is the
+    /// [`phasor_angle`](Winding::phasor_angle), and `v` is the electrical
+    /// spatial order obtained from the `spatial_order` argument.
+    ///
+    /// The winding factor accounts only for the spatial distribution of the
+    /// coils. It does not account for geometric effects such as the
+    /// distribution of flux across the slot
+    /// opening([CoreExt::slot_opening_factor]) or air-gap curvature
+    /// ([CoreExt::air_gap_curvature_factor]). These effects are included in
+    /// [Winding::effective_winding_factor].
+    ///
+    /// # Literature
+    /// <a id="winding_factor_1">\[1\]</a>
+    /// Pyrhönen, J., Jokinen, T., Hrabovcová, V.: Design of rotating electrical
+    /// machines, 1st edition, John Wiley & Sons, 2008
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 5.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 2.try_into().expect("not zero"),
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    /// }
+    /// .try_into()
+    /// .unwrap();
+    ///
+    /// // Fundamental for all three phases
+    /// for phase in 1..4 {
+    ///     assert_abs_diff_eq!(
+    ///         0.933,
+    ///         winding.winding_factor(phase.try_into().unwrap(), SpatialOrder::Electrical(1)),
+    ///         epsilon = 1e-3
+    ///     );
+    /// }
+    ///
+    /// // A 12/10 double layer tooth coil winding produces a subharmonic:
+    /// // Mechanical order 1 corresponds to electrical order 1/5 for this machine.
+    /// for phase in 1..4 {
+    ///     assert_abs_diff_eq!(
+    ///         0.067,
+    ///         winding.winding_factor(phase.try_into().unwrap(), SpatialOrder::Mechanical(1)),
+    ///         epsilon = 1e-3
+    ///     );
+    /// }
+    /// ```
+    fn winding_factor(&self, phase: NonZeroU16, spatial_order: SpatialOrder) -> f64 {
+        let elec_order = match spatial_order {
+            SpatialOrder::Mechanical(v) => f64::from(v) / f64::from(self.pole_pairs().get()),
+            SpatialOrder::Electrical(v) => f64::from(v),
+        };
 
         // It is sufficient to calculate the phasor star for the basic winding
         let slots_basic = self.slots().get() / self.base_winding_count().get();
-        let layers = self.layers();
+        let layers = self.layers().get();
         let alpha_u = self.phasor_angle();
 
         let (phasor_sum_geo, phasor_sum_abs) = (0..slots_basic)
             .into_par_iter()
             .map(|slot| {
-                let mut phasor_sum_geo = Complex::new(0.0f64, 0.0);
                 let mut phasor_sum_abs = 0;
 
-                let slot_angle = slot as f64 * alpha_u * order;
-
-                for layer in 0..layers.get() {
-                    // Check if the current slot and layer is assigned to the phase
+                let mut signed_turns_in_layer: f64 = 0.0;
+                for layer in 0..layers {
                     let current_phase = self.phase_at(Zone::new(slot, layer));
-                    if current_phase.abs() == i32::from(u16::from(phase)) {
-                        // Get the angle of the ρ-th zone. The reference is the first zone
-                        // of phase 1, which always equals the first beam of the phasor star
-                        // (alpha_rho=0 = 0°) If the zone is
-                        // negative, the beam direction needs to be inverted (sign-function)
-                        let dir_angle = if current_phase < 0 { PI } else { 0.0 };
-                        let phasor_length = self.turns_at(Zone::new(slot, layer));
-                        phasor_sum_geo = phasor_sum_geo
-                            + (phasor_length as f64)
-                                * (Complex::new(0.0, slot_angle + dir_angle)).exp();
-                        phasor_sum_abs = phasor_sum_abs + phasor_length;
+                    if current_phase.abs() == i32::from(phase.get()) {
+                        let turns = self.turns_at(Zone::new(slot, layer));
+                        phasor_sum_abs += turns;
+                        signed_turns_in_layer += f64::from(current_phase.signum()) * turns as f64;
                     }
                 }
+                let phasor_sum_geo = signed_turns_in_layer
+                    * Complex::new(0.0, slot as f64 * alpha_u * elec_order).exp();
 
                 (phasor_sum_geo, phasor_sum_abs)
             })
@@ -800,88 +842,195 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         // Sum up the phasors and get the absolute value, which equals the resulting
         // phasor length. Calculate winding factor as quotient of the absolute sum of
         // all phasors and the geometrical sum of all phasors.
-        return phasor_sum_geo.norm_sqr().sqrt() / (phasor_sum_abs as f64);
+        return phasor_sum_geo.norm() / (phasor_sum_abs as f64);
     }
 
-    // TODO
-    /// Returns the angle between two neighbouring phases.
-    fn phase_angle_difference(&self) -> f64 {
-        return TAU / self.phases().get() as f64;
-    }
-
-    // TODO
-    /// Calculate the vertices of the Görges polygon for the winding `obj`
-    /// according to [MVP08], p. 97ff. as a vector of complex coordinates.
-    fn goerges_polygon(&self, full: bool) -> Vec<Complex<f64>> {
-        let slots = if full {
-            self.slots()
-        } else {
-            NonZeroU16::new(self.slots().get() / self.base_winding_count().get()).expect("not zero")
-        };
-
-        let mut verts = vec![Complex::new(0.0, 0.0); usize::from(slots.get())];
-
-        // Angle between two phases
-        let delta_phase_angle = self.phase_angle_difference();
-
-        for slot in 0..slots.get() {
-            for layer in 0..self.layers().get() {
-                // The new polygon edge starts at the end of the previous polygon edge
-                if layer == 0 && slot > 0 {
-                    verts[slot as usize] = verts[slot as usize - 1].clone()
-                }
-
-                // Add the magnetic voltage to the current polygon node
-                let phase = self.phase_at(Zone::new(slot, layer));
-                if phase == 0 {
-                    continue;
-                } else {
-                    let turns = self.turns_at(Zone::new(slot, layer));
-                    let phase_angle = ((phase as f64).abs() - 1.0) * delta_phase_angle;
-
-                    verts[slot as usize] = verts[slot as usize]
-                        + (turns as f64 * num::signum(phase) as f64)
-                            * (Complex::new(0.0, phase_angle)).exp();
-                }
-            }
-        }
-
-        // Calculate the focal point and center the polygon
-        let sum = verts.as_slice().iter().sum::<Complex<f64>>() as Complex<f64>;
-        let focal_point = sum / verts.len() as f64;
-        for ii in 0..verts.len() {
-            verts[ii] = verts[ii] - focal_point;
-        }
-
-        return verts;
-    }
-
-    // TODO
-    /// Check if the winding factors of all phases are identical.
-    /// A default implementation exists.
+    /// Checks whether all phases have the same winding factor at the
+    /// fundamental electrical spatial order.
+    ///
+    /// The default implementation compares the fundamental winding factors of
+    /// all phases using an absolute tolerance of `1e-12`.
     fn equal_winding_factors(&self) -> bool {
-        let ref_winding_factor = self.winding_factor(NonZeroU16::MIN, 1.0);
+        let ref_winding_factor = self.winding_factor(NonZeroU16::MIN, SpatialOrder::Electrical(1));
         for phase in 2..(self.phases().get() + 1) {
-            let winding_factor =
-                self.winding_factor(NonZeroU16::new(phase).expect("is not zero"), 1.0);
-            if approxim::abs_diff_ne!(winding_factor, ref_winding_factor, epsilon = 1e-15) {
+            let winding_factor = self.winding_factor(
+                NonZeroU16::new(phase).expect("is not zero"),
+                SpatialOrder::Electrical(1),
+            );
+            if approxim::abs_diff_ne!(winding_factor, ref_winding_factor, epsilon = 1e-12) {
                 return false;
             }
         }
         return true;
     }
 
-    // TODO
-    /// Calculate the air gap leakage factor from the Görges diagram ([MVP08],
-    /// p. 97 ff.) A default implementation exists.
-    fn air_gap_leakage_factor(&self) -> f64 {
+    /// Returns the vertices of the Görges polygon.
+    ///
+    /// The Görges polygon represents the space-time voltage polygon of the
+    /// idealized air-gap field in a complex plane. Each vertex corresponds to a
+    /// slot of the winding. The polygon can be used to determine the
+    /// [`air_gap_leakage_factor`](Winding::air_gap_leakage_factor), as
+    /// described in [\[1\]](#goerges_polygon_1), section 1.2.4.
+    ///
+    /// Connecting the vertices in their order of appearance (slot order) in the
+    /// complex plane yields the Görges diagram.
+    ///
+    /// If `full` is `false`, only the vertices of the underlying base winding
+    /// are returned, since the Görges diagram is cyclic over the base
+    /// windings. See [`Winding::base_winding_count`] for details.
+    ///
+    /// # Literature
+    /// <a id="goerges_polygon_1">\[1\]</a>
+    /// Müller, G., Vogt, K. and Ponick, B.: Berechnung elektrischer Maschinen,
+    /// 6th edition, Wiley-VCH, 2008
+    fn goerges_polygon(&self, full: bool) -> Vec<Complex<f64>> {
+        let slots = if full {
+            self.slots().get()
+        } else {
+            self.slots().get() / self.base_winding_count().get()
+        };
+        let layers = self.layers().get();
+
+        let mut vertices = Vec::with_capacity(usize::from(slots));
+
+        // Sum of all magnetic voltages; needed for the focal point of the diagram
+        let mut sum = Complex::new(0.0, 0.0);
+
+        for slot in 0..slots {
+            let v_prev = vertices.last().cloned().unwrap_or(Complex::new(0.0, 0.0));
+
+            // The new polygon edge starts at the end of the previous polygon edge
+            let v_curr = v_prev
+                + (0..layers)
+                    .map(|layer| {
+                        let zone = Zone::new(slot, layer);
+
+                        // Add the magnetic voltage to the current polygon node
+                        let phase = self.phase_at(zone);
+                        let turns = self.turns_at(zone);
+                        let phase_angle = if let Ok(ph) = NonZeroU16::try_from(phase.abs() as u16) {
+                            self.phase_angle(ph)
+                        } else {
+                            0.0
+                        };
+
+                        (turns as f64 * f64::from(phase.signum()))
+                            * (Complex::new(0.0, phase_angle)).exp()
+                    })
+                    .sum::<Complex<f64>>();
+            vertices.push(v_curr);
+            sum += v_curr;
+        }
+
+        // Calculate the focal point and center the polygon
+        let focal_point = sum / vertices.len() as f64;
+        vertices.iter_mut().for_each(|v| {
+            *v = *v - focal_point;
+        });
+
+        return vertices;
+    }
+
+    /// Returns the air gap leakage factor for the specifid `phase`.
+    ///
+    /// This calculation is implemented using the
+    /// [`goerges_polygon`](Winding::goerges_polygon) as described in
+    /// [\[1\]](#air_gap_leakage_factor_1), section 1.2.4.
+    ///
+    /// For the vertices `v_s` of the Görges polygon and the number of
+    /// [`slots`](Winding::slots) `N`, the so-called "inertia radius" of the
+    /// Görges polygon is calculated:
+    ///
+    /// `R_g = sqrt(1/N * Σ^(N-1)_s=0 |v_s|²)`
+    ///
+    /// Next, the "inertia radius" of the fundamental harmonic is determined:
+    ///
+    /// `R_p = m * w * k_wp / (π * p)`
+    ///
+    /// where `m` is the number of [`phases`](Winding::phases), `w` is the
+    /// [`series_turns_per_phase`](Winding::series_turns_per_phase), `k_wp` is
+    /// the [`winding_factor`](Winding::winding_factor) of the fundamental
+    /// electric spatial order and `p` is the number of
+    /// [`pole_pairs`](Winding::pole_pairs).
+    ///
+    /// The air gap leakage factor is the ratio between the squares of those
+    /// radii minus one:
+    ///
+    /// `σ_o = (R_g / R_p)² - 1`.
+    ///
+    /// Multiplying this value with the
+    /// [`main_inductance`](Winding::main_inductance) gives the
+    /// [`air_gap_leakage_inductance`](Winding::air_gap_leakage_inductance).
+    ///
+    /// # Literature
+    /// <a id="air_gap_leakage_factor_1">\[1\]</a>
+    /// Müller, G., Vogt, K. and Ponick, B.: Berechnung elektrischer Maschinen,
+    /// 6th edition, Wiley-VCH, 2008
+    ///
+    /// # Examples
+    ///
+    /// This example compares the air gap leakage factor of a tooth-coil
+    /// winding, an integer-slot distributed winding and a cage winding.
+    /// Usually, tooth-coil windings have a higher value than integer-slot
+    /// distributed windings which in turn have a higher value than cage
+    /// windings.
+    ///
+    /// ```
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// // Tooth-coil winding
+    /// let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 5.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 2.try_into().expect("not zero"),
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    /// }
+    /// .try_into()
+    /// .unwrap();
+    /// approxim::assert_abs_diff_eq!(
+    ///     0.96835,
+    ///     winding.air_gap_leakage_factor(NonZeroU16::MIN),
+    ///     epsilon = 0.0001
+    /// );
+    ///
+    /// // Distributed winding
+    /// let winding: DistributedWinding = DistributedMinimalBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 2.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 1.try_into().expect("not zero"),
+    ///     coil_span_reduction: 0,
+    ///     zone_span_variation: 0,
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    /// }
+    /// .try_into()
+    /// .unwrap();
+    /// approxim::assert_abs_diff_eq!(
+    ///     0.096622,
+    ///     winding.air_gap_leakage_factor(NonZeroU16::MIN),
+    ///     epsilon = 0.0001
+    /// );
+    ///
+    /// // Cage winding
+    /// let winding: SquirrelCageWinding = SquirrelCageMinimalBuilder {
+    ///     slots: 14.try_into().expect("not zero"),
+    ///     pole_pairs: ONE,
+    /// }.try_into().unwrap();
+    /// approxim::assert_abs_diff_eq!(
+    ///     0.01696,
+    ///     winding.air_gap_leakage_factor(NonZeroU16::MIN),
+    ///     epsilon = 0.0001
+    /// );
+    /// ```
+    fn air_gap_leakage_factor(&self, phase: NonZeroU16) -> f64 {
         let verts = self.goerges_polygon(false);
         let slots = self.slots().get() / self.base_winding_count();
-        let phase = NonZeroU16::MIN;
-        let k_w = self.winding_factor(phase, 1.0);
+        let k_w = self.winding_factor(phase, SpatialOrder::Electrical(1));
 
-        // Calculate the "Trägheitsradius" (inertia radius) squared according to , eq.
-        // (1.2.85)
+        // Calculate the "Trägheitsradius" (inertia radius) squared according to
+        // [1], eq. (1.2.85)
         let mut rg2: f64 = verts.iter().map(|v| v.norm_sqr()).sum();
 
         // For the magnetic slot voltage, the following holds true:
@@ -889,19 +1038,17 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         // which means that the inertia radius has to be corrected accordingly here
         rg2 = rg2 / ((slots * self.layers().get().pow(2)) as f64);
 
-        // Calculate the "Trägheitsradius der Hauptwelle" squared according to [MVP08],
-        // eq. (1.2.86)
-
-        // Current is arbitrarily set to 1 A (as it is in
-        // self.goerges_polygon()) Correction by the number of winding
-        // layers is necessary due to the same reason as for rg2
+        // Calculate the "Trägheitsradius der Hauptwelle" squared according to [1],
+        // eq. (1.2.86). Current is arbitrarily set to 1 A (as it is in
+        // self.goerges_polygon()). Correction by the number of winding
+        // layers is necessary due to the same reason as for rg2.
         let series_turns_per_phase = *self.series_turns_per_phase(phase).numer() as f64
             / *self.series_turns_per_phase(phase).denom() as f64;
         let rp2 = (self.phases().get() as f64 * series_turns_per_phase * k_w
             / (PI * (self.pole_pairs().get() * self.layers().get()) as f64))
             .powi(2);
 
-        // [MVP08], eq. (1.2.87)
+        // [1], eq. (1.2.87)
         return rg2 / rp2 - 1.0;
     }
 
@@ -1085,8 +1232,6 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return true;
     }
 
-    // fn curvature_factor(&self, core: CoreRef<'_>)
-
     //     /// Return the air gap leakage inductance ("doppeltverkettete Streuung")
     // as /// defined in e.g. [MVP08] or [Bin12].
     // fn air_gap_leakage_inductance(&self, phase: u16) -> Inductance {
@@ -1135,58 +1280,6 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     // Inductance {     return self.air_gap_inductance(phase)
     //         + self.end_winding_leakage_inductance(phase)
     //         + self.slot_leakage_inductance(phase, conditions);
-    // }
-
-    // /// Return the electrical filling factor for the given slot.
-    // fn slot_filling_factor_electrical_at(&self, slot: u16) -> Option<f64> {
-    //     let winding = self.winding()?;
-
-    //     if slot >= winding.slots() {
-    //         return None;
-    //     }
-
-    //     let layers = winding.layers() as f64;
-    //     let zone_area = self.zone_area() / layers;
-
-    //     let range = 0..winding.layers();
-    //     let sum_sff: f64 = range
-    //         .into_iter()
-    //         .map(|layer| {
-    //             let turns = winding.turns_at(Zone::new(slot, layer));
-    //             return winding
-    //                 .wire_at(Zone::new(slot, layer))
-    //                 .map(|wire| wire.slot_fill_factor_conductor(zone_area,
-    // turns))                 .unwrap_or(0.0);
-    //         })
-    //         .sum();
-
-    //     return Some(sum_sff / layers);
-    // }
-
-    // /// Return the electrical filling factor for the given slot.
-    // fn slot_filling_factor_mechanical_at(&self, slot: u16) -> Option<f64> {
-    //     let winding = self.winding()?;
-
-    //     if slot >= winding.slots() {
-    //         return None;
-    //     }
-
-    //     let layers = winding.layers() as f64;
-    //     let zone_area = self.zone_area() / layers;
-
-    //     let range = 0..winding.layers();
-    //     let sum_sff: f64 = range
-    //         .into_iter()
-    //         .map(|layer| {
-    //             let turns = winding.turns_at(Zone::new(slot, layer));
-    //             return winding
-    //                 .wire_at(Zone::new(slot, layer))
-    //                 .map(|wire| wire.slot_fill_factor_overall(zone_area, turns))
-    //                 .unwrap_or(0.0);
-    //         })
-    //         .sum();
-
-    //     return Some(sum_sff / layers);
     // }
 
     //     /**
@@ -1391,6 +1484,8 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     ///
     /// # Examples
     ///
+    /// Calculate the mass of a ll coils of the winding.
+    ///
     /// ```
     /// use std::collections::HashMap;
     ///
@@ -1410,12 +1505,12 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// let core = RotCore::from_winding(&winding);
     /// let end_winding_half_turn_lengths = HashMap::new();
     ///
-    /// // Calculate the total volume of all coils
-    /// let volume: Volume = winding
+    /// // Calculate the total mass of all coils
+    /// let mass: Mass = winding
     ///     .coil_properties_iter(core, end_winding_half_turn_lengths)
-    ///     .map(|cp|cp.volume()).sum();
+    ///     .map(|cp| cp.volume() * cp.material().mass_density().get(&[])).sum();
     ///
-    /// assert_abs_diff_eq!(volume.get::<cubic_millimeter>(), 0.10108, epsilon = 0.0001);
+    /// assert_abs_diff_eq!(mass.get::<kilogram>(), 0.10108, epsilon = 0.0001);
     /// ```
     #[cfg(feature = "stem_core")]
     fn coil_properties_iter<'a>(
@@ -1799,6 +1894,34 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         });
     }
 
+    /// Returns the effective winding factor.
+    ///
+    /// In contrast to the idealized
+    /// [`winding_factor`](Winding::winding_factor), which considers the
+    /// winding distribution without accounting for the machine geometry,
+    /// the effective winding factor also accounts for the effects of
+    /// air-gap curvature and slot openings.
+    ///
+    /// It is the product of the ideal winding factor,
+    /// [`CoreExt::air_gap_curvature_factor`], and
+    /// [`CoreExt::slot_opening_factor`].
+    ///
+    /// The effective winding factor can be used to determine the amplitude of a
+    /// spatial harmonic of the magnetic field, taking these geometric effects
+    /// into account.
+    #[cfg(feature = "stem_core")]
+    fn effective_winding_factor(
+        &self,
+        core: CoreRef<'_>,
+        phase: NonZeroU16,
+        spatial_order: SpatialOrder,
+        effective_air_gap: Length,
+    ) -> f64 {
+        self.winding_factor(phase, spatial_order)
+            * core.air_gap_curvature_factor(effective_air_gap, spatial_order)
+            * core.slot_opening_factor(spatial_order)
+    }
+
     // TODO
     #[cfg(all(feature = "cairo", feature = "stem_core"))]
     fn zone_drawables<'a>(
@@ -2084,27 +2207,6 @@ pub fn hole_number(
     return num::rational::Ratio::new_raw(z, n);
 }
 
-// TODO
-/// The curvature factor accounts for the curvature of the air gap field due to
-/// the stator roundness (see [Hut04])
-pub fn curvature_factor(
-    pole_pairs: NonZeroU16,
-    air_gap_radius: Length,
-    air_gap_width: Length,
-    order: f64,
-    is_outer: bool,
-) -> f64 {
-    let other_radius = air_gap_radius
-        + if is_outer {
-            -air_gap_width
-        } else {
-            air_gap_width
-        };
-    let v_times_p = (order * pole_pairs.get() as f64).abs();
-    let a = f64::from(air_gap_radius / other_radius).powf(2.0 * v_times_p);
-    return f64::from(air_gap_width * v_times_p / air_gap_radius * (a + 1.0) / (a - 1.0));
-}
-
 /// Provides random access to the values of a collection.
 ///
 /// Unlike [`std::ops::Index`], `RandomAccess` does not require the value to be
@@ -2173,7 +2275,44 @@ where
     }
 }
 
-// TODO
+/// Returns the number of repetitions of the smallest pattern in a collection.
+///
+/// The collection must consist entirely of repetitions of the same pattern.
+/// The smallest pattern is the shortest prefix of the collection whose
+/// repetitions make up the entire collection.
+///
+/// The collection is accessed through the [`RandomAccess`] trait, allowing
+/// values to be retrieved from stored data or calculated on demand. The
+/// pattern has a length of `collection_len / count`, where `count` is the value
+/// returned by this function.
+///
+/// This algorithm has a time complexity of O(n) and a space complexity of O(1).
+///
+/// Within stem_winding, this function is used to implement
+/// [Winding::base_winding_count].
+///
+/// # Examples
+///
+/// ```
+/// use std::num::NonZeroUsize;
+///
+/// use stem_winding::winding::repeating_pattern_count;
+///
+/// let collection = [1, 0, 0, 0, 1, 0, 0, 0];
+/// let len = NonZeroUsize::new(collection.len()).expect("not zero");
+/// let expected = NonZeroUsize::new(2).expect("not zero");
+/// assert_eq!(expected, repeating_pattern_count(&collection, len));
+///
+/// let collection = [1, 1, 0, 0, 0, 1, 0, 0, 0];
+/// let len = NonZeroUsize::new(collection.len()).expect("not zero");
+/// let expected = NonZeroUsize::new(1).expect("not zero");
+/// assert_eq!(expected, repeating_pattern_count(&collection, len));
+///
+/// let collection = [1, 2, 1, 2, 1, 2, 1, 2];
+/// let len = NonZeroUsize::new(collection.len()).expect("not zero");
+/// let expected = NonZeroUsize::new(4).expect("not zero");
+/// assert_eq!(expected, repeating_pattern_count(&collection, len));
+/// ```
 pub fn repeating_pattern_count<C>(collection: &C, collection_len: NonZeroUsize) -> NonZeroUsize
 where
     C: RandomAccess,
@@ -2254,37 +2393,47 @@ where
     return NonZeroUsize::new(c2 / pattern_len_cand).unwrap_or(NonZeroUsize::MIN);
 }
 
-// TODO
-/// Calculate the number of basic windings with the formulae from [Pyr08],
-/// section 2.11 (p. 102 ff)
+/// Returns the number of base windings for a symmetric winding.
 ///
-/// TODO: every winding contains at least one base winding
+/// For symmetric windings, the number of base windings can be determined in
+/// constant time from the winding parameters. This function implements the
+/// algorithm presented in [\[1\]](#base_winding_count_sym_1), section 2.11.
 ///
-/// What is a base winding: Repeating winding. This formula assumes symmetric
-/// repetition of coils (like DistributedWinding or ToothCoilWinding) Will
-/// return wrong values for arbitrary winding such as e.g. a CoilAssembly,
-/// consider using repeating_pattern_count via the
-/// [`Winding::base_winding_count`] wrapper instead, which can deal with
-/// arbitrary windings. Default impl of [`Winding::base_winding_count`] wraps
-/// repeating_pattern_count, which can deal with arbitrary windings. So this
-/// method is just an optimization for particular windings.
+/// It is a specialized implementation of [`Winding::base_winding_count`] with
+/// O(1) time and O(1) space complexity and is used by the symmetric winding
+/// types provided by stem_winding, such as [`DistributedWinding`]. The generic
+/// implementation of [`Winding::base_winding_count`] uses
+/// [`repeating_pattern_count`], which has O(n) time and O(1) space complexity.
+///
+/// # Literature
+/// <a id="base_winding_count_sym_1">\[1\]</a>
+/// Pyrhönen, J., Jokinen, T., Hrabovcová, V.: Design of rotating electrical
+/// machines, 1st edition, John Wiley & Sons, 2008
+///
+/// # Examples
 ///
 /// ```
-/// use winding::base_winding_count;
+/// use std::num::NonZeroU16;
+///
+/// use stem_winding::winding::base_winding_count_sym;
+///
+/// const fn nz(value: u16) -> NonZeroU16 {
+///    NonZeroU16::new(value).expect("not zero")
+/// }
 ///
 /// // 12/4 single-layer integer winding
-/// assert_eq!(2, base_winding_count(12, 2, 3, 1));
+/// assert_eq!(nz(2), base_winding_count_sym(nz(12), nz(2), nz(3), nz(1)));
 ///
 /// // 12/10 double-layer tooth-coil winding
-/// assert_eq!(1, base_winding_count(12, 5, 3, 2));
+/// assert_eq!(nz(1), base_winding_count_sym(nz(12), nz(5), nz(3), nz(2)));
 ///
 /// // 12/8 double-layer tooth-coil winding
-/// assert_eq!(4, base_winding_count(12, 4, 3, 2));
+/// assert_eq!(nz(4), base_winding_count_sym(nz(12), nz(4), nz(3), nz(2)));
 ///
-/// // 36/8 single-layer fractional slot winding
-/// assert_eq!(2, base_winding_count(36, 4, 3, 1));
+/// // 36/8 single-layer fractional-slot winding
+/// assert_eq!(nz(2), base_winding_count_sym(nz(36), nz(4), nz(3), nz(1)));
 /// ```
-pub fn base_winding_count_repeating_coil_groups(
+pub fn base_winding_count_sym(
     slots: NonZeroU16,
     pole_pairs: NonZeroU16,
     phases: NonZeroU16,

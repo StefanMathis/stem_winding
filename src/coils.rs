@@ -28,7 +28,7 @@ use std::{
 use crate::error::Error;
 use keyring_map::{InsertionError, KeyringMap};
 use num::Complex;
-use stem_coil_layout::Zone;
+use stem_types::Zone;
 use stem_wire::prelude::*;
 
 #[cfg(feature = "serde")]

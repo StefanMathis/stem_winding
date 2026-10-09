@@ -10,7 +10,7 @@ pub mod fec_spectral_analysis;
 pub mod winding;
 pub mod winding_table;
 
-pub use stem_coil_layout;
+pub use stem_types;
 pub use stem_wire::{self, stem_material, stem_material::var_quantity};
 
 #[cfg(feature = "stem_core")]
@@ -46,8 +46,8 @@ pub mod prelude {
     pub use stem_wire::prelude::*;
 
     // Integrate these docs into stem_winding
-    pub use stem_coil_layout;
-    pub use stem_coil_layout::*;
+    pub use stem_types;
+    pub use stem_types::*;
 
     #[cfg(feature = "stem_core")]
     pub use crate::core_support::*;
