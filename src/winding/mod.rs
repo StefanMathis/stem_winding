@@ -942,10 +942,12 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// Görges polygon is calculated:
     ///
     /// `R_g = sqrt(1/N * Σ^(N-1)_s=0 |v_s|²)`
+    /// [\[1\]](#air_gap_leakage_factor_1) eq. (1.2.85)
     ///
     /// Next, the "inertia radius" of the fundamental harmonic is determined:
     ///
-    /// `R_p = m * w * k_wp / (π * p)`
+    /// `R_p = m * w * k_wp / (π * p)` [\[1\]](#air_gap_leakage_factor_1) eq.
+    /// (1.2.86)
     ///
     /// where `m` is the number of [`phases`](Winding::phases), `w` is the
     /// [`series_turns_per_phase`](Winding::series_turns_per_phase), `k_wp` is
@@ -956,7 +958,8 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// The air gap leakage factor is the ratio between the squares of those
     /// radii minus one:
     ///
-    /// `σ_o = (R_g / R_p)² - 1`.
+    /// `σ_o = (R_g / R_p)² - 1`. [\[1\]](#air_gap_leakage_factor_1) eq.
+    /// (1.2.87)
     ///
     /// Multiplying this value with the
     /// [`main_inductance`](Winding::main_inductance) gives the
