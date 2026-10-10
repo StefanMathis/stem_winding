@@ -1,7 +1,7 @@
 use std::num::NonZeroU16;
 
 use approxim;
-use stem_winding::prelude::*;
+use stem_winding::{iterators::WindingHarmonic, prelude::*};
 
 const ONE: NonZeroU16 = NonZeroU16::MIN;
 
@@ -25,6 +25,21 @@ fn test_air_gap_leakage_factor() {
     let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
         slots: 12.try_into().expect("not zero"),
         pole_pairs: 5.try_into().expect("not zero"),
+        phases: 3.try_into().expect("not zero"),
+        layers: 2.try_into().expect("not zero"),
+        winding_table_constructor: WindingTableConstructor::Tingley,
+    }
+    .try_into()
+    .unwrap();
+    approxim::assert_abs_diff_eq!(
+        0.96835,
+        winding.air_gap_leakage_factor(NonZeroU16::MIN),
+        epsilon = 0.0001
+    );
+
+    let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
+        slots: 24.try_into().expect("not zero"),
+        pole_pairs: 10.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
         winding_table_constructor: WindingTableConstructor::Tingley,
@@ -179,13 +194,42 @@ fn test_winding_12_8_dl() {
     // Assert that the winding is symmetric
     assert!(winding.equal_winding_factors());
 
-    // Check the winding orders
-    let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
-    assert_eq!(orders[0], num::rational::Ratio::new(1, 1));
-    assert_eq!(orders[1], num::rational::Ratio::new(-2, 1));
-    assert_eq!(orders[2], num::rational::Ratio::new(4, 1));
-    assert_eq!(orders[3], num::rational::Ratio::new(-5, 1));
-    assert_eq!(orders[4], num::rational::Ratio::new(7, 1));
+    let harmonics: Vec<WindingHarmonic> = winding.harmonics().take(5).collect();
+    assert_eq!(
+        harmonics[0],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(4),
+            is_positive: true
+        }
+    );
+    assert_eq!(
+        harmonics[1],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(8),
+            is_positive: false
+        }
+    );
+    assert_eq!(
+        harmonics[2],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(16),
+            is_positive: true
+        }
+    );
+    assert_eq!(
+        harmonics[3],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(20),
+            is_positive: false
+        }
+    );
+    assert_eq!(
+        harmonics[4],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(28),
+            is_positive: true
+        }
+    );
 
     // Check the winding factor
     approxim::assert_abs_diff_eq!(
@@ -237,13 +281,42 @@ fn test_winding_12_10_dl() {
     // Assert that the winding is symmetric
     assert!(winding.equal_winding_factors());
 
-    // Check the winding orders
-    let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
-    assert_eq!(orders[0], num::rational::Ratio::new(-1, 5));
-    assert_eq!(orders[1], num::rational::Ratio::new(5, 5));
-    assert_eq!(orders[2], num::rational::Ratio::new(-7, 5));
-    assert_eq!(orders[3], num::rational::Ratio::new(11, 5));
-    assert_eq!(orders[4], num::rational::Ratio::new(-13, 5));
+    let harmonics: Vec<WindingHarmonic> = winding.harmonics().take(5).collect();
+    assert_eq!(
+        harmonics[0],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(1),
+            is_positive: true
+        }
+    );
+    assert_eq!(
+        harmonics[1],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(5),
+            is_positive: false
+        }
+    );
+    assert_eq!(
+        harmonics[2],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(7),
+            is_positive: true
+        }
+    );
+    assert_eq!(
+        harmonics[3],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(11),
+            is_positive: false
+        }
+    );
+    assert_eq!(
+        harmonics[4],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(13),
+            is_positive: true
+        }
+    );
 
     // Check the winding factor
     approxim::assert_abs_diff_eq!(
@@ -254,6 +327,11 @@ fn test_winding_12_10_dl() {
     approxim::assert_abs_diff_eq!(
         0.933,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(5)),
+        epsilon = 0.0001
+    );
+    approxim::assert_abs_diff_eq!(
+        0.933,
+        winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
         epsilon = 0.0001
     );
     approxim::assert_abs_diff_eq!(
@@ -269,6 +347,98 @@ fn test_winding_12_10_dl() {
     approxim::assert_abs_diff_eq!(
         0.067,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(13)),
+        epsilon = 0.0001
+    );
+}
+
+#[test]
+fn test_winding_24_20_dl() {
+    let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
+        slots: 24.try_into().expect("not zero"),
+        pole_pairs: 10.try_into().expect("not zero"),
+        phases: 3.try_into().expect("not zero"),
+        layers: 2.try_into().expect("not zero"),
+        winding_table_constructor: WindingTableConstructor::Tingley,
+    }
+    .try_into()
+    .unwrap();
+
+    assert_eq!(2, winding.base_winding_count().get());
+
+    // Check the number of parallel paths
+    assert_eq!(4, winding.coil_groups_per_phase().get());
+    let parallel_paths: Vec<u16> = winding.possible_parallel_paths().map(|v| v.get()).collect();
+    assert_eq!(parallel_paths, vec![1, 2, 4]);
+
+    // Assert that the winding is symmetric
+    assert!(winding.equal_winding_factors());
+
+    let harmonics: Vec<WindingHarmonic> = winding.harmonics().take(5).collect();
+    assert_eq!(
+        harmonics[0],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(2),
+            is_positive: true
+        }
+    );
+    assert_eq!(
+        harmonics[1],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(10),
+            is_positive: false
+        }
+    );
+    assert_eq!(
+        harmonics[2],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(14),
+            is_positive: true
+        }
+    );
+    assert_eq!(
+        harmonics[3],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(22),
+            is_positive: false
+        }
+    );
+    assert_eq!(
+        harmonics[4],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(26),
+            is_positive: true
+        }
+    );
+
+    // Check the winding factor
+    approxim::assert_abs_diff_eq!(
+        0.067,
+        winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
+        epsilon = 0.0001
+    );
+    approxim::assert_abs_diff_eq!(
+        0.933,
+        winding.winding_factor(ONE, SpatialOrder::Mechanical(10)),
+        epsilon = 0.0001
+    );
+    approxim::assert_abs_diff_eq!(
+        0.933,
+        winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
+        epsilon = 0.0001
+    );
+    approxim::assert_abs_diff_eq!(
+        0.933,
+        winding.winding_factor(ONE, SpatialOrder::Mechanical(14)),
+        epsilon = 0.0001
+    );
+    approxim::assert_abs_diff_eq!(
+        0.067,
+        winding.winding_factor(ONE, SpatialOrder::Mechanical(22)),
+        epsilon = 0.0001
+    );
+    approxim::assert_abs_diff_eq!(
+        0.067,
+        winding.winding_factor(ONE, SpatialOrder::Mechanical(26)),
         epsilon = 0.0001
     );
 }
@@ -295,13 +465,42 @@ fn test_winding_12_10_sl() {
     // Assert that the winding is symmetric
     assert!(winding.equal_winding_factors());
 
-    // Check the winding orders
-    let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
-    assert_eq!(orders[0], num::rational::Ratio::new_raw(-1, 5));
-    assert_eq!(orders[1], num::rational::Ratio::new_raw(5, 5));
-    assert_eq!(orders[2], num::rational::Ratio::new_raw(-7, 5));
-    assert_eq!(orders[3], num::rational::Ratio::new_raw(11, 5));
-    assert_eq!(orders[4], num::rational::Ratio::new_raw(-13, 5));
+    let harmonics: Vec<WindingHarmonic> = winding.harmonics().take(5).collect();
+    assert_eq!(
+        harmonics[0],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(1),
+            is_positive: true
+        }
+    );
+    assert_eq!(
+        harmonics[1],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(5),
+            is_positive: false
+        }
+    );
+    assert_eq!(
+        harmonics[2],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(7),
+            is_positive: true
+        }
+    );
+    assert_eq!(
+        harmonics[3],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(11),
+            is_positive: false
+        }
+    );
+    assert_eq!(
+        harmonics[4],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(13),
+            is_positive: true
+        }
+    );
 
     // Check the winding factor
     approxim::assert_abs_diff_eq!(

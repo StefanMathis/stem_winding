@@ -1,7 +1,10 @@
 use std::num::{NonZeroU16, NonZeroUsize};
 
 use approxim;
-use stem_winding::{iterators::CoilsPerCoilGroupIterator, prelude::*};
+use stem_winding::{
+    iterators::{CoilsPerCoilGroupIterator, WindingHarmonic},
+    prelude::*,
+};
 
 const ONE: NonZeroU16 = NonZeroU16::MIN;
 
@@ -223,38 +226,67 @@ fn test_three_zones_single_layer() {
         let winding_table = winding.winding_table(false);
         assert_eq!(winding_table, winding_table_expected);
 
-        // Check the winding orders
-        let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
-        assert_eq!(orders[0], num::rational::Ratio::new(-1, 2));
-        assert_eq!(orders[1], num::rational::Ratio::new(2, 2));
-        assert_eq!(orders[2], num::rational::Ratio::new(-4, 2));
-        assert_eq!(orders[3], num::rational::Ratio::new(5, 2));
-        assert_eq!(orders[4], num::rational::Ratio::new(-7, 2));
+        let harmonics: Vec<WindingHarmonic> = winding.harmonics().take(5).collect();
+        assert_eq!(
+            harmonics[0],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(2),
+                is_positive: true
+            }
+        );
+        assert_eq!(
+            harmonics[1],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(4),
+                is_positive: false
+            }
+        );
+        assert_eq!(
+            harmonics[2],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(8),
+                is_positive: true
+            }
+        );
+        assert_eq!(
+            harmonics[3],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(10),
+                is_positive: false
+            }
+        );
+        assert_eq!(
+            harmonics[4],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(14),
+                is_positive: true
+            }
+        );
 
         // Check the winding factor
         approxim::assert_abs_diff_eq!(
             0.4830,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
-            epsilon = 0.0001
-        );
-        approxim::assert_abs_diff_eq!(
-            0.75,
             winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
-            0.4330,
+            0.75,
             winding.winding_factor(ONE, SpatialOrder::Mechanical(4)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
-            0.1294,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(5)),
+            0.4330,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(8)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.1294,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(7)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(10)),
+            epsilon = 0.0001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.1294,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(14)),
             epsilon = 0.0001
         );
     }
@@ -281,38 +313,67 @@ fn test_three_zones_single_layer() {
         let winding_table = winding.winding_table(false);
         assert_eq!(winding_table, winding_table_expected);
 
-        // Check the winding orders
-        let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
-        assert_eq!(orders[0], num::rational::Ratio::new(1, 4));
-        assert_eq!(orders[1], num::rational::Ratio::new(-2, 4));
-        assert_eq!(orders[2], num::rational::Ratio::new(4, 4));
-        assert_eq!(orders[3], num::rational::Ratio::new(-5, 4));
-        assert_eq!(orders[4], num::rational::Ratio::new(7, 4));
+        let harmonics: Vec<WindingHarmonic> = winding.harmonics().take(5).collect();
+        assert_eq!(
+            harmonics[0],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(2),
+                is_positive: true
+            }
+        );
+        assert_eq!(
+            harmonics[1],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(4),
+                is_positive: false
+            }
+        );
+        assert_eq!(
+            harmonics[2],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(8),
+                is_positive: true
+            }
+        );
+        assert_eq!(
+            harmonics[3],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(10),
+                is_positive: false
+            }
+        );
+        assert_eq!(
+            harmonics[4],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(14),
+                is_positive: true
+            }
+        );
 
         // Check the winding factor
         approxim::assert_abs_diff_eq!(
             0.4830,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
-            epsilon = 0.0001
-        );
-        approxim::assert_abs_diff_eq!(
-            0.75,
             winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
-            0.4330,
+            0.75,
             winding.winding_factor(ONE, SpatialOrder::Mechanical(4)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
-            0.1294,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(5)),
+            0.4330,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(8)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.1294,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(7)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(10)),
+            epsilon = 0.0001
+        );
+        approxim::assert_abs_diff_eq!(
+            0.1294,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(14)),
             epsilon = 0.0001
         );
     }
@@ -344,27 +405,27 @@ fn test_three_zones_single_layer_differing_number_of_coils() {
     // Check the winding factor
     approxim::assert_abs_diff_eq!(
         0.5278,
-        winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
-        epsilon = 0.0001
-    );
-    approxim::assert_abs_diff_eq!(
-        0.8,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
         epsilon = 0.0001
     );
     approxim::assert_abs_diff_eq!(
-        0.3464,
+        0.8,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(4)),
         epsilon = 0.0001
     );
     approxim::assert_abs_diff_eq!(
-        0.0379,
-        winding.winding_factor(ONE, SpatialOrder::Mechanical(5)),
+        0.3464,
+        winding.winding_factor(ONE, SpatialOrder::Mechanical(8)),
         epsilon = 0.0001
     );
     approxim::assert_abs_diff_eq!(
         0.0379,
-        winding.winding_factor(ONE, SpatialOrder::Mechanical(7)),
+        winding.winding_factor(ONE, SpatialOrder::Mechanical(10)),
+        epsilon = 0.0001
+    );
+    approxim::assert_abs_diff_eq!(
+        0.0379,
+        winding.winding_factor(ONE, SpatialOrder::Mechanical(14)),
         epsilon = 0.0001
     );
 }
@@ -402,38 +463,67 @@ fn test_six_zones_single_layer() {
         let winding_table = winding.winding_table(false);
         assert_eq!(winding_table, winding_table_expected);
 
-        // Check the winding orders
-        let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
-        assert_eq!(orders[0], num::rational::Ratio::new(-1, 5));
-        assert_eq!(orders[1], num::rational::Ratio::new(5, 5));
-        assert_eq!(orders[2], num::rational::Ratio::new(-7, 5));
-        assert_eq!(orders[3], num::rational::Ratio::new(11, 5));
-        assert_eq!(orders[4], num::rational::Ratio::new(-13, 5));
+        let harmonics: Vec<WindingHarmonic> = winding.harmonics().take(5).collect();
+        assert_eq!(
+            harmonics[0],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(2),
+                is_positive: true
+            }
+        );
+        assert_eq!(
+            harmonics[1],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(10),
+                is_positive: false
+            }
+        );
+        assert_eq!(
+            harmonics[2],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(14),
+                is_positive: true
+            }
+        );
+        assert_eq!(
+            harmonics[3],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(22),
+                is_positive: false
+            }
+        );
+        assert_eq!(
+            harmonics[4],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(26),
+                is_positive: true
+            }
+        );
 
         // Check the winding factor
         approxim::assert_abs_diff_eq!(
             0.2566,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
-            epsilon = 0.0001
-        );
-        approxim::assert_abs_diff_eq!(
-            0.7663,
             winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
+            0.7663,
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(10)),
+            epsilon = 0.0001
+        );
+        approxim::assert_abs_diff_eq!(
             0.5880,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(4)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(14)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.0338,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(5)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(22)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.0338,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(7)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(26)),
             epsilon = 0.0001
         );
     }
@@ -460,38 +550,67 @@ fn test_six_zones_single_layer() {
         let winding_table = winding.winding_table(false);
         assert_eq!(winding_table, winding_table_expected);
 
-        // Check the winding orders
-        let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
-        assert_eq!(orders[0], num::rational::Ratio::new(1, 7));
-        assert_eq!(orders[1], num::rational::Ratio::new(-5, 7));
-        assert_eq!(orders[2], num::rational::Ratio::new(7, 7));
-        assert_eq!(orders[3], num::rational::Ratio::new(-11, 7));
-        assert_eq!(orders[4], num::rational::Ratio::new(13, 7));
+        let harmonics: Vec<WindingHarmonic> = winding.harmonics().take(5).collect();
+        assert_eq!(
+            harmonics[0],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(2),
+                is_positive: true
+            }
+        );
+        assert_eq!(
+            harmonics[1],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(10),
+                is_positive: false
+            }
+        );
+        assert_eq!(
+            harmonics[2],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(14),
+                is_positive: true
+            }
+        );
+        assert_eq!(
+            harmonics[3],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(22),
+                is_positive: false
+            }
+        );
+        assert_eq!(
+            harmonics[4],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(26),
+                is_positive: true
+            }
+        );
 
         // Check the winding factor
         approxim::assert_abs_diff_eq!(
             0.2566,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.7663,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(5)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(10)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.5880,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(7)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(14)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.0338,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(11)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(22)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.0338,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(13)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(26)),
             epsilon = 0.0001
         );
     }
@@ -575,38 +694,67 @@ fn test_double_layer_24_2() {
     );
     assert_eq!(winding_table, expected_result);
 
-    // Check the winding orders
-    let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
-    assert_eq!(orders[0], num::rational::Ratio::new(1, 1));
-    assert_eq!(orders[1], num::rational::Ratio::new(-5, 1));
-    assert_eq!(orders[2], num::rational::Ratio::new(7, 1));
-    assert_eq!(orders[3], num::rational::Ratio::new(-11, 1));
-    assert_eq!(orders[4], num::rational::Ratio::new(13, 1));
+    let harmonics: Vec<WindingHarmonic> = winding.harmonics().take(5).collect();
+    assert_eq!(
+        harmonics[0],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(2),
+            is_positive: true
+        }
+    );
+    assert_eq!(
+        harmonics[1],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(10),
+            is_positive: false
+        }
+    );
+    assert_eq!(
+        harmonics[2],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(14),
+            is_positive: true
+        }
+    );
+    assert_eq!(
+        harmonics[3],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(22),
+            is_positive: false
+        }
+    );
+    assert_eq!(
+        harmonics[4],
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(26),
+            is_positive: true
+        }
+    );
 
     // Check the winding factor
     approxim::assert_abs_diff_eq!(
         0.4830,
-        winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
+        winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
         epsilon = 0.0001
     );
     approxim::assert_abs_diff_eq!(
         0.1294,
-        winding.winding_factor(ONE, SpatialOrder::Mechanical(5)),
+        winding.winding_factor(ONE, SpatialOrder::Mechanical(10)),
         epsilon = 0.0001
     );
     approxim::assert_abs_diff_eq!(
         0.1294,
-        winding.winding_factor(ONE, SpatialOrder::Mechanical(7)),
+        winding.winding_factor(ONE, SpatialOrder::Mechanical(14)),
         epsilon = 0.0001
     );
     approxim::assert_abs_diff_eq!(
         0.4830,
-        winding.winding_factor(ONE, SpatialOrder::Mechanical(11)),
+        winding.winding_factor(ONE, SpatialOrder::Mechanical(22)),
         epsilon = 0.0001
     );
     approxim::assert_abs_diff_eq!(
         0.4830,
-        winding.winding_factor(ONE, SpatialOrder::Mechanical(13)),
+        winding.winding_factor(ONE, SpatialOrder::Mechanical(26)),
         epsilon = 0.0001
     );
 }
@@ -726,27 +874,27 @@ fn test_double_layer_differing_number_of_coils_24_2_dl() {
         // Check the winding factor
         approxim::assert_abs_diff_eq!(
             0.5166,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.0039,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(5)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(10)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.0039,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(7)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(14)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.5166,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(11)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(22)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.5166,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(13)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(26)),
             epsilon = 0.0001
         );
     }
@@ -773,27 +921,27 @@ fn test_double_layer_differing_number_of_coils_24_2_dl() {
         // Check the winding factor
         approxim::assert_abs_diff_eq!(
             0.5502,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.1215,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(5)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(10)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.1215,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(7)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(14)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.5502,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(11)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(22)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.5502,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(13)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(26)),
             epsilon = 0.0001
         );
     }
@@ -939,27 +1087,27 @@ mod serde_tests {
         // Check the winding factor
         approxim::assert_abs_diff_eq!(
             0.4830,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
+            winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.1294,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(5)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(10)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.1294,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(7)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(14)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.4830,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(11)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(22)),
             epsilon = 0.0001
         );
         approxim::assert_abs_diff_eq!(
             0.4830,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(13)),
+            winding.winding_factor(ONE, SpatialOrder::Mechanical(26)),
             epsilon = 0.0001
         );
     }

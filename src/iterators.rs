@@ -1,9 +1,11 @@
 use approxim;
-use num::rational::Ratio;
 use std::{f64::consts::TAU, num::NonZeroU16};
 use stem_types::{SpatialOrder, Zone};
 
-use crate::{coils::Coil, winding::Winding};
+use crate::{
+    coils::Coil,
+    winding::{WINDING_FACTOR_ZERO_THRESHOLD, Winding},
+};
 
 /// This iterator returns all possible parallel path configurations, starting
 /// from 1. It is created by the `parallel_paths()` method of a winding which
@@ -34,224 +36,134 @@ impl Iterator for ParallelPathIterator {
     }
 }
 
-/**
-This iterator returns all winding harmonic orders of a symmetric winding in ascending order.
-As described in [Bin12] p.126ff., the orders of the waves created by the winding can be represented by their
-integer value v* or the fraction value v, where v = 1 is the order creating the constant torque coomponent.
-The `HarmonicOrdersIterator` returns the fraction v. The numerator is v*, the denominator is the number of poles in a basic winding.
+/// A nonzero spatial harmonic present in a winding.
+///
+/// `spatial_order` specifies the harmonic's spatial order, while `is_positive`
+/// indicates its direction of rotation.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct WindingHarmonic {
+    /// Spatial order of the harmonic.
+    pub spatial_order: SpatialOrder,
+    /// Sign of the order: positive for a wave co-rotating with the current
+    /// system, negative for a wave counter-rotating relative to it.
+    pub is_positive: bool,
+}
 
-Deviating from [Bin12], the order of the pole pair harmonic is always positive. In [Bin12], p. 135f., the order signs
-show the coupling to the very first order, which can be a sub-order of the pole pair order (and possibly a negative coupling).
-
-
-# Example 1 (integer-slot winding):
-```
-use winding::{DistributedWinding, Winding};
-use num::rational::Ratio;
-
-let winding = DistributedWinding::default(); // This is a 6/2 single-layer integer-slot winding
-let orders: Vec<Ratio<i32>> = winding.harmonic_orders().take(5).collect();
-assert_eq!(orders[0], Ratio::new(1, 1));
-assert_eq!(orders[1], Ratio::new(-5, 1));
-assert_eq!(orders[2], Ratio::new(7, 1));
-assert_eq!(orders[3], Ratio::new(-11, 1));
-assert_eq!(orders[4], Ratio::new(13, 1));
-```
-
-# Example 2 (tooth-coil winding):
-```
-use winding::{ToothCoilWinding, Winding, WindingTableConstructor};
-use num::rational::Ratio;
-
-let winding = ToothCoilWinding::new_minimal(24, 10, 3, 2, WindingTableConstructor::Tingley).unwrap();
-let orders: Vec<Ratio<i32>> = winding.harmonic_orders().take(5).collect();
-assert_eq!(orders[0], Ratio::new(-1, 5));
-assert_eq!(orders[1], Ratio::new(5, 5));
-assert_eq!(orders[2], Ratio::new(-7, 5));
-assert_eq!(orders[3], Ratio::new(11, 5));
-assert_eq!(orders[4], Ratio::new(-13, 5));
-```
-*/
+/// An iterator over the [`WindingHarmonic`]s of a winding.
+///
+/// This struct is created by [`Winding::harmonics`], see its documentation
+/// for details and examples.
 #[derive(Clone)]
-pub struct HarmonicOrdersIterator<'a> {
+pub struct WindingHarmonicsIterator<'a> {
     winding: &'a dyn Winding,
-    p_bw: u16,
-    v_star: u16,
-    coupling: i32,
+    phases: u16,
+    base_winding_count: u16,
+    equal_winding_factors: bool,
+    mech_order: u32,
 }
 
-impl<'a> HarmonicOrdersIterator<'a> {
-    pub fn new(winding: &'a dyn Winding) -> HarmonicOrdersIterator<'a> {
-        // Calculate the number of pole pairs in the basic winding
-        let p_bw = winding.pole_pairs().get() / winding.base_winding_count().get();
-        let iterator = HarmonicOrdersIterator {
+impl<'a> WindingHarmonicsIterator<'a> {
+    /// Creates a new [`WindingHarmonicsIterator`] for the given [`Winding`].
+    pub fn new(winding: &'a dyn Winding) -> WindingHarmonicsIterator<'a> {
+        let equal_winding_factors = winding.equal_winding_factors();
+        let base_winding_count = winding.base_winding_count().get();
+        let phases = winding.phases().get();
+        return WindingHarmonicsIterator {
             winding,
-            p_bw,
-            v_star: 0,
-            coupling: 1, // Temporary value
+            phases,
+            base_winding_count,
+            equal_winding_factors,
+            mech_order: 0,
         };
-        let coupling = iterator.coupling_with_pole_pairs().unwrap_or(1);
-        return HarmonicOrdersIterator {
-            winding,
-            p_bw,
-            v_star: 0,
-            coupling: coupling,
-        };
-    }
-
-    pub fn coupling(&self) -> i32 {
-        self.coupling
-    }
-
-    /**
-    Identify the coupling the given pole pair number.
-    This is done by running a copied iterator which assumes that the coupling is
-    positive. If some order equals 1, this assumption was true.
-    If some order equals -1, this assumption was false.
-     */
-    pub(crate) fn coupling_with_pole_pairs(mut self) -> Option<i32> {
-        loop {
-            let ratio = self.next().expect("this is an infinite iterator");
-
-            // The absolute value of the iterator increases strictly monotonic -> once it is
-            // larger than 1, the coupling calculation failed
-            if ratio.numer().abs() > ratio.denom().abs() {
-                return None;
-            }
-
-            // Equal 1 => some coupling has been detected
-            if ratio.numer().abs() == ratio.denom().abs() {
-                // Find the sign
-                if ratio.numer() * ratio.denom() > 0 {
-                    return Some(1);
-                } else {
-                    return Some(-1);
-                }
-            }
-        }
     }
 }
 
-impl<'a> Iterator for HarmonicOrdersIterator<'a> {
-    type Item = Ratio<i32>;
-    fn next(&mut self) -> Option<Ratio<i32>> {
+impl<'a> Iterator for WindingHarmonicsIterator<'a> {
+    type Item = WindingHarmonic;
+
+    fn next(&mut self) -> Option<WindingHarmonic> {
         // Stop the iteration if an overflow would occur when increasing v_star
-        if self.v_star == u16::MAX {
+        if self.mech_order == u32::MAX {
             return None;
         }
 
         // Update v_star
-        self.v_star = self.v_star + 1;
+        self.mech_order = self.mech_order + 1;
 
-        // For a symmetric winding, all v* which are multiples of the number of phases
-        // are 0, therefore those orders can be skipped. [Bin12], p. 132,
-        // section c)
-        if self.v_star % self.winding.phases() == 0 {
-            return self.next();
-        }
-
-        /*
-        Calculate the winding factor. Since the winding is symmetric by definition, it sufficient
-        to calculate the winding factor for a single phase. If the winding factor is zero, the
-        current order can be skipped as well.
-        */
-        let v = self.v_star / self.p_bw;
-        let k_w = self
-            .winding
-            .winding_factor(NonZeroU16::MIN, SpatialOrder::Electrical(v.into())); // Any other phase would work as well.
-        if approxim::abs_diff_eq!(k_w, 0.0, epsilon = 1e-12) {
-            return self.next();
-        }
-
-        /*
-        The winding factor is not zero, which means that the order v_star occurs. Now it is necessary
-        to identify the direction of the order (i.e. if it is positive or negative.).
-        The general equation for the magnetic voltage of a phase i is:
-        V_i =   V_amp/2*cos(v_star*y - v_star*2*pi/phases*(i-1) + omega*t - 2*pi/phases*(i-1)) +
-                V_amp/2*cos(v_star*y - v_star*2*pi/phases*(i-1) - omega*t + 2*pi/phases*(i-1))
-        Without a loss of generality, we can set t and y to zero, which simplifies the equation to:
-        V_i =   V_amp/2*cos(- v_star*2*pi/phases*(i-1) - 2*pi/phases*(i-1)) +
-                V_amp/2*cos(- v_star*2*pi/phases*(i-1) + 2*pi/phases*(i-1))
-        If the sum of the first cosine term of all phases is zero, then the order is positive, otherwise
-        it is negative according to [Bin12], p. 123.
-        */
-        let mut sum: f64 = 0.0;
-        let phases = self.winding.phases();
-        for phase in 0..phases.get() {
-            sum = sum
-                + (-(phase as f64) * TAU / phases.get() as f64 * (self.v_star as f64 + 1.0)).cos();
-        }
-
-        // The signs of the orders returned by the iterator are all in relation to the
-        // pole pair order, i.e. their corresponding waves are moving in the
-        // same direction as the wave of the pole pair order. The algorithm
-        // described in [Bin12] however returns the orders in relation to the
-        // lowest-order order, which may be a subharmonic of the pole pair
-        // harmonic. Therefore, this coupling factor is used to adjust
-        // the sign of the order.
-        if approxim::abs_diff_eq!(sum, 0.0, epsilon = 1e-12) {
-            return Some(Ratio::new(
-                i32::from(self.v_star) * self.coupling,
-                i32::from(self.p_bw),
-            ));
+        let winding_factor_all_phases = if self.equal_winding_factors {
+            Some(
+                self.winding
+                    .winding_factor(NonZeroU16::MIN, SpatialOrder::Mechanical(self.mech_order)),
+            )
         } else {
-            return Some(Ratio::new(
-                -(i32::from(self.v_star)) * self.coupling,
-                i32::from(self.p_bw),
-            ));
+            None
+        };
+
+        match is_harmonic(
+            self.winding,
+            winding_factor_all_phases,
+            self.phases,
+            self.base_winding_count,
+            self.mech_order,
+        ) {
+            Some(is_positive) => Some(WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(self.mech_order),
+                is_positive,
+            }),
+            None => self.next(),
         }
     }
-
-    fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        self.v_star += n as u16;
-        return self.next();
-    }
 }
 
-pub struct NormalizedInductionIterator<'a>(pub HarmonicOrdersIterator<'a>);
+/// Implementation of the [`Winding::is_harmonic`] method which is also reused
+/// in the [`WindingHarmonicsIterator`]. In that iterator, some information such
+/// as `equal_winding_factors` or `base_winding_count` is cached for efficiency
+/// reasons and handed to this function as arguments.
+pub(crate) fn is_harmonic<W: Winding + ?Sized>(
+    winding: &W,
+    winding_factor_all_phases: Option<f64>,
+    phases: u16,
+    base_winding_count: u16,
+    mech_order: u32,
+) -> Option<bool> {
+    // Check if the waves cancel each other or a resulting wave exists.
+    let mut sum_corotating: f64 = 0.0;
+    let mut sum_counterrotating: f64 = 0.0;
+    for phase in 1..(phases + 1) {
+        let nonzero_phase = NonZeroU16::new(phase).expect("not zero");
+        let k_w = winding_factor_all_phases.unwrap_or_else(|| {
+            winding.winding_factor(nonzero_phase, SpatialOrder::Mechanical(mech_order))
+        });
 
-impl<'a> NormalizedInductionIterator<'a> {
-    pub fn new(winding: &'a dyn Winding) -> Self {
-        return HarmonicOrdersIterator::new(winding).into();
+        // Reduced wave equation from the struct docstring (t = 0, γ = 0):
+        // V_i,red = n_i * k_w / 2 * (cos(2π * i / m (1 - v_mech*) + cos(2π * i / m (- 1
+        // - v_mech*))).
+
+        // All other parts are identical for each phase and therefore do not influence
+        // the signum (which is the aspect we're interested in!). Calculate
+        // the sums of both components. One of them will cancel out, the
+        // other one will be positive.
+        let pi_term = f64::from(phase) * TAU / f64::from(phases);
+        let tpp = winding.series_turns_per_phase(nonzero_phase);
+        let turns_per_phase = *tpp.numer() as f64 / *tpp.denom() as f64;
+        let nu_star = f64::from(mech_order) / f64::from(base_winding_count);
+        sum_corotating += turns_per_phase * k_w * (pi_term * (1.0 - nu_star)).cos();
+        sum_counterrotating += turns_per_phase * k_w * (pi_term * (-1.0 - nu_star)).cos();
     }
+    if approxim::abs_diff_eq!(
+        sum_corotating + sum_counterrotating,
+        0.0,
+        epsilon = WINDING_FACTOR_ZERO_THRESHOLD
+    ) {
+        return None;
+    }
+    Some(sum_corotating > sum_counterrotating)
 }
 
-impl<'a> Iterator for NormalizedInductionIterator<'a> {
-    type Item = (Ratio<i32>, f64);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let ratio = self.0.next()?;
-        let elec_order = u32::try_from((*ratio.numer() / *ratio.denom()).abs())
-            .expect("positive i32 is convertible into u32");
-        let winding_factor = self
-            .0
-            .winding
-            .winding_factor(NonZeroU16::MIN, SpatialOrder::Electrical(elec_order));
-        let amp = (winding_factor / f64::from(elec_order)).abs();
-        return Some((ratio, amp));
-    }
-
-    fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        self.0.v_star += n as u16;
-        return self.next();
-    }
-}
-
-impl<'a> From<HarmonicOrdersIterator<'a>> for NormalizedInductionIterator<'a> {
-    fn from(value: HarmonicOrdersIterator<'a>) -> Self {
-        Self(value)
-    }
-}
-
-impl<'a> From<NormalizedInductionIterator<'a>> for HarmonicOrdersIterator<'a> {
-    fn from(value: NormalizedInductionIterator<'a>) -> Self {
-        value.0
-    }
-}
-
-/// This iterator returns all coils of the coil motor starting in the first
-/// slot, going through all layers and then proceeding to the next slot. Each
-/// coil is only returned once.
+/// An iterator over the [`Coil`]s of a winding.
+///
+/// This struct is created by [`Winding::coils_iter`], see its documentation
+/// for details and examples.
 pub struct CoilsIterator<'a> {
     winding: &'a dyn Winding,
     slots: NonZeroU16,
@@ -260,6 +172,7 @@ pub struct CoilsIterator<'a> {
     layer_counter: u16,
 }
 impl<'a> CoilsIterator<'a> {
+    /// Creates a new [`CoilsIterator`] for the given [`Winding`].
     pub fn new(winding: &'a dyn Winding) -> CoilsIterator<'a> {
         return CoilsIterator {
             winding,

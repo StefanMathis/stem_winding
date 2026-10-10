@@ -499,7 +499,7 @@ impl Coil {
     ///
     /// let zones: Vec<_> = half_coil.zones_and_polarities().collect();
     ///
-    /// assert_eq!(zones.len(), 2);
+    /// assert_eq!(zones.len(), 1);
     /// assert!(zones.contains(&ZoneAndPolarity {
     ///    zone: Zone::new(0, 0),
     ///    is_positive: false,

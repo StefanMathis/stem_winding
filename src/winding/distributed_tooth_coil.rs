@@ -21,7 +21,6 @@ use crate::core_support::*;
 use crate::{
     coils::{Coil, Coils, FullCoil},
     error::{Error, WindingTableConstructionError},
-    iterators::HarmonicOrdersIterator,
     winding::{Connection, Winding},
     winding_table::{WindingTable, WindingTableConstructor},
 };
@@ -417,40 +416,34 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
         // Create the coils from the zone plan
         winding.create_coils(&winding_table)?;
 
-        // Invert the zone plan if the first harmonic order is negative. The reasoning
-        // for this is: The distributed tooth-coil windings are created from
-        // very short-pitched integer slot windings. If the pole pair harmonic
-        // wave wanders in the opposite direction as the harmonic of the integer
-        // winding, the zone plan direction needs to be reversed. For an integer
-        // winding, the first harmonic equals the pole pair harmonic.
-        // Because distributed tooth-coil windings operate on a super harmonic of the
-        // integer winding they are based on, the zone plan direction must be
-        // reversed if the first harmonic is negative.
-        let harmonic_orders = HarmonicOrdersIterator::new(&winding);
-        match harmonic_orders.coupling_with_pole_pairs() {
-            Some(coupling) => {
-                if coupling < 0 {
-                    for layer in 0..winding_table.layers().get() {
-                        let mut left = 0;
-                        let mut right = winding_table.slots().get();
+        // Invert the zone plan if the first harmonic order is negative.
+        // For an integer slot winding, the first harmonic order equals the
+        // number of pole pairs. Because distributed tooth-coil windings operate on a
+        // super harmonic of the integer winding they are based on, the zone
+        // plan direction must be reversed if the pole pair order is negative.
+        if let Some(is_positive) =
+            winding.is_harmonic(SpatialOrder::Mechanical(winding.pole_pairs().get().into()))
+        {
+            if !is_positive {
+                for layer in 0..winding_table.layers().get() {
+                    let mut left = 0;
+                    let mut right = winding_table.slots().get();
 
-                        while left < right.saturating_sub(1) {
-                            right -= 1;
+                    while left < right.saturating_sub(1) {
+                        right -= 1;
 
-                            let tmp = winding_table[Zone::new(left, layer)];
-                            winding_table[Zone::new(left, layer)] =
-                                winding_table[Zone::new(right, layer)];
-                            winding_table[Zone::new(right, layer)] = tmp;
+                        let tmp = winding_table[Zone::new(left, layer)];
+                        winding_table[Zone::new(left, layer)] =
+                            winding_table[Zone::new(right, layer)];
+                        winding_table[Zone::new(right, layer)] = tmp;
 
-                            left += 1;
-                        }
+                        left += 1;
                     }
-                    winding_table.shift_layers(2 * wires_len as i32);
                 }
+                winding_table.shift_layers(2 * wires_len as i32);
             }
-            None => {
-                return Err(Error::InvalidPolePairNumber);
-            }
+        } else {
+            return Err(Error::InvalidPolePairNumber);
         }
 
         // Recreate the coils from the adjusted zone plan

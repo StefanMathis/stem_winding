@@ -50,7 +50,7 @@ fn test_parallel_paths() {
 }
 
 #[test]
-fn test_harmonic_orders() {
+fn test_harmonics() {
     {
         let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
             slots: NonZeroU16::new(24).expect("not zero"),
@@ -62,13 +62,42 @@ fn test_harmonic_orders() {
         .try_into()
         .unwrap();
 
-        let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
-        assert_eq!(orders[0], num::rational::Ratio::new(-1, 5));
-        assert_eq!(orders[1], num::rational::Ratio::new(5, 5));
-        assert_eq!(orders[2], num::rational::Ratio::new(-7, 5));
-        assert_eq!(orders[3], num::rational::Ratio::new(11, 5));
-        assert_eq!(orders[4], num::rational::Ratio::new(-13, 5));
-        assert_eq!(winding.harmonic_orders().coupling(), -1);
+        let harmonics: Vec<WindingHarmonic> = winding.harmonics().take(5).collect();
+        assert_eq!(
+            harmonics[0],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(2),
+                is_positive: true
+            }
+        );
+        assert_eq!(
+            harmonics[1],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(10),
+                is_positive: false
+            }
+        );
+        assert_eq!(
+            harmonics[2],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(14),
+                is_positive: true
+            }
+        );
+        assert_eq!(
+            harmonics[3],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(22),
+                is_positive: false
+            }
+        );
+        assert_eq!(
+            harmonics[4],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(26),
+                is_positive: true
+            }
+        );
     }
 
     {
@@ -82,13 +111,42 @@ fn test_harmonic_orders() {
         .try_into()
         .unwrap();
 
-        let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
-        assert_eq!(orders[0], num::rational::Ratio::new(-1, 2));
-        assert_eq!(orders[1], num::rational::Ratio::new(2, 2));
-        assert_eq!(orders[2], num::rational::Ratio::new(-4, 2));
-        assert_eq!(orders[3], num::rational::Ratio::new(5, 2));
-        assert_eq!(orders[4], num::rational::Ratio::new(-7, 2));
-        assert_eq!(winding.harmonic_orders().coupling(), -1);
+        let harmonics: Vec<WindingHarmonic> = winding.harmonics().take(5).collect();
+        assert_eq!(
+            harmonics[0],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(8),
+                is_positive: true
+            }
+        );
+        assert_eq!(
+            harmonics[1],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(16),
+                is_positive: false
+            }
+        );
+        assert_eq!(
+            harmonics[2],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(32),
+                is_positive: true
+            }
+        );
+        assert_eq!(
+            harmonics[3],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(40),
+                is_positive: false
+            }
+        );
+        assert_eq!(
+            harmonics[4],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(56),
+                is_positive: true
+            }
+        );
     }
 
     {
@@ -102,35 +160,42 @@ fn test_harmonic_orders() {
         .try_into()
         .unwrap();
 
-        let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
-        assert_eq!(orders[0], num::rational::Ratio::new(1, 4));
-        assert_eq!(orders[1], num::rational::Ratio::new(-2, 4));
-        assert_eq!(orders[2], num::rational::Ratio::new(4, 4));
-        assert_eq!(orders[3], num::rational::Ratio::new(-5, 4));
-        assert_eq!(orders[4], num::rational::Ratio::new(7, 4));
-        assert_eq!(winding.harmonic_orders().coupling(), 1);
-    }
-
-    // From trait object
-    {
-        let winding_org: ToothCoilWinding = ToothCoilMinimalBuilder {
-            slots: NonZeroU16::new(9).expect("not zero"),
-            pole_pairs: NonZeroU16::new(4).expect("not zero"),
-            phases: NonZeroU16::new(3).expect("not zero"),
-            layers: NonZeroU16::new(2).expect("not zero"),
-            winding_table_constructor: WindingTableConstructor::Tingley,
-        }
-        .try_into()
-        .unwrap();
-
-        let winding: &dyn Winding = &winding_org;
-        let orders: Vec<num::rational::Ratio<i32>> = winding.harmonic_orders().take(5).collect();
-        assert_eq!(orders[0], num::rational::Ratio::new(1, 4));
-        assert_eq!(orders[1], num::rational::Ratio::new(-2, 4));
-        assert_eq!(orders[2], num::rational::Ratio::new(4, 4));
-        assert_eq!(orders[3], num::rational::Ratio::new(-5, 4));
-        assert_eq!(orders[4], num::rational::Ratio::new(7, 4));
-        assert_eq!(winding.harmonic_orders().coupling(), 1);
+        let harmonics: Vec<WindingHarmonic> = winding.harmonics().take(5).collect();
+        assert_eq!(
+            harmonics[0],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(1),
+                is_positive: true
+            }
+        );
+        assert_eq!(
+            harmonics[1],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(2),
+                is_positive: false
+            }
+        );
+        assert_eq!(
+            harmonics[2],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(4),
+                is_positive: true
+            }
+        );
+        assert_eq!(
+            harmonics[3],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(5),
+                is_positive: false
+            }
+        );
+        assert_eq!(
+            harmonics[4],
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(7),
+                is_positive: true
+            }
+        );
     }
 }
 

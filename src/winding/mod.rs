@@ -50,6 +50,12 @@ pub use quadruple_layer_tooth_coil::{
 pub use squirrel_cage::*;
 pub use tooth_coil::*;
 
+/// A winding factor is considered zero if its absolute value is below this
+/// threshold. This accounts for floating-point rounding errors, which can
+/// cause theoretically zero winding factors to evaluate to nonzero values.
+/// Such small values are negligible for the purposes of this crate.
+pub(crate) const WINDING_FACTOR_ZERO_THRESHOLD: f64 = 1e-8;
+
 /**
 A trait for representing windings for AC multi-phase machines.
 
@@ -149,23 +155,23 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
     /// Returns the number of base windings contained in the winding.
     ///
-    /// Winding with a large pole pair and slot number are often realized by
-    /// repeating a "base winding" multiple times. For example, the following
-    /// [`WindingTable`] for a 12-slot, 2-pole-pair, 3-phase winding consists of
-    /// two repetitions of a 6-slot, 1-pole-pair, 3-phase winding:
+    /// Windings with a large number of pole pairs and slots are often realized
+    /// by repeating a "base winding" multiple times. A repetition requires
+    /// both the phase assignments and the numbers of turns to repeat together.
+    /// For example, the following [`WindingTable`] describes two
+    /// repetitions of a 6-slot, 1-pole-pair, 3-phase winding, assuming
+    /// identical coil turns in corresponding slots:
     ///
     /// ```text
     /// L \ S │   0   1   2   3   4   5   6   7   8   9  10  11
     /// ──────┼────────────────────────────────────────────────
     ///   0   │   1  -3   2  -1   3  -2   1  -3   2  -1   3  -2
     /// ``
-    ///
-    /// This method returns the number of repetitions of such a "base winding"
-    /// in `self`. The [`WindingTable`] of the base winding can then be
-    /// obtained from the full winding by considering only the first `slots
-    /// / base_winding_count` columns of the table. This property is used by
-    /// [`Winding::winding_table`] when the `full` argument is set to
-    /// `false`.
+    /// This method returns the number of repetitions of the base winding in
+    /// `self`. The [`WindingTable`] of the base winding can then be obtained by
+    /// considering only the first `slots / base_winding_count` columns of the
+    /// full winding table. This property is used by [`Winding::winding_table`]
+    /// when the `full` argument is set to `false`.
     ///
     /// As stated in the [trait documentation](Winding), it is recommended to
     /// override this method if possible, as the default implementation is O(n)
@@ -176,7 +182,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         struct IndexWrapper<'a, W: ?Sized>(&'a W);
 
         impl<'a, W: Winding + ?Sized> RandomAccess for IndexWrapper<'a, W> {
-            type Item = i32;
+            type Item = (usize, i32);
 
             fn get(&self, index: usize) -> Self::Item {
                 let layers = usize::from(self.0.layers().get());
@@ -184,10 +190,12 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
                 let slot = index / layers;
                 let layer = index % layers;
 
-                self.0.phase_at(Zone {
+                let zone = Zone {
                     slot: slot as u16,
                     layer: layer as u16,
-                })
+                };
+
+                (self.0.turns_at(zone), self.0.phase_at(zone))
             }
         }
 
@@ -464,7 +472,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     [`WindingTable`] also implements [`From<&Winding>`], which is equivalent to
     calling this method with `full` set to `true`.
 
-    # Example
+    # Examples
 
     ```
     use std::num::NonZeroU16;
@@ -608,7 +616,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     example, an order of 24 means that the torque completes 24 sinusoidal
     cycles per rotor revolution; equivalently, the positive peak of the
     sinusoidal torque component occurs 24 times per revolution.
-    \[1\](lowest_torque_ripple_order_1), section 9.4.2b)
+    \[1\](#lowest_torque_ripple_order_1), section 9.4.2b)
 
     Higher-order torque-ripple components may occur as well. Their orders
     are integer multiples of the lowest order.
@@ -805,15 +813,24 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// }
     /// ```
     fn winding_factor(&self, phase: NonZeroU16, spatial_order: SpatialOrder) -> f64 {
-        let elec_order = match spatial_order {
-            SpatialOrder::Mechanical(v) => f64::from(v) / f64::from(self.pole_pairs().get()),
-            SpatialOrder::Electrical(v) => f64::from(v),
-        };
+        // It is sufficient to calculate the phasor star for the basic winding.
+        // However, this also means that the spatial and likewise the phasor
+        // angle must adjusted accordingly!
+        let base_winding_count = self.base_winding_count().get();
+        let slots_basic = self.slots().get() / base_winding_count;
 
-        // It is sufficient to calculate the phasor star for the basic winding
-        let slots_basic = self.slots().get() / self.base_winding_count().get();
+        let elec_order = match spatial_order {
+            SpatialOrder::Mechanical(v) => {
+                if v % u32::from(base_winding_count) != 0 {
+                    // W.r.t. the basic winding, no fractional order can exist!
+                    return 0.0;
+                }
+                f64::from(v) / f64::from(self.pole_pairs().get() * base_winding_count)
+            }
+            SpatialOrder::Electrical(v) => f64::from(v) / f64::from(base_winding_count),
+        };
         let layers = self.layers().get();
-        let alpha_u = self.phasor_angle();
+        let alpha_u = self.phasor_angle() * f64::from(base_winding_count);
 
         let (phasor_sum_geo, phasor_sum_abs) = (0..slots_basic)
             .into_par_iter()
@@ -857,7 +874,11 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
                 NonZeroU16::new(phase).expect("is not zero"),
                 SpatialOrder::Electrical(1),
             );
-            if approxim::abs_diff_ne!(winding_factor, ref_winding_factor, epsilon = 1e-12) {
+            if approxim::abs_diff_ne!(
+                winding_factor,
+                ref_winding_factor,
+                epsilon = WINDING_FACTOR_ZERO_THRESHOLD
+            ) {
                 return false;
             }
         }
@@ -1134,49 +1155,364 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return Ok(());
     }
 
-    // TODO
     /**
-    Returns a `HarmonicOrdersIterator` which gives the harmonic orders of the field excitation curve created by the winding.
-    For further details, see the documentation on `HarmonicOrdersIterator`.
+    An iterator over the [`WindingHarmonic`]s of a winding.
 
-    The returned iterator has an infinite length, because the number of harmonics is infinite as well.
-    Therefore, this iterator should not be used directly in e.g. a loop. Instead, a subset of the iterator
-    can be used with the `take()` method (see example).
+    The iterator increments the mechanical spatial order and checks whether
+    the corresponding harmonic exists using [`Winding::is_harmonic`]. If it
+    does, the iterator yields a [`WindingHarmonic`] containing the spatial
+    order and the direction of rotation. Otherwise, it proceeds to the next
+    spatial order.
+
+    In other words, this iterator yields the spatial harmonics of the field
+    excitation curve whose components do not cancel. It is therefore infinite.
+
+    # Examples
+
+    The following example shows a fractional-slot winding whose working harmonic
+    is the fourth mechanical spatial harmonic. The iterator also yields
+    lower-order subharmonics and higher-order harmonics.
 
     ```
-    use winding::{DistributedWinding, Winding};
-    use num::rational::Ratio;
+    use stem_winding::prelude::*;
 
-    let winding = DistributedWinding::default(); // This is a 6/2 single-layer integer-slot winding
-    let ho_iter = winding.harmonic_orders();
-
-    let orders: Vec<Ratio<i32>> = winding.harmonic_orders().take(5).collect();
-    assert_eq!(orders[0], Ratio::new(1, 1));
-    assert_eq!(orders[1], Ratio::new(-5, 1));
-    assert_eq!(orders[2], Ratio::new(7, 1));
-    assert_eq!(orders[3], Ratio::new(-11, 1));
-    assert_eq!(orders[4], Ratio::new(13, 1));
-    ```
-    A default implementation exists.
-    */
-    fn harmonic_orders(&self) -> HarmonicOrdersIterator<'_> {
-        return HarmonicOrdersIterator::new(self.as_dyn());
+    let winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 18.try_into().expect("not zero"),
+        pole_pairs: 4.try_into().expect("not zero"),
+        phases: 3.try_into().expect("not zero"),
+        layers: 1.try_into().expect("not zero"),
+        coil_span_reduction: 0,
+        zone_span_variation: 0,
+        winding_table_constructor: WindingTableConstructor::CoilSide,
     }
+    .try_into()
+    .unwrap();
 
-    // TODO
-    /**
-     *
-    Return an iterator over the normalized air gap flux density / induction |B_v / B_p| and the
-    associated harmonic order (calculated by [`harmonic_orders`](Winding::harmonic_orders)).
-    for each harmonic order returned by [`harmonic_orders`](Winding::harmonic_orders)
-    The formula is based on [Hut18a], page 25.x
+    let mut iter = winding.harmonics();
+
+    // First subharmonic
+    assert_eq!(iter.next(),
+        Some(
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(1),
+                is_positive: true
+            }));
+
+    // Second subharmonic
+    assert_eq!(iter.next(),
+        Some(
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(2),
+                is_positive: false
+            }));
+
+    // Working harmonic
+    assert_eq!(iter.next(),
+        Some(
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(4),
+                is_positive: true
+            }));
+
+    // First superharmonic after the working harmonic
+    assert_eq!(iter.next(),
+        Some(
+            WindingHarmonic {
+                spatial_order: SpatialOrder::Mechanical(5),
+                is_positive: false
+            }));
+    ```
      */
-    fn harmonic_inductions(&self) -> NormalizedInductionIterator<'_> {
-        return NormalizedInductionIterator::new(self.as_dyn());
+    fn harmonics(&self) -> WindingHarmonicsIterator<'_> {
+        return WindingHarmonicsIterator::new(self.as_dyn());
     }
 
-    // TODO
-    /// Returns an iterator over all coils of the winding.
+    /**
+    Checks whether the field excitation curve of the winding contains a
+    nonzero component of the given `spatial_order`. If so, returns the
+    direction of the resulting wave relative to the current system:
+    `Some(true)` if co-rotating, `Some(false)` if counter-rotating, or
+    `None` if no such component exists.
+
+    The general mathematical treatment of the field excitation curve is based
+    on its Fourier decomposition into its individual orders.
+    In [\[1\]](#is_harmonic_1), the wave equation for the `i`th phase and a
+    spatial order `v'_mech` is given as:
+
+    `V_i(γ', t) = V_amp * cos(v'_mech*(γ' - 2π * i / m)) * cos(ω * t - 2π * i / m)` [\[1\]](#is_harmonic_1), eq. 3.2-24 to 3.2-26
+
+    The amplitude `V_amp` of the wave is:
+
+    `V_amp = n_i * i_amp / (2 * p) * 4 / (v'_mech * π) * k_w` [\[1\]](#is_harmonic_1), eq. 3.2.20
+
+    with:
+    * `γ'`: Spatial coordinate scaled by [`base_winding_count`](Winding::base_winding_count)
+    * `v'_mech`: Mechanical spatial order divided by the [`base_winding_count`](Winding::base_winding_count)
+    * `m`: Number of [`Winding::phases`]
+    * `ω`: Angular frequency of the supply current
+    * `n_i`: [`series_turns_per_phase`](Winding::series_turns_per_phase)
+    * `i_amp`: Amplitude of the feeding current
+    * `p`: Number of [`Winding::pole_pairs`]
+    * `k_w`: [`winding_factor`](Winding::winding_factor) for `v'_mech` and phase `i`.
+
+    `V_i(γ', t)` describes a stationary, pulsating wave. As shown in
+    [\[1\]](#is_harmonic_1), section 2.5 it can be written as the sum of a
+    co- and a counter-rotating wave relative to the current system:
+
+    ```text
+    V_i(γ', t) = V_amp / 2 * (
+            cos(v'_mech*γ' - v'_mech * 2π * i / m + ω * t - 2π * i / m)
+          + cos(v'_mech*γ' - v'_mech * 2π * i / m - ω * t + 2π * i / m))
+    ```
+    [\[1\]](#is_harmonic_1), eq. 3.3-12 to 3.3-13
+
+    When summing the contributions of all phases, the co- and counter-rotating
+    components may cancel. If both do cancel, the winding does not have a
+    component of the given `spatial_order` in its field excitation curve and
+    this function returns `None`.
+
+    If the co-rotating part cancels, the resulting wave for the `spatial_order`
+    counter-rotates relative to the current system and this method
+    returns `Some(false)`. If the counter-rotating part cancels, likewise the
+    resulting wave co-rotates relative to the current system and this method
+    returns `Some(true)`.
+
+    # Literature
+    <a id="is_harmonic_1">\[1\]</a>
+    Binder, A.: Elektrische Maschinen und Antriebe, 1st edition, Springer
+    Heidelberg, 2012
+
+    # Examples
+
+    The following example shows a fractional-slot winding where the working
+    harmonic is not the first one, but the fourth one:
+
+    ```
+    use stem_winding::prelude::*;
+
+    let winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 18.try_into().expect("not zero"),
+        pole_pairs: 4.try_into().expect("not zero"),
+        phases: 3.try_into().expect("not zero"),
+        layers: 1.try_into().expect("not zero"),
+        coil_span_reduction: 0,
+        zone_span_variation: 0,
+        winding_table_constructor: WindingTableConstructor::CoilSide,
+    }
+    .try_into()
+    .unwrap();
+
+    // First spatial harmonic is co-rotating.
+    assert_eq!(winding.is_harmonic(SpatialOrder::Mechanical(1)), Some(true));
+
+    // Second spatial harmonic is counter-rotating
+    assert_eq!(winding.is_harmonic(SpatialOrder::Mechanical(2)), Some(false));
+
+    // Third harmonic is absent. This is typical for symmetric three-phase
+    // machines, as all spatial orders divisible by the number of phases result
+    // in cancellation of both the co-rotating and the counter-rotating wave.
+    assert_eq!(winding.is_harmonic(SpatialOrder::Mechanical(3)), None);
+
+    // Fourth harmonic is co-rotating. Since this spatial order is the same as
+    // the number of pole pairs, the continuous torque will be generated by this
+    // harmonic.
+    assert_eq!(winding.is_harmonic(SpatialOrder::Mechanical(4)), Some(true));
+
+    // Fifth spatial harmonic is counter-rotating.
+    assert_eq!(winding.is_harmonic(SpatialOrder::Mechanical(5)), Some(false));
+    ```
+     */
+    fn is_harmonic(&self, spatial_order: SpatialOrder) -> Option<bool> {
+        let mech_order = spatial_order.to_mechanical(self.pole_pairs());
+        let winding_factor_all_phases = if self.equal_winding_factors() {
+            Some(self.winding_factor(NonZeroU16::MIN, spatial_order))
+        } else {
+            None
+        };
+        crate::iterators::is_harmonic(
+            self,
+            winding_factor_all_phases,
+            self.phases().get(),
+            self.base_winding_count().get(),
+            mech_order,
+        )
+    }
+
+    /**
+    Returns a relative measure of the magnetic induction amplitude
+    associated with a spatial order.
+
+    The returned value is proportional to the amplitude of the corresponding
+    air-gap magnetic induction component, normalized to a current of 1 A and one
+    series turn per phase. It is intended only for comparing different
+    spatial orders of the same winding; values must not be compared
+    across different windings to infer their relative magnetic induction
+    amplitudes.
+
+    The value is calculated as
+
+    `B_norm = k_w * p / v_mech`,
+
+    where `k_w` is the winding factor for the given spatial order, `p` is
+    the number of pole pairs, and `v_mech` is the mechanical spatial
+    order. If the spatial order is not present in the field excitation
+    curve, the method returns zero.
+
+    This quantity does not represent the magnetic induction amplitude, which
+    also depends on parameters such as the air-gap width or the reluctance of
+    the magnetic core itself. To get an idealized magnetic induction amplitude
+    `B`, multiply the returned value with:
+
+    `B = B_norm * m / 2 * μ0 / δ * w * I` [\[1\]](#is_harmonic_1), eq. 2.5-17 and p. 83
+
+    where `m` is the [`Winding phases`] number, `μ0` is the vacuum permeability,
+    `w` is the [`series_turns_per_phase`](Winding::series_turns_per_phase),
+    `δ` is the magnetically effective air gap width and `I` is the RMS current.
+
+    This formula assumes infinitely permeable core material, a uniform, smooth
+    air gap without slotting and a [symmetric](Winding::is_symmetric) winding.
+
+    # Literature
+    <a id="is_harmonic_1">\[1\]</a>
+    Binder, A.: Elektrische Maschinen und Antriebe, 1st edition, Springer
+    Heidelberg, 2012
+
+    # Examples
+
+    This example uses the same winding as [`Winding::is_harmonic`].
+    The subharmonics have a noticeable impact on the air-gap field, while
+    the first superharmonic has a comparatively small amplitude. The fourth
+    spatial harmonic is the working harmonic. When designing a machine with
+    this winding, it is therefore worth considering measures to reduce the
+    subharmonic contributions.
+
+    ```
+    use std::num::NonZeroU16;
+
+    use approxim::assert_abs_diff_eq;
+    use stem_winding::prelude::*;
+
+    let winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 18.try_into().expect("not zero"),
+        pole_pairs: 4.try_into().expect("not zero"),
+        phases: 3.try_into().expect("not zero"),
+        layers: 1.try_into().expect("not zero"),
+        coil_span_reduction: 0,
+        zone_span_variation: 0,
+        winding_table_constructor: WindingTableConstructor::CoilSide,
+    }
+    .try_into()
+    .unwrap();
+
+    let phase_1 = NonZeroU16::MIN;
+
+    // First subharmonic
+    assert_abs_diff_eq!(
+        winding.relative_induction_amplitude(phase_1, SpatialOrder::Mechanical(1)),
+        0.666666,
+        epsilon = 1e-6
+    );
+
+    // Second subharmonic
+    assert_abs_diff_eq!(
+        winding.relative_induction_amplitude(phase_1, SpatialOrder::Mechanical(2)),
+        0.279699,
+        epsilon = 1e-6
+    );
+
+    // Absent harmonic
+    assert_abs_diff_eq!(
+        winding.relative_induction_amplitude(phase_1, SpatialOrder::Mechanical(3)),
+        0.0,
+        epsilon = 1e-6
+    );
+
+    // Working harmonic
+    assert_abs_diff_eq!(
+        winding.relative_induction_amplitude(phase_1, SpatialOrder::Mechanical(4)),
+        0.945213,
+        epsilon = 1e-6
+    );
+
+    // First superharmonic
+    assert_abs_diff_eq!(
+        winding.relative_induction_amplitude(phase_1, SpatialOrder::Mechanical(5)),
+        0.133333,
+        epsilon = 1e-6
+    );
+    ```
+    */
+    fn relative_induction_amplitude(&self, phase: NonZeroU16, spatial_order: SpatialOrder) -> f64 {
+        let k_w = self.winding_factor(phase, spatial_order);
+
+        let winding_factor_all_phases = if self.equal_winding_factors() {
+            Some(k_w)
+        } else {
+            None
+        };
+        let mech_order = spatial_order.to_mechanical(self.pole_pairs());
+        let is_harmonic = crate::iterators::is_harmonic(
+            self,
+            winding_factor_all_phases,
+            self.phases().get(),
+            self.base_winding_count().get(),
+            mech_order,
+        );
+
+        if is_harmonic.is_some() {
+            let p = self.pole_pairs();
+            return k_w * f64::from(p.get()) / f64::from(spatial_order.to_mechanical(p));
+        } else {
+            return 0.0;
+        }
+    }
+
+    /// Returns an iterator over all [`Coil`]s of the winding.
+    ///
+    /// Each coil is returned exactly once, regardless of how many winding zones
+    /// it occupies.
+    ///
+    /// # Examples
+    ///
+    /// This example uses both [`FullCoil`]s and [`HalfCoil`]s.
+    ///
+    /// ```
+    /// use stem_winding::prelude::*;
+    ///
+    /// let mut winding = CoilAssembly::new_minimal(
+    ///     6.try_into().expect("not zero"),
+    ///     1.try_into().expect("not zero"),
+    ///     3.try_into().expect("not zero"),
+    ///     CoilLayout::Single,
+    ///     Coils::new(),
+    /// )
+    /// .unwrap();
+    ///
+    /// // Add a full coil and a half coil
+    /// winding
+    ///     .insert(FullCoil::new(
+    ///         Zone::new(0, 0),
+    ///         Zone::new(1, 0),
+    ///         true,
+    ///         NonZeroUsize::MIN,
+    ///         NonZeroU16::MIN,
+    ///         full_coil_wire,
+    ///     )
+    ///     .expect("zones identical").into())
+    ///     .unwrap();
+    /// winding
+    ///     .insert(HalfCoil::new(
+    ///         Zone::new(2, 0),
+    ///         true,
+    ///         1.try_into().expect("not zero"),
+    ///         2.try_into().expect("not zero"),
+    ///         Box::new(WireSff::default()),
+    ///     ))
+    ///     .unwrap();
+    ///
+    /// // The total number of coils is 2.
+    /// assert_eq!(winding.coils_iter().count(), 2);
+    /// ```
     fn coils_iter(&self) -> CoilsIterator<'_> {
         return CoilsIterator::new(self.as_dyn());
     }
