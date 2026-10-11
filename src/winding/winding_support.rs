@@ -467,9 +467,11 @@ where
 
 /// Returns the number of base windings for a symmetric winding.
 ///
-/// For symmetric windings, the number of base windings can be determined in
-/// constant time from the winding parameters. This function implements the
-/// algorithm presented in [\[1\]](#base_winding_count_sym_1), section 2.11.
+/// For symmetric windings ([`winding_factor`](Winding::winding_factor) and
+/// [`series_turns_per_phase`](Winding::series_turns_per_phase) identical for
+/// each phase), the number of base windings can be determined in constant time
+/// from the winding parameters. This function implements the algorithm
+/// presented in [\[1\]](#base_winding_count_symmetric_1), section 2.11.
 ///
 /// It is a specialized implementation of [`Winding::base_winding_count`] with
 /// O(1) time and O(1) space complexity and is used by the symmetric winding
@@ -478,7 +480,7 @@ where
 /// [`repeating_pattern_count`], which has O(n) time and O(1) space complexity.
 ///
 /// # Literature
-/// <a id="base_winding_count_sym_1">\[1\]</a>
+/// <a id="base_winding_count_symmetric_1">\[1\]</a>
 /// Pyrhönen, J., Jokinen, T., Hrabovcová, V.: Design of rotating electrical
 /// machines, 1st edition, John Wiley & Sons, 2008
 ///
@@ -487,25 +489,25 @@ where
 /// ```
 /// use std::num::NonZeroU16;
 ///
-/// use stem_winding::winding::base_winding_count_sym;
+/// use stem_winding::winding::base_winding_count_symmetric;
 ///
 /// const fn nz(value: u16) -> NonZeroU16 {
 ///    NonZeroU16::new(value).expect("not zero")
 /// }
 ///
 /// // 12/4 single-layer integer winding
-/// assert_eq!(nz(2), base_winding_count_sym(nz(12), nz(2), nz(3), nz(1)));
+/// assert_eq!(nz(2), base_winding_count_symmetric(nz(12), nz(2), nz(3), nz(1)));
 ///
 /// // 12/10 double-layer tooth-coil winding
-/// assert_eq!(nz(1), base_winding_count_sym(nz(12), nz(5), nz(3), nz(2)));
+/// assert_eq!(nz(1), base_winding_count_symmetric(nz(12), nz(5), nz(3), nz(2)));
 ///
 /// // 12/8 double-layer tooth-coil winding
-/// assert_eq!(nz(4), base_winding_count_sym(nz(12), nz(4), nz(3), nz(2)));
+/// assert_eq!(nz(4), base_winding_count_symmetric(nz(12), nz(4), nz(3), nz(2)));
 ///
 /// // 36/8 single-layer fractional-slot winding
-/// assert_eq!(nz(2), base_winding_count_sym(nz(36), nz(4), nz(3), nz(1)));
+/// assert_eq!(nz(2), base_winding_count_symmetric(nz(36), nz(4), nz(3), nz(1)));
 /// ```
-pub fn base_winding_count_sym(
+pub fn base_winding_count_symmetric(
     slots: NonZeroU16,
     pole_pairs: NonZeroU16,
     phases: NonZeroU16,
@@ -540,6 +542,65 @@ pub fn base_winding_count_sym(
                 return t;
             }
         }
+    }
+}
+
+/// Returns the maximum number of parallel paths for the topology parameters of
+/// a symmetric winding.
+///
+/// Assumes that each phase has the same winding factor and the same number
+/// of series turns per phase.
+///
+/// The underlying algorithm is described in
+/// [\[1\]](#max_parallel_paths_symmetric_1), pp. 37: First, the number of coils
+/// per phase in a base winding is calculated using
+/// [`base_winding_count_symmetric`]. If this number is even, the maximum number
+/// of parallel paths is twice the base winding count . Otherwise, it equals the
+/// base winding count. At least one coil group per phase is always possible
+///
+/// # Literature
+///
+/// <a id="max_parallel_paths_symmetric_1">\[1\]</a>
+/// Sequenz, H.: Die Wicklungen elektrischer Maschinen -
+/// Wechselstrom-Ankerwicklungen 1st edition, Springer-Verlag Wien, 1950
+///
+/// # Examples
+///
+/// ```
+/// use std::num::NonZeroU16;
+///
+/// use stem_winding::winding::max_parallel_paths_symmetric;
+///
+/// const fn nz(value: u16) -> NonZeroU16 {
+///    NonZeroU16::new(value).expect("not zero")
+/// }
+///
+/// // 12/4 single-layer integer winding (equal base winding count)
+/// assert_eq!(nz(2), max_parallel_paths_symmetric(nz(12), nz(2), nz(3), nz(1)));
+///
+/// // 12/10 double-layer tooth-coil winding (twice base winding count)
+/// assert_eq!(nz(2), max_parallel_paths_symmetric(nz(12), nz(5), nz(3), nz(2)));
+///
+/// // 12/8 double-layer tooth-coil winding (equal base winding count)
+/// assert_eq!(nz(4), max_parallel_paths_symmetric(nz(12), nz(4), nz(3), nz(2)));
+///
+/// // 36/8 single-layer fractional-slot winding (equal base winding count)
+/// assert_eq!(nz(2), max_parallel_paths_symmetric(nz(36), nz(4), nz(3), nz(1)));
+/// ```
+pub fn max_parallel_paths_symmetric(
+    slots: NonZeroU16,
+    pole_pairs: NonZeroU16,
+    phases: NonZeroU16,
+    layers: NonZeroU16,
+) -> NonZeroU16 {
+    let t = base_winding_count_symmetric(slots, pole_pairs, phases, layers);
+    let number_of_coils_in_base_winding = slots.get() * layers.get() / (t.get() * 2 * phases.get());
+    if number_of_coils_in_base_winding % 2 == 0 {
+        // Antiparallel coil groups are possible
+        return NonZeroU16::new(2 * t.get()).expect("t is not zero");
+    } else {
+        // Only parallel coil groups are possible
+        return t;
     }
 }
 
@@ -589,6 +650,47 @@ impl ParallelPathIterator {
             max_parallel_paths,
             index: 0,
         };
+    }
+
+    /// Creates a [`ParallelPathIterator`] from the topology parameters of a
+    /// symmetric winding.
+    ///
+    /// Assumes that each phase has the same winding factor and the same number
+    /// of series turns per phase.
+    ///
+    /// This is a convenience wrapper around [`max_parallel_paths_symmetric`]
+    /// and [`ParallelPathIterator::new`].
+    pub fn from_symmetric_winding_topology(
+        slots: NonZeroU16,
+        pole_pairs: NonZeroU16,
+        phases: NonZeroU16,
+        layers: NonZeroU16,
+    ) -> Self {
+        Self::new(max_parallel_paths_symmetric(
+            slots, pole_pairs, phases, layers,
+        ))
+    }
+
+    /// Creates a [`ParallelPathIterator`] from a symmetric winding.
+    ///
+    /// Assumes that each phase has the same winding factor and the same number
+    /// of series turns per phase.
+    ///
+    /// This is a convenience wrapper around
+    /// [`ParallelPathIterator::from_symmetric_winding_topology`].
+    pub fn from_winding<W: Winding + ?Sized>(winding: &W) -> Self {
+        Self::from_symmetric_winding_topology(
+            winding.slots(),
+            winding.pole_pairs(),
+            winding.phases(),
+            winding.layers(),
+        )
+    }
+}
+
+impl<W: Winding + ?Sized> From<&W> for ParallelPathIterator {
+    fn from(value: &W) -> Self {
+        Self::from_winding(value)
     }
 }
 

@@ -270,6 +270,13 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         }
     }
 
+    /// Returns the [`series_turns_per_phase`](Winding::series_turns_per_phase)
+    /// as a floating-point number.
+    fn series_turns_per_phase_float(&self, phase: NonZeroU16) -> f64 {
+        let turns = self.series_turns_per_phase(phase);
+        return *turns.numer() as f64 / *turns.denom() as f64;
+    }
+
     /**
     Returns the length of one half turn of the end winding associated with the
     specified [`Zone`].
@@ -711,35 +718,6 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     */
     fn lowest_cogging_torque_order(&self) -> usize {
         return num::integer::lcm(2 * self.pole_pairs().get(), self.slots().get()) as usize;
-    }
-
-    // TODO
-    /**
-    Returns the number of coil groups per phase. This value is equal to the maximum possible number of parallel paths and can be calculated
-    as described in [Seq50], p. 37: First, the number of coils per phase in a basic winding is calculated. Then, it is checked whether this
-    number is even or odd. If it is even, the number of coil groups equals twice the number of basic windings (= the base_winding_count). If it is odd,
-    the number of coil groups equals the number of basic windings.
-
-    At least one coil group per phase is always possible
-    */
-    fn coil_groups_per_phase(&self) -> NonZeroU16 {
-        let t = self.base_winding_count();
-        let number_of_coils_in_basic_winding =
-            self.slots().get() * self.layers().get() / (t.get() * 2 * self.phases().get());
-        if number_of_coils_in_basic_winding % 2 == 0 {
-            // Antiparallel coil groups are possible
-            return NonZeroU16::new(2 * t.get()).expect("t is not zero");
-        } else {
-            // Only parallel coil groups are possible
-            return t;
-        }
-    }
-
-    // TODO
-    /// Returns an iterator for all possible numbers of parallel paths, starting
-    /// from 1.
-    fn possible_parallel_paths(&self) -> ParallelPathIterator {
-        return ParallelPathIterator::new(self.coil_groups_per_phase());
     }
 
     /// Returns the winding factor of the specified `spatial_order` for the
@@ -1811,61 +1789,6 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     //     /// Calculate the main inductance of the component.
     // fn main_inductance(&self, phase: u16) -> Inductance;
 
-    // /**
-    // Convert the given current in A to the electric loading in A/m, if the
-    // component has a winding. If the component has no winding, the electric
-    // loading defaults to zero. The conversion is based on eq. (9.1.23c) from
-    // [MVP08].
-
-    // In [MVP08], table 9.1.4, the following typical values for the electric
-    // loading are given:
-
-    // # DC machines
-    // * Indirect air cooling: 20 ... 80 A/mm
-
-    // # Synchronous machines
-    // * Indirect air cooling: 30 ... 120 A/mm
-    // * Indirect hydrogen cooling: 90 ... 150 A/mm
-    // * Direct hydrogen cooling: 120 ... 200 A/mm
-    // * Direct water cooling: 160 ... 300 A/mm
-
-    // # Induction machines:
-    // * Indirect air cooling: 20 ... 120 A/mm
-    //  */
-    // fn convert_current_to_electric_loading(&self) -> ReciprocalLength;
-
-    //     /**
-    // Convert the given current in A to the electric loading in A/m, if the
-    // component has a winding. If the component has no winding, the electric
-    // loading defaults to zero. The conversion is based on eq. (9.1.23c) from
-    // [MVP08].
-
-    // In [MVP08], table 9.1.4, the following typical values for the electric
-    // loading are given:
-
-    // # DC machines
-    // * Indirect air cooling: 20 ... 80 A/mm
-
-    // # Synchronous machines
-    // * Indirect air cooling: 30 ... 120 A/mm
-    // * Indirect hydrogen cooling: 90 ... 150 A/mm
-    // * Direct hydrogen cooling: 120 ... 200 A/mm
-    // * Direct water cooling: 160 ... 300 A/mm
-
-    // # Induction machines:
-    // * Indirect air cooling: 20 ... 120 A/mm
-    //  */
-    // fn convert_current_to_electric_loading(&self) -> ReciprocalLength {
-    //     match self.winding() {
-    //         Some(wdg) => {
-    //             let series_turns_per_phase = wdg.series_turns_per_phase(1);
-    //             let tpf_float = *series_turns_per_phase.numer() as f64 /
-    // *series_turns_per_phase.denom() as f64;             return tpf_float *
-    // wdg.phases() as f64 / (PI * self.core_rot().air_gap_radius());         }
-    //         None => return ReciprocalLength::new::<reciprocal_meter>(0.0),
-    //     }
-    // }
-
     /// Returns an iterator over all coils of the winding and their physical
     /// properties.
     ///
@@ -2314,6 +2237,47 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         self.winding_factor(phase, spatial_order)
             * core.air_gap_curvature_factor(effective_air_gap, spatial_order)
             * core.slot_opening_factor(spatial_order)
+    }
+
+    /// Returns the conversion factor that relates RMS phase current to the
+    /// electric loading of the machine.
+    ///
+    /// Electric loading describes the magnetic loading per unit air-gap
+    /// circumference and is an important design parameter for evaluating
+    /// the utilization of an electric machine. This function calculates the
+    /// factor `k` in
+    ///
+    /// `A = k * I`
+    ///
+    /// where `A` is the electric loading and `I` is the RMS phase current.
+    /// The calculation follows
+    /// [\[1\]](#current_to_electric_loading_conversion_factor_1),
+    /// eq. (9.1.23c), and is valid only for
+    /// [symmetric](Winding::is_symmetric) windings.
+    ///
+    /// For small, air-cooled induction and permanent-magnet machines, electric
+    /// loading is typically in the range of 20–120 A/mm. For electrically
+    /// excited synchronous machines, the ranges in
+    /// [\[1\]](#current_to_electric_loading_conversion_factor_1),
+    /// table 9.1.4, provide a reference (all values in A/mm):
+    ///
+    /// | Indirect air cooling | Indirect H² cooling | Direct air cooling | Direct H² cooling |
+    /// | -------------------- | ------------------- | ------------------ | ----------------- |
+    /// | 30 ... 120           | 90 ... 150          | 120 ... 200        | 160 ... 300       |
+    ///
+    /// These values can be useful in the rough design phase to evaluate initial
+    /// candidates. They do not replace a detailed thermal simulation.
+    ///
+    /// # Literature
+    /// <a id="current_to_electric_loading_conversion_factor_1">\[1\]</a>
+    /// Müller, G., Vogt, K. and Ponick, B.: Berechnung elektrischer Maschinen,
+    /// 6th edition, Wiley-VCH, 2008
+    #[cfg(feature = "stem_core")]
+    fn current_to_electric_loading_conversion_factor(&self, core: CoreRef<'_>) -> ReciprocalLength {
+        return 2.0
+            * self.series_turns_per_phase_float(NonZeroU16::MIN)
+            * self.phases().get() as f64
+            / core.air_gap_length();
     }
 
     // TODO

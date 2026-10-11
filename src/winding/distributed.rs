@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     coils::{Coil, Coils, FullCoil},
     error::{Error, WindingTableConstructionError},
-    winding::{Connection, Winding, base_winding_count_sym, hole_number},
+    winding::{Connection, Winding, base_winding_count_symmetric, hole_number},
     winding_table::{WindingTable, WindingTableConstructor},
 };
 
@@ -475,7 +475,7 @@ impl Winding for DistributedWinding {
     }
 
     fn base_winding_count(&self) -> NonZeroU16 {
-        return base_winding_count_sym(
+        return base_winding_count_symmetric(
             self.slots(),
             self.pole_pairs(),
             self.phases(),
@@ -587,8 +587,20 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
         compare_variables!(layers < 3)?;
         compare_variables!(0.0 <= builder.end_winding_leakage_coefficient)?;
 
+        // Check if the number of parallel paths is valid
+        let max_par_paths = super::max_parallel_paths_symmetric(
+            builder.slots,
+            builder.pole_pairs,
+            builder.phases,
+            builder.layers,
+        )
+        .get();
+        if max_par_paths % builder.parallel_paths.get() != 0 {
+            return Err(Error::InvalidNumberParallelPaths);
+        }
+
         // Calculate the basic winding parameters
-        let t = base_winding_count_sym(
+        let t = base_winding_count_symmetric(
             builder.slots,
             builder.pole_pairs,
             builder.phases,
@@ -632,14 +644,6 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
             concentric_coils: builder.concentric_coils,
         };
         winding.create_coils(&winding_table)?;
-
-        // Check if the number of parallel paths is valid
-        if winding
-            .possible_parallel_paths()
-            .all(|possible_path| possible_path != winding.parallel_paths)
-        {
-            return Err(Error::InvalidNumberParallelPaths);
-        }
 
         if winding.equal_winding_factors() {
             return Ok(winding);

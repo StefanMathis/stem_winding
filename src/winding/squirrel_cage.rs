@@ -131,7 +131,7 @@ impl Winding for SquirrelCageWinding {
 
     fn phase_angle(&self, phase: NonZeroU16) -> f64 {
         // For a squirrel cage with N slots and p pole pairs, the electrical angle
-        // advances by delta = 2 * pi * p / N.
+        // advances by delta = 2 * π * p / N.
         std::f64::consts::TAU * f64::from(self.pole_pairs().get()) / f64::from(self.slots().get())
             * f64::from(phase.get() - 1)
     }
@@ -144,10 +144,6 @@ impl Winding for SquirrelCageWinding {
 
     fn connection(&self) -> Connection {
         Connection::Star
-    }
-
-    fn coil_groups_per_phase(&self) -> NonZeroU16 {
-        NonZeroU16::MIN
     }
 
     fn coil_at(&self, zone: Zone) -> Option<&Coil> {

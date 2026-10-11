@@ -170,9 +170,6 @@ fn test_winding_18_4_sl() {
     .try_into()
     .unwrap();
 
-    // Check the number of parallel paths
-    assert_eq!(1, winding.coil_groups_per_phase().get());
-
     // Assert that the winding is symmetric
     assert!(winding.equal_winding_factors());
 
@@ -537,9 +534,10 @@ fn test_winding_36_4() {
             }
         }
 
-        // Check the number of parallel paths
-        assert_eq!(2, winding.coil_groups_per_phase().get());
-        let parallel_paths: Vec<u16> = winding.possible_parallel_paths().map(|p| p.get()).collect();
+        // Check the possible number of parallel paths
+        let parallel_paths: Vec<u16> = ParallelPathIterator::from_winding(&winding)
+            .map(|p| p.get())
+            .collect();
         assert_eq!(parallel_paths, vec![1, 2]);
 
         // Assert that the winding is symmetric

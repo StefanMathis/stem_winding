@@ -22,6 +22,8 @@ pub enum Error {
     /// returned if they are.
     EqualCoilZones(Zone),
     WindingTableConstructionError(WindingTableConstructionError),
+    /// Must be a divisor of the maximum number of parallel paths. For symmetric
+    /// windings, see [`max_parallel_paths_symmetric`]
     InvalidNumberParallelPaths,
     InvalidPolePairNumber,
     OddNumberOfTurnsPerSlot,

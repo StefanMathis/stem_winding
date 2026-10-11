@@ -186,9 +186,10 @@ fn test_winding_12_8_dl() {
 
     assert_eq!(4, winding.base_winding_count().get());
 
-    // Check the number of parallel paths
-    assert_eq!(4, winding.coil_groups_per_phase().get());
-    let parallel_paths: Vec<u16> = winding.possible_parallel_paths().map(|v| v.get()).collect();
+    // Check the possible number of parallel paths
+    let parallel_paths: Vec<u16> = ParallelPathIterator::from_winding(&winding)
+        .map(|p| p.get())
+        .collect();
     assert_eq!(parallel_paths, vec![1, 2, 4]);
 
     // Assert that the winding is symmetric
@@ -273,9 +274,10 @@ fn test_winding_12_10_dl() {
 
     assert_eq!(1, winding.base_winding_count().get());
 
-    // Check the number of parallel paths
-    assert_eq!(2, winding.coil_groups_per_phase().get());
-    let parallel_paths: Vec<u16> = winding.possible_parallel_paths().map(|v| v.get()).collect();
+    // Check the possible number of parallel paths
+    let parallel_paths: Vec<u16> = ParallelPathIterator::from_winding(&winding)
+        .map(|p| p.get())
+        .collect();
     assert_eq!(parallel_paths, vec![1, 2]);
 
     // Assert that the winding is symmetric
@@ -365,9 +367,10 @@ fn test_winding_24_20_dl() {
 
     assert_eq!(2, winding.base_winding_count().get());
 
-    // Check the number of parallel paths
-    assert_eq!(4, winding.coil_groups_per_phase().get());
-    let parallel_paths: Vec<u16> = winding.possible_parallel_paths().map(|v| v.get()).collect();
+    // Check the possible number of parallel paths
+    let parallel_paths: Vec<u16> = ParallelPathIterator::from_winding(&winding)
+        .map(|p| p.get())
+        .collect();
     assert_eq!(parallel_paths, vec![1, 2, 4]);
 
     // Assert that the winding is symmetric
@@ -457,9 +460,10 @@ fn test_winding_12_10_sl() {
 
     assert_eq!(1, winding.base_winding_count().get());
 
-    // Check the number of parallel paths
-    assert_eq!(2, winding.coil_groups_per_phase().get());
-    let parallel_paths: Vec<u16> = winding.possible_parallel_paths().map(|v| v.get()).collect();
+    // Check the possible number of parallel paths
+    let parallel_paths: Vec<u16> = ParallelPathIterator::from_winding(&winding)
+        .map(|p| p.get())
+        .collect();
     assert_eq!(parallel_paths, vec![1, 2]);
 
     // Assert that the winding is symmetric

@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     coils::{Coil, Coils, FullCoil},
     error::{Error, WindingTableConstructionError},
-    winding::{Connection, Winding, base_winding_count_sym, hole_number},
+    winding::{Connection, Winding, base_winding_count_symmetric, hole_number},
     winding_table::{WindingTable, WindingTableConstructor},
 };
 
@@ -340,7 +340,7 @@ impl Winding for QuadrupleLayerToothCoilWinding {
     }
 
     fn base_winding_count(&self) -> NonZeroU16 {
-        base_winding_count_sym(
+        base_winding_count_symmetric(
             self.slots(),
             self.pole_pairs(),
             self.phases(),
@@ -350,18 +350,6 @@ impl Winding for QuadrupleLayerToothCoilWinding {
 
     fn coil_layout(&self) -> CoilLayout {
         CoilLayout::Quadruple
-    }
-
-    fn coil_groups_per_phase(&self) -> NonZeroU16 {
-        // Antiparallel coil groups are possible
-        let t = self.base_winding_count();
-
-        if (self.slots().get() / (t.get() * self.phases().get())) % 2 == 0 {
-            return NonZeroU16::new(2 * t.get()).expect("not zero");
-        // Only parallel coil groups are possible
-        } else {
-            return t;
-        }
     }
 
     fn parallel_paths(&self, _phase: NonZeroU16) -> NonZeroU16 {
@@ -440,6 +428,18 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
     fn try_from(builder: QuadrupleLayerToothCoilBuilder) -> Result<Self, Self::Error> {
         compare_variables!(0.0 <= builder.end_winding_leakage_coefficient)?;
 
+        // Check if the number of parallel paths is valid
+        let max_par_paths = super::max_parallel_paths_symmetric(
+            builder.slots,
+            builder.pole_pairs,
+            builder.phases,
+            NonZeroU16::new(4).expect("not zero"),
+        )
+        .get();
+        if max_par_paths % builder.parallel_paths.get() != 0 {
+            return Err(Error::InvalidNumberParallelPaths);
+        }
+
         let upper_layer_shift = builder.turns_upper_layer_coils.len();
 
         // Check if the upper layer shift is smaller than the numerator of the number of
@@ -457,7 +457,7 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
         }
 
         // Calculate the basic winding parameters
-        let t = base_winding_count_sym(
+        let t = base_winding_count_symmetric(
             builder.slots,
             builder.pole_pairs,
             builder.phases,
@@ -526,7 +526,7 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
          */
         let coils_per_coil_group = winding.layers().get() * winding.slots().get()
             / (2 * winding.phases().get())
-            / winding.coil_groups_per_phase()
+            / max_par_paths
             / 2;
         let mut phase_counter = coils_per_coil_group;
         let mut previous_phase = 0;
@@ -557,14 +557,6 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
         }
 
         winding.create_coils(&winding_table, true)?;
-
-        // Check if the number of parallel paths is valid
-        if winding
-            .possible_parallel_paths()
-            .all(|possible_path| possible_path != winding.parallel_paths)
-        {
-            return Err(Error::InvalidNumberParallelPaths);
-        }
 
         if winding.equal_winding_factors() {
             return Ok(winding);

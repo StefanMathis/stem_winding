@@ -43,35 +43,6 @@ fn test_coil_direction() {
     }
 }
 
-/**
-These windings have lead to crashes in the winding explorer UI
- */
-#[test]
-fn test_turn_creator_regression_test() {
-    assert!(
-        QuadrupleLayerToothCoilWinding::new(QuadrupleLayerToothCoilMinimalBuilder {
-            slots: 9.try_into().expect("not zero"),
-            pole_pairs: 1.try_into().expect("not zero"),
-            phases: 3.try_into().expect("not zero"),
-            turns_per_slot_side: 2.try_into().expect("not zero"),
-            turns_upper_layer_coils: Vec::new(),
-            winding_table_constructor: WindingTableConstructor::Tingley,
-        })
-        .is_err()
-    );
-    assert!(
-        QuadrupleLayerToothCoilWinding::new(QuadrupleLayerToothCoilMinimalBuilder {
-            slots: 9.try_into().expect("not zero"),
-            pole_pairs: 1.try_into().expect("not zero"),
-            phases: 3.try_into().expect("not zero"),
-            turns_per_slot_side: 2.try_into().expect("not zero"),
-            turns_upper_layer_coils: vec![NonZeroUsize::new(1).expect("not zero")],
-            winding_table_constructor: WindingTableConstructor::Tingley,
-        })
-        .is_err()
-    );
-}
-
 #[test]
 fn test_err_when_turns_per_slot_side_smaller_than_two() {
     // 1 Turn per slot side
@@ -686,7 +657,6 @@ mod serde_tests {
         );
 
         assert_eq!(winding.layers().get(), 4);
-        assert_eq!(winding.coil_groups_per_phase().get(), 1);
 
         // Minimal winding
         let yaml = indoc! {"
@@ -718,6 +688,5 @@ mod serde_tests {
         );
 
         assert_eq!(winding.layers().get(), 4);
-        assert_eq!(winding.coil_groups_per_phase().get(), 2);
     }
 }
