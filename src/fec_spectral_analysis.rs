@@ -140,11 +140,7 @@ impl FecSpectralAnalysis {
         winding: &W,
         currents: &[f64],
     ) -> Result<&[Complex<f64>], Error> {
-        // Prepare the step function
-        self.step_function.clear();
-        for _ in 0..winding.slots().get() {
-            self.step_function.push(0.0); // Dummy value, will be overwritten in winding.field_excitation_curve anyway.
-        }
+        self.step_function.resize(winding.slots().get().into(), 0.0);
 
         // Calculate the field excitation curve (FEC)
         winding.field_excitation_curve(self.step_function.as_mut_slice(), currents)?;
