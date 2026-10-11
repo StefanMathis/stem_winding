@@ -55,7 +55,7 @@ pub use winding_support::*;
 /// threshold. This accounts for floating-point rounding errors, which can
 /// cause theoretically zero winding factors to evaluate to nonzero values.
 /// Such small values are negligible for the purposes of this crate.
-pub(crate) const WINDING_FACTOR_ZERO_THRESHOLD: f64 = 1e-8;
+const WINDING_FACTOR_ZERO_THRESHOLD: f64 = 1e-8;
 
 /**
 A trait for representing windings for AC multi-phase machines.
@@ -1077,25 +1077,74 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return rg2 / rp2 - 1.0;
     }
 
-    // TODO
-    /**
-    Calculates the field excitation curve (FEC) of `self` for the given phase currents into the provided buffer.
-    The buffer length must be equal to the number of winding slots and can therefore be created by `vec![0.0; winding.slots() as usize]`.
-    The current slice length must be equal to the number of phases.
-
-    # Example
-    ```
-    use winding::{DistributedWinding, Winding, WindingTableConstructor};
-
-    let winding = DistributedWinding::new_minimal(12, 1, 3, 1, 0, 0, WindingTableConstructor::Tingley).unwrap();
-    let mut buffer = vec![0.0; winding.slots() as usize];
-    let currents = [1.0, -0.5, -0.5];
-
-    winding.field_excitation_curve(&mut buffer, currents.as_slice()).unwrap();
-
-    assert_eq!(buffer.as_slice(), &[0.0, 1.0, 1.5, 2.0, 1.5, 1.0, 0.0, -1.0, -1.5, -2.0, -1.5, -1.0]);
-    ```
-     */
+    /// Calculates the field excitation curve (FEC) of this winding for the
+    /// given phase currents and writes it into the provided buffer.
+    ///
+    /// The field excitation curve represents the spatial distribution of the
+    /// magnetic voltage around the air gap, sampled at the winding slots.
+    /// Its spatial harmonics can be obtained by Fourier analysis; however
+    /// [`Winding::harmonics`] offers an alternative, direct way to determine
+    /// which harmonics are present.
+    ///
+    /// The buffer length must equal the number of winding slots, and the
+    /// current slice length must equal the number of phases. If either length
+    /// is incorrect, the method returns an error without modifying the buffer.
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![Example of a field excitation curve][field_excitation_curve]"
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image(
+            "field_excitation_curve",
+            "docs/img/field_excitation_curve.svg"
+        )
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    ///
+    /// [\[1\]](#end_winding_leakage_inductance_cage_1), section A.5.1
+    ///
+    /// # Literature
+    /// <a id="fec_1">\[1\]</a>
+    /// Mathis, S.: Permanentmagneterregte Line-Start-Antriebe in Ferrittechnik,
+    /// PhD thesis, Shaker, 2019
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stem_winding::prelude::*;
+    ///
+    /// let winding: DistributedWinding = DistributedMinimalBuilder {
+    ///     slots: 18.try_into().expect("not zero"),
+    ///     pole_pairs: 1.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 1.try_into().expect("not zero"),
+    ///     coil_span_reduction: 0,
+    ///     zone_span_variation: 0,
+    ///     winding_table_constructor: WindingTableConstructor::CoilSide,
+    /// }
+    /// .try_into()
+    /// .unwrap();
+    ///
+    /// let mut buffer = vec![0.0; usize::from(winding.slots().get())];
+    /// let three_phase_currents = [-1.0, 0.5, 0.5];
+    /// let expected_curve = [0.0, 1.0, 1.5, 2.0, 1.5, 1.0, 0.0, -1.0, -1.5, -2.0, -1.5, -1.0];
+    ///
+    /// assert!(winding.field_excitation_curve(&mut buffer, three_phase_currents.as_slice()).is_ok());
+    /// assert_eq!(buffer.as_slice(), &expected_curve);
+    ///
+    /// // Providing buffers of the wrong length results in an error.
+    /// // The curve buffer is left unchanged.
+    /// let five_phase_currents = [1.0, 0.0, 0.0, -0.5, -0.5];
+    /// assert!(winding.field_excitation_curve(&mut buffer, five_phase_currents.as_slice()).is_err());
+    ///
+    /// assert_eq!(buffer.as_slice(), &expected_curve);
+    /// ```
     fn field_excitation_curve(
         &self,
         buffer: &mut [f64],

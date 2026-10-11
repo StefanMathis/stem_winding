@@ -1234,6 +1234,36 @@ fn test_normalized_induction_amp() {
     }
 }
 
+#[test]
+fn test_field_excitation_curve() {
+    let winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 18.try_into().expect("not zero"),
+        pole_pairs: 1.try_into().expect("not zero"),
+        phases: 3.try_into().expect("not zero"),
+        layers: 1.try_into().expect("not zero"),
+        coil_span_reduction: 0,
+        zone_span_variation: 0,
+        winding_table_constructor: WindingTableConstructor::Tingley,
+    }
+    .try_into()
+    .unwrap();
+
+    let mut buffer = vec![0.0; usize::from(winding.slots().get())];
+    let currents = [1.0, -0.5, -0.5];
+
+    winding
+        .field_excitation_curve(&mut buffer, currents.as_slice())
+        .unwrap();
+
+    assert_eq!(
+        buffer.as_slice(),
+        &[
+            -0.5, 0.5, 1.5, 2.0, 2.5, 3.0, 2.5, 2.0, 1.5, 0.5, -0.5, -1.5, -2.0, -2.5, -3.0, -2.5,
+            -2.0, -1.5
+        ]
+    );
+}
+
 #[cfg(feature = "serde")]
 mod serde_tests {
 

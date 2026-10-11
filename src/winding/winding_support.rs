@@ -321,6 +321,7 @@ pub fn hole_number(
 ///
 /// [`Copy`]: std::marker::Copy
 pub trait RandomAccess<I = usize> {
+    /// The item returned with the random access.
     type Item;
 
     /// Returns the value at `index`.
@@ -691,7 +692,7 @@ impl<'a> Iterator for WindingHarmonicsIterator<'a> {
 /// in the [`WindingHarmonicsIterator`]. In that iterator, some information such
 /// as `equal_winding_factors` or `base_winding_count` is cached for efficiency
 /// reasons and handed to this function as arguments.
-pub(crate) fn is_harmonic<W: Winding + ?Sized>(
+pub(super) fn is_harmonic<W: Winding + ?Sized>(
     winding: &W,
     winding_factor_all_phases: Option<f64>,
     phases: u16,
@@ -805,36 +806,42 @@ impl<'a> Iterator for CoilsIterator<'a> {
     }
 }
 
-/**
-Return an iterator over a normalized, symmetric multiphase system with a "cos" formulation.
-
-# Examples
-
-```
-use em_basic_equations::multiphase_system;
-use uom::si::f64::*;
-use uom::si::{frequency::hertz, time::second};
-use approx;
-
-// Create a three-phase system iterator
-let mut iter = multiphase_system(Time::new::<second>(0.0), Frequency::new::<hertz>(50.0), 0.0, 3);
-
-approx::assert_abs_diff_eq!(iter.next().unwrap(), 1.0);
-approx::assert_abs_diff_eq!(iter.next().unwrap(), -0.5, epsilon = 1e-15);
-approx::assert_abs_diff_eq!(iter.next().unwrap(), -0.5, epsilon = 1e-15);
-assert!(iter.next().is_none());
-```
- */
+/// Returns an iterator over the instantaneous values of a normalized,
+/// symmetric multiphase system using a cosine formulation.
+///
+/// Each phase is shifted by `2π / phases` relative to the preceding phase.
+/// `offset` specifies an electrical phase angle offset in radians.
+///
+/// # Examples
+///
+/// ```
+/// use approxim::assert_abs_diff_eq;
+/// use stem_winding::prelude::*;
+///
+/// // Create a three-phase system iterator
+/// let mut iter = multiphase_system(
+///     Time::new::<second>(0.0),
+///     Frequency::new::<hertz>(50.0),
+///     0.0,
+///     3.try_into().expect("not zero")
+/// );
+///
+/// assert_abs_diff_eq!(iter.next().unwrap(), 1.0);
+/// assert_abs_diff_eq!(iter.next().unwrap(), -0.5, epsilon = 1e-15);
+/// assert_abs_diff_eq!(iter.next().unwrap(), -0.5, epsilon = 1e-15);
+/// assert!(iter.next().is_none());
+/// ```
 pub fn multiphase_system(
     time: stem_wire::prelude::Time,
     frequency: stem_wire::prelude::Frequency,
     offset: f64,
     phases: NonZeroU16,
 ) -> impl Iterator<Item = f64> + Clone + Send + Sync {
-    return (0..phases.get()).map(move |phase| {
-        (TAU * f64::from(frequency * time) + offset - TAU * phase as f64 / phases.get() as f64)
-            .cos()
-    });
+    (0..phases.get()).map(move |phase| {
+        (TAU * f64::from(frequency * time) + offset
+            - TAU * f64::from(phase) / f64::from(phases.get()))
+        .cos()
+    })
 }
 
 /// An iterator over the phase sequence that creates a rotating magnetic field.

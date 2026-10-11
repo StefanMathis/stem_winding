@@ -1030,7 +1030,7 @@ pub fn end_winding_leakage_inductance_distributed<W: Winding>(
 /// Returns the end winding leakage inductance for a squirrel-cage winding.
 ///
 /// This function implements
-/// [\[1\]](#end_winding_leakage_inductance_distributed_1), eq. (3.70) and eq.
+/// [\[1\]](#end_winding_leakage_inductance_cage_1), eq. (3.70) and eq.
 /// (3.71) in a generalized form:
 ///
 /// `L_ew,seg = μ0 * λ_ew * l_ew / p`
