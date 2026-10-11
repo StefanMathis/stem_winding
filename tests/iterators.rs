@@ -1,6 +1,5 @@
 use std::num::NonZeroU16;
 
-use stem_winding::iterators::*;
 use stem_winding::prelude::*;
 
 #[test]

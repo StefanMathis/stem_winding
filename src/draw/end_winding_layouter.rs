@@ -3,8 +3,7 @@ use std::num::NonZeroU16;
 use stem_types::Zone;
 
 use crate::coils::{Coil, CoilExt, FullCoil};
-use crate::iterators::CoilsIterator;
-use crate::winding::Winding;
+use crate::winding::{CoilsIterator, Winding};
 
 /**
 To plot an end winding with horizontal coil connectors, it is necessary to separate

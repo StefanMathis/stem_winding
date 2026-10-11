@@ -13,7 +13,10 @@ use serde::{Deserialize, Serialize};
 use num::Integer;
 use stem_types::Zone;
 
-use crate::{error::WindingTableConstructionError, iterators::PhaseSequence, winding::hole_number};
+use crate::{
+    error::WindingTableConstructionError,
+    winding::{PhaseSequence, hole_number},
+};
 
 use super::*;
 

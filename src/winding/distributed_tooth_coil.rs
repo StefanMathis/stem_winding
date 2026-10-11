@@ -25,6 +25,82 @@ use crate::{
     winding_table::{WindingTable, WindingTableConstructor},
 };
 
+/**
+This iterator returns all possible configurations for the number of coils in a coil group of an distributed tooth-coil winding.
+```
+use winding::CoilsPerCoilGroupIterator;
+let mut iter = CoilsPerCoilGroupIterator::new(12, 3, 2, false);
+assert_eq!(iter.next().unwrap(), 1);
+assert_eq!(iter.next().unwrap(), 2);
+assert!(iter.next().is_none());
+```
+ */
+pub struct CoilsPerCoilGroupIterator {
+    slots: u16,
+    phases: u16,
+    layers: u16,
+    coils_per_coil_group: u16,
+    max_pole_pairs: u16,
+    multiplier: u16,
+    iterator_is_exhausted: bool,
+}
+
+impl CoilsPerCoilGroupIterator {
+    pub fn new(
+        slots: NonZeroU16,
+        phases: NonZeroU16,
+        layers: NonZeroU16,
+        double_zone_span: bool,
+    ) -> Self {
+        let slots = slots.get();
+        let phases = phases.get();
+        let layers = layers.get();
+
+        // Check if the current number of turns per coil would lead to a valid winding
+        let multiplier = if double_zone_span { 1 } else { 2 };
+
+        let max_pole_pairs = multiplier * slots / phases * layers;
+        Self {
+            slots,
+            phases,
+            layers,
+            coils_per_coil_group: 0,
+            max_pole_pairs,
+            multiplier,
+            iterator_is_exhausted: false,
+        }
+    }
+}
+
+impl Iterator for CoilsPerCoilGroupIterator {
+    type Item = u16;
+    fn next(&mut self) -> Option<u16> {
+        // Check if the iterator is exhausted
+        if self.iterator_is_exhausted {
+            return None;
+        }
+
+        // Exhaust the iterator
+        if 2 * self.phases * self.coils_per_coil_group > self.layers * self.slots {
+            self.iterator_is_exhausted = true;
+            return None;
+        }
+
+        // Increase the iterator
+        self.coils_per_coil_group = self.coils_per_coil_group + 1;
+
+        for pole_pairs in 1..(self.max_pole_pairs + 1) {
+            if self.layers * self.slots
+                == self.multiplier * 2 * self.phases * self.coils_per_coil_group * pole_pairs
+            {
+                return Some(self.coils_per_coil_group);
+            }
+        }
+
+        return self.next();
+    }
+}
+
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct DistributedToothCoilWinding {

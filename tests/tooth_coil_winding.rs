@@ -1,7 +1,7 @@
 use std::num::NonZeroU16;
 
 use approxim;
-use stem_winding::{iterators::WindingHarmonic, prelude::*};
+use stem_winding::{prelude::*, winding::WindingHarmonic};
 
 const ONE: NonZeroU16 = NonZeroU16::MIN;
 

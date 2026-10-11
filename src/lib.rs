@@ -1,6 +1,5 @@
 pub mod coils;
 pub mod error;
-pub mod iterators;
 
 #[cfg(feature = "stem_core")]
 pub mod core_support;

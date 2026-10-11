@@ -389,7 +389,7 @@ impl Overrides {
 }
 
 pub struct CoilPropertyIterator<'a> {
-    pub coils: crate::iterators::CoilsIterator<'a>,
+    pub coils: crate::winding::CoilsIterator<'a>,
     pub winding: &'a dyn Winding,
     pub core: CoreRef<'a>,
     pub end_winding_half_turn_lengths: &'a HashMap<Zone, Length>,

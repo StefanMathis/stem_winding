@@ -1,10 +1,7 @@
 use std::num::{NonZeroU16, NonZeroUsize};
 
 use approxim;
-use stem_winding::{
-    iterators::{CoilsPerCoilGroupIterator, WindingHarmonic},
-    prelude::*,
-};
+use stem_winding::{prelude::*, winding::WindingHarmonic};
 
 const ONE: NonZeroU16 = NonZeroU16::MIN;
 
