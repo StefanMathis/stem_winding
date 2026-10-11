@@ -38,11 +38,14 @@ pub mod distributed_tooth_coil;
 pub mod quadruple_layer_tooth_coil;
 pub mod squirrel_cage;
 pub mod tooth_coil;
+
+mod fec_spectral_analysis;
 mod winding_support;
 
 pub use coil_assembly::*;
 pub use distributed::*;
 pub use distributed_tooth_coil::*;
+pub use fec_spectral_analysis::*;
 pub use quadruple_layer_tooth_coil::{
     QuadrupleLayerToothCoilBuilder, QuadrupleLayerToothCoilMinimalBuilder,
     QuadrupleLayerToothCoilWinding,
@@ -1080,12 +1083,12 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// Calculates the field excitation curve (FEC) of this winding for the
     /// given phase currents and writes it into the provided buffer.
     ///
-    /// The field excitation curve represents the spatial distribution of the
-    /// magnetic voltage around the air gap, sampled at the winding slots
-    /// [\[1\]](#fec_1), section 2.5. Its spatial harmonics can be obtained
-    /// by Fourier analysis; this functionality is realized in the
-    /// [`FecSpectralAnalysis`] struct. If one is just interested in the spatial
-    /// orders of the nonzero harmonics, use [`Winding::harmonics`].
+    /// The field excitation curve represents the piecewise-constant spatial
+    /// distribution of the magnetic voltage around the air gap, sampled at
+    /// the winding slots [\[1\]](#fec_1), section 2.5. Its spatial harmonics
+    /// can be obtained by Fourier analysis; this functionality is realized
+    /// in the [`FecSpectralAnalysis`] struct. If one is just interested in
+    /// the spatial orders of the nonzero harmonics, use [`Winding::harmonics`].
     ///
     /// The buffer length must equal the number of winding slots, and the
     /// current slice length must equal the number of phases. If either length
@@ -1571,13 +1574,11 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return CoilsIterator::new(self.as_dyn());
     }
 
-    // TODO
-    /// Assert the symmetry of the winding. If true, the following is also true:
-    /// * The winding factor is identical for all phases (this holds true for
-    ///   all orders individually).
-    /// * The phase resistance of all phases is identical
-    /// * The number of turns per phase is identical for all phases.
-    /// * All wires have the same material
+    /// Checks whether the winding is symmetric, i.e. whether all phases have:
+    /// - Identical [`winding_factor`](Winding::winding_factor)s for the
+    ///   pole-pair spatial order.
+    /// - Identical electrical [`resistance`](Winding::resistance).
+    /// - The same [`series_turns_per_phase`](Winding::series_turns_per_phase).
     #[cfg(feature = "stem_core")]
     fn is_symmetric(
         &self,
@@ -1622,7 +1623,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
             }
         }
 
-        return true;
+        true
     }
 
     //     /// Return the air gap leakage inductance ("doppeltverkettete Streuung")

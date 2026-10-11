@@ -4,8 +4,6 @@ pub mod error;
 #[cfg(feature = "stem_core")]
 pub mod core_support;
 
-// pub mod drawing;
-pub mod fec_spectral_analysis;
 pub mod winding;
 pub mod winding_table;
 
