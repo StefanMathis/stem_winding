@@ -1,3 +1,16 @@
+//! Provides the [`Winding`] trait and related functionality for describing
+//! and analyzing electric machine windings.
+//!
+//! Besides the [`Winding`] trait, which is the centerpiece of this crate, this
+//! module also includes tools for analyzing winding properties, such as
+//! [`FecSpectralAnalysis`].
+//!
+//! The module reexports predefined winding implementations, including the
+//! common [`DistributedWinding`], [`ToothCoilWinding`] and
+//! [`SquirrelCageWinding`], as well as more specialized variants such as
+//! [`QuadrupleLayerToothCoilWinding`] and [`DistributedToothCoilWinding`].
+//! Associated helper types, such as builder structs, are reexported as well.
+
 use dyn_clone::DynClone;
 use num::{Complex, Integer, integer::gcd};
 #[cfg(feature = "stem_core")]
