@@ -1,5 +1,5 @@
 use approxim::assert_abs_diff_eq;
-use stem_winding::prelude::*;
+use stem_winding::{prelude::*, winding::FecSpectralAnalysis};
 
 #[test]
 fn test_fec_integer_slot_winding() {

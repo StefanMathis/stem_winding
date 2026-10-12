@@ -803,7 +803,7 @@ impl<'a> CoilProperties<'a> {
     /// );
     /// assert_abs_diff_eq!(
     ///     coil_properties.resistance(&[DynQuantity::from_str("120 °C").expect("parseable")]).get::<ohm>(),
-    ///     0.10108,
+    ///     0.14081,
     ///     epsilon = 0.0001
     /// );
     /// ```

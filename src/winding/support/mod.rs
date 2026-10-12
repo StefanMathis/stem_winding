@@ -12,6 +12,9 @@ use crate::coils::Coil;
 
 use super::*;
 
+mod fec_spectral_analysis;
+pub use fec_spectral_analysis::*;
+
 /// Electrical connection of the phases of a [`Winding`].
 ///
 /// The connection determines how the winding phase voltages and currents
@@ -235,10 +238,15 @@ impl Connection {
 /// denominator directly provide `z` and `n` for the fractional part.
 ///
 /// ```
-/// use winding::hole_number;
+/// use std::num::NonZeroU16;
+/// use stem_winding::winding::hole_number;
+///
+/// const fn nz(value: u16) -> NonZeroU16 {
+///    NonZeroU16::new(value).expect("not zero")
+/// }
 ///
 /// // A 12/10 three-phase winding has a hole number of 2/5, which means that g = 0, z = 2, n = 5
-/// let ratio = hole_number(12, 5, 3);
+/// let ratio = hole_number(nz(12), nz(5), nz(3));
 /// let g = ratio.trunc().numer().clone();
 /// let z = ratio.fract().numer().clone();
 /// let n = ratio.denom().clone();
@@ -247,7 +255,7 @@ impl Connection {
 /// assert_eq!(n, 5);
 ///
 /// // A 36/10 three-phase winding has a hole number of 6/5, which means that g = 1, z = 1, n = 5
-/// let ratio = hole_number(36, 5, 3);
+/// let ratio = hole_number(nz(36), nz(5), nz(3));
 /// let g = ratio.trunc().numer().clone();
 /// let z = ratio.fract().numer().clone();
 /// let n = ratio.denom().clone();
@@ -256,7 +264,7 @@ impl Connection {
 /// assert_eq!(n, 5);
 ///
 /// // A 36/4 three-phase winding has a hole number of 3, which means that g = 3, z = 0, n = 1
-/// let ratio = hole_number(36, 2, 3);
+/// let ratio = hole_number(nz(36), nz(2), nz(3));
 /// let g = ratio.trunc().numer().clone();
 /// let z = ratio.fract().numer().clone();
 /// let n = ratio.denom().clone();
@@ -629,7 +637,7 @@ pub fn phasor_angle(slots: NonZeroU16, pole_pairs: NonZeroU16) -> f64 {
 /// ```
 /// use std::num::NonZeroU16;
 ///
-/// use stem_winding::iterators::ParallelPathIterator;
+/// use stem_winding::winding::ParallelPathIterator;
 ///
 /// let max_par_paths = NonZeroU16::new(4).expect("not zero");
 /// let par_paths: Vec<u16> = ParallelPathIterator::new(max_par_paths)
@@ -919,6 +927,7 @@ impl<'a> Iterator for CoilsIterator<'a> {
 /// ```
 /// use approxim::assert_abs_diff_eq;
 /// use stem_winding::prelude::*;
+/// use stem_winding::winding::*;
 ///
 /// // Create a three-phase system iterator
 /// let mut iter = multiphase_system(
@@ -981,7 +990,7 @@ pub fn multiphase_system(
 /// # Examples
 ///
 /// ```
-/// use stem_winding::iterators::PhaseSequence;
+/// use stem_winding::winding::PhaseSequence;
 ///
 /// // 2-phase winding
 /// let sequence: Vec<_> = PhaseSequence::new(2.try_into().expect("not zero")).collect();
@@ -1041,3 +1050,46 @@ impl Iterator for PhaseSequence {
 }
 
 impl ExactSizeIterator for PhaseSequence {}
+
+/// Returns the conversion factor that relates RMS phase current to the
+/// electric loading of the machine.
+///
+/// Electric loading describes the magnetic loading per unit air-gap
+/// circumference and is an important design parameter for evaluating
+/// the utilization of an electric machine. This function calculates the
+/// factor `k` in
+///
+/// `A = k * I`
+///
+/// where `A` is the electric loading and `I` is the RMS phase current.
+/// The calculation follows
+/// [\[1\]](#current_to_electric_loading_conversion_factor_1),
+/// eq. (9.1.23c), and is valid only for
+/// [symmetric](Winding::is_symmetric) windings. The `series_turns_per_phase`
+/// argument can be obtained from [`Winding::series_turns_per_phase_float`],
+/// `air_gap_length` from [`CoreExt::air_gap_length`].
+///
+/// For small, air-cooled induction and permanent-magnet machines, electric
+/// loading is typically in the range of 20–120 A/mm. For electrically
+/// excited synchronous machines, the ranges in
+/// [\[1\]](#current_to_electric_loading_conversion_factor_1),
+/// table 9.1.4, provide a reference (all values in A/mm):
+///
+/// | Indirect air cooling | Indirect H² cooling | Direct air cooling | Direct H² cooling |
+/// | -------------------- | ------------------- | ------------------ | ----------------- |
+/// | 30 ... 120           | 90 ... 150          | 120 ... 200        | 160 ... 300       |
+///
+/// These values can be useful in the rough design phase to evaluate initial
+/// candidates. They do not replace a detailed thermal simulation.
+///
+/// # Literature
+/// <a id="current_to_electric_loading_conversion_factor_1">\[1\]</a>
+/// Müller, G., Vogt, K. and Ponick, B.: Berechnung elektrischer Maschinen,
+/// 6th edition, Wiley-VCH, 2008
+pub fn current_to_electric_loading_conversion_factor(
+    series_turns_per_phase: f64,
+    phases: u16,
+    air_gap_length: Length,
+) -> ReciprocalLength {
+    return 2.0 * series_turns_per_phase * f64::from(phases) / air_gap_length;
+}

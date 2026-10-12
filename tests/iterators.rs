@@ -1,6 +1,7 @@
 use std::num::NonZeroU16;
 
 use stem_winding::prelude::*;
+use stem_winding::winding::*;
 
 #[test]
 fn test_parallel_paths() {

@@ -52,20 +52,18 @@ pub mod quadruple_layer_tooth_coil;
 pub mod squirrel_cage;
 pub mod tooth_coil;
 
-mod fec_spectral_analysis;
-mod winding_support;
+mod support;
 
 pub use coil_assembly::*;
 pub use distributed::*;
 pub use distributed_tooth_coil::*;
-pub use fec_spectral_analysis::*;
 pub use quadruple_layer_tooth_coil::{
     QuadrupleLayerToothCoilBuilder, QuadrupleLayerToothCoilMinimalBuilder,
     QuadrupleLayerToothCoilWinding,
 };
 pub use squirrel_cage::*;
+pub use support::*;
 pub use tooth_coil::*;
-pub use winding_support::*;
 
 /// A winding factor is considered zero if its absolute value is below this
 /// threshold. This accounts for floating-point rounding errors, which can
@@ -995,6 +993,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// windings.
     ///
     /// ```
+    /// use std::num::NonZeroU16;
     /// use approxim::assert_abs_diff_eq;
     /// use stem_winding::prelude::*;
     ///
@@ -1035,7 +1034,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// // Cage winding
     /// let winding: SquirrelCageWinding = SquirrelCageMinimalBuilder {
     ///     slots: 14.try_into().expect("not zero"),
-    ///     pole_pairs: ONE,
+    ///     pole_pairs: NonZeroU16::MIN,
     /// }.try_into().unwrap();
     /// approxim::assert_abs_diff_eq!(
     ///     0.01696,
@@ -1061,9 +1060,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         // eq. (1.2.86). Current is arbitrarily set to 1 A (as it is in
         // self.goerges_polygon()). Correction by the number of winding
         // layers is necessary due to the same reason as for rg2.
-        let series_turns_per_phase = *self.series_turns_per_phase(phase).numer() as f64
-            / *self.series_turns_per_phase(phase).denom() as f64;
-        let rp2 = (self.phases().get() as f64 * series_turns_per_phase * k_w
+        let rp2 = (self.phases().get() as f64 * self.series_turns_per_phase_float(phase) * k_w
             / (PI * (self.pole_pairs().get() * self.layers().get()) as f64))
             .powi(2);
 
@@ -1137,7 +1134,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// // Providing currents of the wrong length results in an error. The curve buffer is left unchanged.
     /// let five_phase_currents = [1.0, 0.0, 0.0, -0.5, -0.5];
     /// assert!(winding.field_excitation_curve(&mut buffer, five_phase_currents.as_slice()).is_err());
-    /// assert_eq!(buffer.as_slice(), &expected_curve);
+    /// assert_eq!(buffer.as_slice(), expected_curve);
     ///
     /// // If the field excitation curve buffer itself has the wrong length, an error is returned as well.
     /// buffer.resize(12, 0.0);
@@ -1223,6 +1220,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
 
     ```
     use stem_winding::prelude::*;
+    use stem_winding::winding::WindingHarmonic;
 
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 18.try_into().expect("not zero"),
@@ -1525,6 +1523,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// This example uses both [`FullCoil`]s and [`HalfCoil`]s.
     ///
     /// ```
+    /// use std::num::{NonZeroUsize, NonZeroU16};
     /// use stem_winding::prelude::*;
     ///
     /// let mut winding = CoilAssembly::new_minimal(
@@ -1837,7 +1836,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     ///
     /// // Calculate the total mass of all coils
     /// let mass: Mass = winding
-    ///     .coil_properties_iter(core, end_winding_half_turn_lengths)
+    ///     .coil_properties_iter(core.as_core_ref(), end_winding_half_turn_lengths)
     ///     .map(|cp| cp.volume() * cp.material().mass_density().get(&[])).sum();
     ///
     /// assert_abs_diff_eq!(mass.get::<kilogram>(), 0.10108, epsilon = 0.0001);
@@ -2250,47 +2249,6 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         self.winding_factor(phase, spatial_order)
             * core.air_gap_curvature_factor(effective_air_gap, spatial_order)
             * core.slot_opening_factor(spatial_order)
-    }
-
-    /// Returns the conversion factor that relates RMS phase current to the
-    /// electric loading of the machine.
-    ///
-    /// Electric loading describes the magnetic loading per unit air-gap
-    /// circumference and is an important design parameter for evaluating
-    /// the utilization of an electric machine. This function calculates the
-    /// factor `k` in
-    ///
-    /// `A = k * I`
-    ///
-    /// where `A` is the electric loading and `I` is the RMS phase current.
-    /// The calculation follows
-    /// [\[1\]](#current_to_electric_loading_conversion_factor_1),
-    /// eq. (9.1.23c), and is valid only for
-    /// [symmetric](Winding::is_symmetric) windings.
-    ///
-    /// For small, air-cooled induction and permanent-magnet machines, electric
-    /// loading is typically in the range of 20–120 A/mm. For electrically
-    /// excited synchronous machines, the ranges in
-    /// [\[1\]](#current_to_electric_loading_conversion_factor_1),
-    /// table 9.1.4, provide a reference (all values in A/mm):
-    ///
-    /// | Indirect air cooling | Indirect H² cooling | Direct air cooling | Direct H² cooling |
-    /// | -------------------- | ------------------- | ------------------ | ----------------- |
-    /// | 30 ... 120           | 90 ... 150          | 120 ... 200        | 160 ... 300       |
-    ///
-    /// These values can be useful in the rough design phase to evaluate initial
-    /// candidates. They do not replace a detailed thermal simulation.
-    ///
-    /// # Literature
-    /// <a id="current_to_electric_loading_conversion_factor_1">\[1\]</a>
-    /// Müller, G., Vogt, K. and Ponick, B.: Berechnung elektrischer Maschinen,
-    /// 6th edition, Wiley-VCH, 2008
-    #[cfg(feature = "stem_core")]
-    fn current_to_electric_loading_conversion_factor(&self, core: CoreRef<'_>) -> ReciprocalLength {
-        return 2.0
-            * self.series_turns_per_phase_float(NonZeroU16::MIN)
-            * self.phases().get() as f64
-            / core.air_gap_length();
     }
 
     // TODO

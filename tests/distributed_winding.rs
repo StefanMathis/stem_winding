@@ -1,7 +1,10 @@
 use std::num::NonZeroU16;
 
 use approxim::{self, assert_abs_diff_eq};
-use stem_winding::{prelude::*, winding::WindingHarmonic};
+use stem_winding::{
+    prelude::*,
+    winding::{ParallelPathIterator, WindingHarmonic},
+};
 
 const ONE: NonZeroU16 = NonZeroU16::MIN;
 

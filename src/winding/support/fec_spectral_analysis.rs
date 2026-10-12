@@ -28,7 +28,7 @@ use super::*;
 ///
 /// # Examples
 /// ```
-/// use stem_winding::prelude::sample_fec_values;
+/// use stem_winding::winding::sample_fec_values;
 ///
 /// let step_values = [1.0, 2.0, 3.0, 1.0];
 /// let mut samples = [0.0; 8];
@@ -91,6 +91,7 @@ starting with the constant component at index 0.
 ```
 use approxim::assert_abs_diff_eq;
 use stem_winding::prelude::*;
+use stem_winding::winding::FecSpectralAnalysis;
 
 let winding: DistributedWinding = DistributedMinimalBuilder {
     slots: 12.try_into().expect("not zero"),
@@ -235,6 +236,7 @@ impl FecSpectralAnalysis {
     /// ```
     /// use approxim::assert_abs_diff_eq;
     /// use stem_winding::prelude::*;
+    /// use stem_winding::winding::FecSpectralAnalysis;
     ///
     /// let winding: DistributedWinding = DistributedMinimalBuilder {
     ///     slots: 12.try_into().expect("not zero"),
