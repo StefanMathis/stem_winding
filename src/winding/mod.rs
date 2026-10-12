@@ -1616,55 +1616,97 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         true
     }
 
-    //     /// Return the air gap leakage inductance ("doppeltverkettete Streuung")
-    // as /// defined in e.g. [MVP08] or [Bin12].
-    // fn air_gap_leakage_inductance(&self, phase: u16) -> Inductance {
-    //     let winding = match self.winding() {
-    //         Some(winding) => winding,
-    //         None => return Inductance::new::<henry>(0.0),
-    //     };
+    /// Returns the main inductance of the specified phase for the given spatial
+    /// order.
+    ///
+    /// The calculation assumes that:
+    /// - The air gap is smooth.
+    /// - The stator and rotor cores have infinite permeability, so the
+    ///   reluctance of the air gap dominates.
+    ///
+    /// Under this assumption, the main inductance for the `spatial_order` can
+    /// be calculated via [\[1\]](#main_inductance_1), eq. (4.3-5):
+    ///
+    /// `L_hν = μ0 * N_s² * k_w,ν² * l_ag * l_ax * m / (δ * ν² * p² * π²)`
+    ///
+    /// where `μ0` is the [`VACUUM_PERMEABILITY`], `N_s` is the
+    /// [`series_turns_per_phase`](Winding::series_turns_per_phase), `k_w,ν` is
+    /// the [`effective_winding_factor`](Winding::effective_winding_factor) for
+    /// the spatial electrical order `ν`, `l_ag` is the air-gap circumference
+    /// for a rotary core or the width for a linear core
+    /// ([`CoreExt::air_gap_length`]), `l_ax` is the [`CoreExt::axial_length`],
+    /// `δ` is the `effective_air_gap` and `p` is the number of
+    /// [`pole_pairs`](Winding::pole_pairs).
+    ///
+    /// This inductance is used when calculating the
+    /// [`air_gap_leakage_inductance`]. The assumptions above also make this
+    /// model suitable for a first approximation of induction machines. For
+    /// synchronous machines, the d-axis and q-axis inductances generally
+    /// differ, an effect that this model does not capture. This inaccuracy
+    /// can be accepted when calculating the [`air_gap_leakage_inductance`]
+    /// of synchronous machines because their larger air gap generally
+    /// results in a smaller leakage inductance than in induction machines.
+    ///
+    /// # Literature
+    ///
+    /// <a id="main_inductance_1">[\[1\]]</a>
+    /// Binder, A.: Elektrische Maschinen und Antriebe, 1st edition, Springer
+    /// Heidelberg, 2012
+    fn main_inductance(
+        &self,
+        core: CoreRef<'_>,
+        phase: NonZeroU16,
+        spatial_order: SpatialOrder,
+        effective_air_gap: Length,
+        conditions: &[DynQuantity<f64>],
+    ) -> Inductance {
+        // Conditions are here to allow their usage when overriding this method.
+        let _ = conditions;
 
-    //     let main_inductance = self.main_inductance(phase);
-    //     let leakage_factor = self
-    //         .overrides()
-    //         .air_gap_leakage_factor
-    //         .unwrap_or_else(|| winding.air_gap_leakage_factor());
-    //     return main_inductance * leakage_factor;
-    // }
+        let k_w = self.effective_winding_factor(core, phase, spatial_order, effective_air_gap);
 
-    // /// Return the total air gap inductance, which equals the sum of
-    // /// `self.air_gap_leakage_inductance(effective_air_gap)` and
-    // /// `self.main_inductance(effective_air_gap)`.
-    // fn air_gap_inductance(&self, phase: u16) -> Inductance {
-    //     let winding = match self.winding() {
-    //         Some(winding) => winding,
-    //         None => return Inductance::new::<henry>(0.0),
-    //     };
+        let p = f64::from(self.pole_pairs().get());
 
-    //     let leakage_factor = self
-    //         .overrides()
-    //         .air_gap_leakage_factor
-    //         .unwrap_or_else(|| winding.air_gap_leakage_factor());
+        let electrical_spatial_order: f64 = match spatial_order {
+            SpatialOrder::Mechanical(mech_o) => f64::from(mech_o) / p,
+            SpatialOrder::Electrical(el_o) => el_o.into(),
+        };
 
-    //     return self.main_inductance(phase) * (1.0 + leakage_factor);
-    // }
+        f64::from(self.phases().get())
+            * *VACUUM_PERMEABILITY
+            * core.air_gap_length()
+            * core.axial_length()
+            * k_w.powi(2)
+            * self.series_turns_per_phase_float(phase).powi(2)
+            / (effective_air_gap * (PI * p * electrical_spatial_order).powi(2))
+    }
 
-    // /// Return the total leakage inductance. The temperature and frequency
-    // /// parameters are used to take AC effects like current displacement into
-    // /// account. If only the DC behaviour is of interest, those values can
-    // /// be set to zero.
-    // fn leakage_inductance(&self, phase: u16, conditions: &[InfluencingQuantity])
-    // -> Inductance {     return self.air_gap_leakage_inductance(phase)
-    //         + self.end_winding_leakage_inductance(phase)
-    //         + self.slot_leakage_inductance(phase, conditions);
-    // }
-
-    // /// Return the total inductance.
-    // fn inductance(&self, phase: u16, conditions: &[InfluencingQuantity]) ->
-    // Inductance {     return self.air_gap_inductance(phase)
-    //         + self.end_winding_leakage_inductance(phase)
-    //         + self.slot_leakage_inductance(phase, conditions);
-    // }
+    /// Returns the air-gap leakage inductance.
+    ///
+    /// This is the product of [`Winding::main_inductance`] and
+    /// [`Winding::air_gap_leakage_factor`]. It quantifies the self-inductance
+    /// associated with higher-order magnetic field harmonics resulting from the
+    /// [`field_excitation_curve`](Winding::field_excitation_curve). See
+    /// [\[1\]](#air_gap_leakage_inductance_1), section 3.7.3, for details.
+    ///
+    /// # Literature
+    ///
+    /// <a id="air_gap_leakage_inductance_1">[\[1\]]</a>
+    /// Müller, G., Vogt, K. and Ponick, B.: *Berechnung elektrischer
+    /// Maschinen*, 6th edition, Wiley-VCH, 2008
+    fn air_gap_leakage_inductance(
+        &self,
+        core: CoreRef<'_>,
+        phase: NonZeroU16,
+        spatial_order: SpatialOrder,
+        effective_air_gap: Length,
+        conditions: &[DynQuantity<f64>],
+    ) -> Inductance {
+        let main_inductance =
+            self.main_inductance(core, phase, spatial_order, effective_air_gap, conditions);
+        let leakage_factor = self.air_gap_leakage_factor(phase);
+        return main_inductance * leakage_factor;
+    }
 
     //     /**
     // Calculate the coupling factor k between the air gap flux B and the flux
@@ -1807,14 +1849,14 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     ///     + (1.0 - 3.0 / 4.0 * (1.0 - span as f64 / winding.pole_pitch())) * lambda_o;
     ///
     /// // Slot leakage inductance from [1], eq. (3.7.15)
-    /// let leakage_inductance = 2.0
+    /// let analytical_inductance = 2.0
     ///     * *VACUUM_PERMEABILITY
     ///     * core.axial_coil_length()
     ///     * winding.series_turns_per_phase_float(NonZeroU16::MIN).powi(2)
     ///     / (winding.pole_pairs().get() as f64 * winding.hole_number_float())
     ///     * lambda;
     ///
-    /// assert_abs_diff_eq!(leakage_inductance.get::<henry>(), 0.0024743, epsilon = 1e-7);
+    /// assert_abs_diff_eq!(analytical_inductance.get::<henry>(), 0.0024743, epsilon = 1e-7);
     /// for ph in 1..4 {
     ///     let phase = ph.try_into().unwrap();
     ///     let calculated_inductance = winding.slot_leakage_inductance(
@@ -1938,8 +1980,39 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
             / self.parallel_paths(phase).get() as f64;
     }
 
-    //     /// Calculate the main inductance of the component.
-    // fn main_inductance(&self, phase: u16) -> Inductance;
+    // /// Return the total air gap inductance, which equals the sum of
+    // /// `self.air_gap_leakage_inductance(effective_air_gap)` and
+    // /// `self.main_inductance(effective_air_gap)`.
+    // fn air_gap_inductance(&self, phase: u16) -> Inductance {
+    //     let winding = match self.winding() {
+    //         Some(winding) => winding,
+    //         None => return Inductance::new::<henry>(0.0),
+    //     };
+
+    //     let leakage_factor = self
+    //         .overrides()
+    //         .air_gap_leakage_factor
+    //         .unwrap_or_else(|| winding.air_gap_leakage_factor());
+
+    //     return self.main_inductance(phase) * (1.0 + leakage_factor);
+    // }
+
+    // /// Return the total leakage inductance. The temperature and frequency
+    // /// parameters are used to take AC effects like current displacement into
+    // /// account. If only the DC behaviour is of interest, those values can
+    // /// be set to zero.
+    // fn leakage_inductance(&self, phase: u16, conditions: &[InfluencingQuantity])
+    // -> Inductance {     return self.air_gap_leakage_inductance(phase)
+    //         + self.end_winding_leakage_inductance(phase)
+    //         + self.slot_leakage_inductance(phase, conditions);
+    // }
+
+    // /// Return the total inductance.
+    // fn inductance(&self, phase: u16, conditions: &[InfluencingQuantity]) ->
+    // Inductance {     return self.air_gap_inductance(phase)
+    //         + self.end_winding_leakage_inductance(phase)
+    //         + self.slot_leakage_inductance(phase, conditions);
+    // }
 
     /// Returns an iterator over all coils of the winding and their physical
     /// properties.

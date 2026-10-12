@@ -1,6 +1,6 @@
 use std::num::NonZeroU16;
 
-use approxim;
+use approxim::assert_abs_diff_eq;
 use stem_winding::{
     prelude::*,
     winding::{ParallelPathIterator, WindingHarmonic},
@@ -19,7 +19,7 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.46216,
         winding.air_gap_leakage_factor(NonZeroU16::MIN),
         epsilon = 0.0001
@@ -34,7 +34,7 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.96835,
         winding.air_gap_leakage_factor(NonZeroU16::MIN),
         epsilon = 0.0001
@@ -49,7 +49,7 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.96835,
         winding.air_gap_leakage_factor(NonZeroU16::MIN),
         epsilon = 0.0001
@@ -64,7 +64,7 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         2.67299,
         winding.air_gap_leakage_factor(NonZeroU16::MIN),
         epsilon = 0.0001
@@ -79,7 +79,7 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         2.40953,
         winding.air_gap_leakage_factor(NonZeroU16::MIN),
         epsilon = 0.0001
@@ -94,7 +94,7 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         1.18210,
         winding.air_gap_leakage_factor(NonZeroU16::MIN),
         epsilon = 0.0001
@@ -109,7 +109,7 @@ fn test_air_gap_leakage_factor() {
     }
     .try_into()
     .unwrap();
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         2.40953,
         winding.air_gap_leakage_factor(NonZeroU16::MIN),
         epsilon = 0.0001
@@ -236,27 +236,27 @@ fn test_winding_12_8_dl() {
     );
 
     // Check the winding factor
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.866,
         winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.866,
         winding.winding_factor(ONE, SpatialOrder::Electrical(2)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.866,
         winding.winding_factor(ONE, SpatialOrder::Electrical(4)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.866,
         winding.winding_factor(ONE, SpatialOrder::Electrical(5)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.866,
         winding.winding_factor(ONE, SpatialOrder::Electrical(7)),
         epsilon = 0.0001
@@ -324,32 +324,32 @@ fn test_winding_12_10_dl() {
     );
 
     // Check the winding factor
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.067,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.933,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(5)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.933,
         winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.933,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(7)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.067,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(11)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.067,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(13)),
         epsilon = 0.0001
@@ -417,32 +417,32 @@ fn test_winding_24_20_dl() {
     );
 
     // Check the winding factor
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.067,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(2)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.933,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(10)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.933,
         winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.933,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(14)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.067,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(22)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.067,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(26)),
         epsilon = 0.0001
@@ -510,27 +510,27 @@ fn test_winding_12_10_sl() {
     );
 
     // Check the winding factor
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.2588,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(1)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.9659,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(5)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.9659,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(7)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.2588,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(11)),
         epsilon = 0.0001
     );
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         0.2588,
         winding.winding_factor(ONE, SpatialOrder::Mechanical(13)),
         epsilon = 0.0001
@@ -589,7 +589,7 @@ fn test_derive_coil_assembly_12_10_dl() {
     );
 
     // Compare the winding factor of phase 1
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         coil_assembly.winding_factor(ONE, SpatialOrder::Electrical(1)),
         winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
         epsilon = 0.0001
@@ -623,7 +623,7 @@ fn test_derive_coil_assembly_12_10_sl() {
     );
 
     // Compare the winding factor of phase 1
-    approxim::assert_abs_diff_eq!(
+    assert_abs_diff_eq!(
         coil_assembly.winding_factor(ONE, SpatialOrder::Electrical(1)),
         winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
         epsilon = 0.0001
@@ -726,7 +726,7 @@ mod serde_tests {
         let winding: ToothCoilWinding = yaml_serde::from_str(yaml).unwrap();
 
         // Compare the winding factor
-        approxim::assert_abs_diff_eq!(
+        assert_abs_diff_eq!(
             winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
             0.966,
             epsilon = 1e-3
@@ -903,12 +903,15 @@ mod stem_core_tests {
     }
 
     #[test]
-    fn test_slot_leakage_meas_servo() {
+    fn test_meas_servo() {
         let core = create_core_meas_servo();
         let winding = create_winding_meas_servo();
 
+        let geo_air_gap = Length::new::<millimeter>(6.0);
+        let effective_air_gap = geo_air_gap * core.carter_factor(geo_air_gap);
+
         // Check the mean end winding length
-        approxim::assert_abs_diff_eq!(
+        assert_abs_diff_eq!(
             winding
                 .end_winding_half_turn_length(CoreRef::Rot(&core), Zone::new(0, 0),)
                 .get::<meter>(),
@@ -918,11 +921,27 @@ mod stem_core_tests {
 
         // Slot leakage inductance
         for ph in 1..4 {
-            approxim::assert_abs_diff_eq!(
+            let phase = NonZeroU16::new(ph).expect("not zero");
+
+            assert_abs_diff_eq!(
+                winding
+                    .main_inductance(
+                        CoreRef::Rot(&core),
+                        phase,
+                        SpatialOrder::Electrical(1),
+                        effective_air_gap,
+                        &[],
+                    )
+                    .get::<henry>(),
+                0.0013656440,
+                epsilon = 1e-6
+            );
+
+            assert_abs_diff_eq!(
                 winding
                     .slot_leakage_inductance(
                         CoreRef::Rot(&core),
-                        ph.try_into().unwrap(),
+                        phase,
                         Length::new::<millimeter>(1.0),
                         &[],
                     )
@@ -934,12 +953,15 @@ mod stem_core_tests {
     }
 
     #[test]
-    fn test_slot_leakage_1210_sl() {
+    fn test_1210_sl() {
         let core = create_core_1210_sl();
         let winding = create_winding_1210_sl();
 
+        let geo_air_gap = Length::new::<millimeter>(3.7);
+        let effective_air_gap = geo_air_gap * core.carter_factor(geo_air_gap);
+
         // Check the mean end winding length
-        approxim::assert_abs_diff_eq!(
+        assert_abs_diff_eq!(
             winding
                 .end_winding_half_turn_length(CoreRef::Rot(&core), Zone::new(0, 0))
                 .get::<meter>(),
@@ -947,18 +969,47 @@ mod stem_core_tests {
             epsilon = 0.00001
         );
 
-        // Slot leakage inductance
         for ph in 1..4 {
-            approxim::assert_abs_diff_eq!(
+            let phase = NonZeroU16::new(ph).expect("not zero");
+
+            assert_abs_diff_eq!(
                 winding
                     .slot_leakage_inductance(
                         CoreRef::Rot(&core),
-                        ph.try_into().unwrap(),
+                        phase,
                         Length::new::<millimeter>(1.0),
                         &[],
                     )
                     .get::<henry>(),
                 0.0044860,
+                epsilon = 1e-6
+            );
+
+            assert_abs_diff_eq!(
+                winding
+                    .air_gap_leakage_inductance(
+                        CoreRef::Rot(&core),
+                        phase,
+                        SpatialOrder::Electrical(1),
+                        effective_air_gap,
+                        &[],
+                    )
+                    .get::<henry>(),
+                0.0117851,
+                epsilon = 1e-6
+            );
+
+            assert_abs_diff_eq!(
+                winding
+                    .main_inductance(
+                        CoreRef::Rot(&core),
+                        phase,
+                        SpatialOrder::Electrical(1),
+                        effective_air_gap,
+                        &[],
+                    )
+                    .get::<henry>(),
+                4.40897e-3,
                 epsilon = 1e-6
             );
         }

@@ -1675,64 +1675,87 @@ mod stem_core_tests {
             epsilon = 1e-3
         );
 
-        // Check the phase resistance
-        assert_abs_diff_eq!(
-            winding
-                .resistance(
-                    CoreRef::Rot(&core),
-                    1.try_into().unwrap(),
-                    &[],
-                    &Default::default(),
-                )
-                .get::<ohm>(),
-            1.04848,
-            epsilon = 0.0001
-        );
-        assert_abs_diff_eq!(
-            winding
-                .resistance(
-                    CoreRef::Rot(&core),
-                    1.try_into().unwrap(),
-                    &[],
-                    &overrides.end_winding_half_turn_lengths
-                )
-                .get::<ohm>(),
-            1.13201,
-            epsilon = 0.0001
-        );
+        for ph in 1..4 {
+            let phase = NonZeroU16::new(ph).expect("not zero");
 
-        // Slot leakage inductance
-        assert_abs_diff_eq!(
-            winding
-                .slot_leakage_inductance(
-                    CoreRef::Rot(&core),
-                    1.try_into().unwrap(),
-                    Length::new::<millimeter>(1.0),
-                    &[],
-                )
-                .get::<henry>(),
-            0.0044122,
-            epsilon = 1e-6
-        );
+            assert_abs_diff_eq!(
+                winding
+                    .resistance(CoreRef::Rot(&core), phase, &[], &Default::default(),)
+                    .get::<ohm>(),
+                1.04848,
+                epsilon = 0.0001
+            );
+            assert_abs_diff_eq!(
+                winding
+                    .resistance(
+                        CoreRef::Rot(&core),
+                        phase,
+                        &[],
+                        &overrides.end_winding_half_turn_lengths
+                    )
+                    .get::<ohm>(),
+                1.13201,
+                epsilon = 0.0001
+            );
 
-        assert_abs_diff_eq!(
-            winding
-                .end_winding_leakage_inductance(CoreRef::Rot(&core), 1.try_into().unwrap(), None)
-                .get::<henry>(),
-            0.0014538,
-            epsilon = 1e-6
-        );
-        assert_abs_diff_eq!(
-            winding
-                .end_winding_leakage_inductance(
-                    CoreRef::Rot(&core),
-                    1.try_into().unwrap(),
-                    Some(end_winding_half_turn_length)
-                )
-                .get::<henry>(),
-            0.0017129,
-            epsilon = 1e-6
-        );
+            // Inductances
+            assert_abs_diff_eq!(
+                winding
+                    .main_inductance(
+                        CoreRef::Rot(&core),
+                        phase,
+                        SpatialOrder::Electrical(1),
+                        Length::new::<millimeter>(1.0),
+                        &[],
+                    )
+                    .get::<henry>(),
+                0.170459982,
+                epsilon = 1e-6
+            );
+            assert_abs_diff_eq!(
+                winding
+                    .air_gap_leakage_inductance(
+                        CoreRef::Rot(&core),
+                        phase,
+                        SpatialOrder::Electrical(1),
+                        Length::new::<millimeter>(1.0),
+                        &[],
+                    )
+                    .get::<henry>(),
+                0.0023969,
+                epsilon = 1e-6
+            );
+            assert_abs_diff_eq!(
+                winding
+                    .slot_leakage_inductance(
+                        CoreRef::Rot(&core),
+                        phase,
+                        Length::new::<millimeter>(1.0),
+                        &[],
+                    )
+                    .get::<henry>(),
+                0.0044122,
+                epsilon = 1e-6
+            );
+            assert_abs_diff_eq!(
+                winding
+                    .end_winding_leakage_inductance(CoreRef::Rot(&core), phase, None)
+                    .get::<henry>(),
+                0.0014538,
+                epsilon = 1e-6
+            );
+            assert_abs_diff_eq!(
+                winding
+                    .end_winding_leakage_inductance(
+                        CoreRef::Rot(&core),
+                        phase,
+                        Some(end_winding_half_turn_length)
+                    )
+                    .get::<henry>(),
+                0.0017129,
+                epsilon = 1e-6
+            );
+        }
     }
 
     #[test]
@@ -1803,56 +1826,53 @@ mod stem_core_tests {
         );
 
         // Check the phase resistance
-        assert_abs_diff_eq!(
-            winding
-                .resistance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    &[],
-                    &Default::default(),
-                )
-                .get::<ohm>(),
-            2.04493,
-            epsilon = 0.0001
-        );
-        assert_abs_diff_eq!(
-            winding
-                .resistance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    &[],
-                    &overrides.end_winding_half_turn_lengths
-                )
-                .get::<ohm>(),
-            2.26403,
-            epsilon = 0.0001
-        );
 
-        // Check inductances TODO
-        // assert_abs_diff_eq!(
-        //     component.slot_leakage_inductance(1, &[]).get::<henry>(),
-        //     0.02166509, // H
-        //     epsilon = 1e-6
-        // );
-        // assert_abs_diff_eq!(
-        //     component.end_winding_leakage_inductance(1).get::<henry>(),
-        //     6.85182748e-3, // H
-        //     epsilon = 1e-6
-        // );
+        for ph in 1..4 {
+            let phase = NonZeroU16::new(ph).expect("not zero");
+            assert_abs_diff_eq!(
+                winding
+                    .resistance(CoreRef::Rot(&core), phase, &[], &Default::default(),)
+                    .get::<ohm>(),
+                2.04493,
+                epsilon = 0.0001
+            );
+            assert_abs_diff_eq!(
+                winding
+                    .resistance(
+                        CoreRef::Rot(&core),
+                        phase,
+                        &[],
+                        &overrides.end_winding_half_turn_lengths
+                    )
+                    .get::<ohm>(),
+                2.26403,
+                epsilon = 0.0001
+            );
 
-        // Slot leakage inductance
-        assert_abs_diff_eq!(
-            winding
-                .slot_leakage_inductance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    Length::new::<millimeter>(1.0),
-                    &[],
-                )
-                .get::<henry>(),
-            0.0175133,
-            epsilon = 1e-6
-        );
+            assert_abs_diff_eq!(
+                winding
+                    .slot_leakage_inductance(
+                        CoreRef::Rot(&core),
+                        phase,
+                        Length::new::<millimeter>(1.0),
+                        &[],
+                    )
+                    .get::<henry>(),
+                0.0175133,
+                epsilon = 1e-6
+            );
+            assert_abs_diff_eq!(
+                winding
+                    .end_winding_leakage_inductance(
+                        CoreRef::Rot(&core),
+                        phase,
+                        Some(end_winding_half_turn_length)
+                    )
+                    .get::<henry>(),
+                0.00685029,
+                epsilon = 1e-6
+            );
+        }
     }
 
     #[test]
