@@ -916,11 +916,12 @@ impl<'a> Iterator for CoilsIterator<'a> {
     }
 }
 
-/// Returns an iterator over the instantaneous values of a normalized,
+/// Returns the instantaneous value for the given phase of a normalized,
 /// symmetric multiphase system using a cosine formulation.
 ///
-/// Each phase is shifted by `2π / phases` relative to the preceding phase.
-/// `offset` specifies an electrical phase angle offset in radians.
+/// `phase` is a one-based phase index. Each phase is shifted by
+/// `2π / phases` relative to the preceding phase. `offset` specifies an
+/// electrical phase angle offset in radians.
 ///
 /// # Examples
 ///
@@ -929,30 +930,44 @@ impl<'a> Iterator for CoilsIterator<'a> {
 /// use stem_winding::prelude::*;
 /// use stem_winding::winding::*;
 ///
-/// // Create a three-phase system iterator
-/// let mut iter = multiphase_system(
+/// // Three-phase system
+/// let ph1 = multiphase_value(
 ///     Time::new::<second>(0.0),
 ///     Frequency::new::<hertz>(50.0),
 ///     0.0,
+///     1.try_into().expect("not zero"),
 ///     3.try_into().expect("not zero")
 /// );
+/// assert_abs_diff_eq!(ph1, 1.0);
 ///
-/// assert_abs_diff_eq!(iter.next().unwrap(), 1.0);
-/// assert_abs_diff_eq!(iter.next().unwrap(), -0.5, epsilon = 1e-15);
-/// assert_abs_diff_eq!(iter.next().unwrap(), -0.5, epsilon = 1e-15);
-/// assert!(iter.next().is_none());
+/// let ph2 = multiphase_value(
+///     Time::new::<second>(0.0),
+///     Frequency::new::<hertz>(50.0),
+///     0.0,
+///     2.try_into().expect("not zero"),
+///     3.try_into().expect("not zero")
+/// );
+/// assert_abs_diff_eq!(ph2, -0.5, epsilon = 1e-15);
+///
+/// let ph3 = multiphase_value(
+///     Time::new::<second>(0.0),
+///     Frequency::new::<hertz>(50.0),
+///     0.0,
+///     3.try_into().expect("not zero"),
+///     3.try_into().expect("not zero")
+/// );
+/// assert_abs_diff_eq!(ph3, -0.5, epsilon = 1e-15);
 /// ```
-pub fn multiphase_system(
+pub fn multiphase_value(
     time: stem_wire::prelude::Time,
     frequency: stem_wire::prelude::Frequency,
     offset: f64,
+    phase: NonZeroU16,
     phases: NonZeroU16,
-) -> impl Iterator<Item = f64> + Clone + Send + Sync {
-    (0..phases.get()).map(move |phase| {
-        (TAU * f64::from(frequency * time) + offset
-            - TAU * f64::from(phase) / f64::from(phases.get()))
-        .cos()
-    })
+) -> f64 {
+    (TAU * f64::from(frequency * time) + offset
+        - TAU * f64::from(phase.get() - 1) / f64::from(phases.get()))
+    .cos()
 }
 
 /// An iterator over the phase sequence that creates a rotating magnetic field.

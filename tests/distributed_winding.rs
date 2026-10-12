@@ -1709,7 +1709,6 @@ mod stem_core_tests {
                     1.try_into().unwrap(),
                     Length::new::<millimeter>(1.0),
                     &[],
-                    &Default::default(),
                 )
                 .get::<henry>(),
             0.0044122,
@@ -1829,7 +1828,7 @@ mod stem_core_tests {
             epsilon = 0.0001
         );
 
-        // Check inductances
+        // Check inductances TODO
         // assert_abs_diff_eq!(
         //     component.slot_leakage_inductance(1, &[]).get::<henry>(),
         //     0.02166509, // H
@@ -1849,7 +1848,6 @@ mod stem_core_tests {
                     NonZeroU16::MIN,
                     Length::new::<millimeter>(1.0),
                     &[],
-                    &Default::default(),
                 )
                 .get::<henry>(),
             0.0175133,
@@ -2001,7 +1999,6 @@ mod stem_core_tests {
                     NonZeroU16::MIN,
                     Length::new::<millimeter>(1.0),
                     &[],
-                    &Default::default(),
                 )
                 .get::<henry>(),
             0.0161825,
@@ -2058,6 +2055,7 @@ mod stem_core_tests {
             lambda_res: f64,
             winding: &DistributedWinding,
         ) -> f64 {
+            // [MVP08], eq. (3.7.15)
             let span = winding.pole_pitch() - winding.coil_span_reduction() as f64;
             return (1.0 - 9.0 / 16.0 * (1.0 - span as f64 / winding.pole_pitch())) * lambda_l
                 + (1.0 - 3.0 / 4.0 * (1.0 - span as f64 / winding.pole_pitch())) * lambda_res;
@@ -2098,13 +2096,21 @@ mod stem_core_tests {
         assert_abs_diff_eq!(
             leakage_inductance.get::<henry>(),
             winding
-                .slot_leakage_inductance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    air_gap,
-                    &[],
-                    &Default::default(),
-                )
+                .slot_leakage_inductance(CoreRef::Rot(&core), 1.try_into().unwrap(), air_gap, &[],)
+                .get::<henry>(),
+            epsilon = 1e-7
+        );
+        assert_abs_diff_eq!(
+            leakage_inductance.get::<henry>(),
+            winding
+                .slot_leakage_inductance(CoreRef::Rot(&core), 2.try_into().unwrap(), air_gap, &[],)
+                .get::<henry>(),
+            epsilon = 1e-7
+        );
+        assert_abs_diff_eq!(
+            leakage_inductance.get::<henry>(),
+            winding
+                .slot_leakage_inductance(CoreRef::Rot(&core), 3.try_into().unwrap(), air_gap, &[],)
                 .get::<henry>(),
             epsilon = 1e-7
         );
@@ -2126,19 +2132,20 @@ mod stem_core_tests {
             * resulting_leakage_coeff(lambda_l, lambda_res, &winding);
 
         assert_abs_diff_eq!(leakage_inductance.get::<henry>(), 0.0024743, epsilon = 1e-7);
-        assert_abs_diff_eq!(
-            leakage_inductance.get::<henry>(),
-            winding
-                .slot_leakage_inductance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    air_gap,
-                    &[],
-                    &Default::default(),
-                )
-                .get::<henry>(),
-            epsilon = 1e-7
-        );
+        for ph in 1..4 {
+            assert_abs_diff_eq!(
+                leakage_inductance.get::<henry>(),
+                winding
+                    .slot_leakage_inductance(
+                        CoreRef::Rot(&core),
+                        ph.try_into().unwrap(),
+                        air_gap,
+                        &[],
+                    )
+                    .get::<henry>(),
+                epsilon = 1e-7
+            );
+        }
 
         // ===============================
         // Short pitching by two slots
@@ -2157,20 +2164,20 @@ mod stem_core_tests {
             * resulting_leakage_coeff(lambda_l, lambda_res, &winding);
 
         assert_abs_diff_eq!(leakage_inductance.get::<henry>(), 0.0022946, epsilon = 1e-7);
-        assert_abs_diff_eq!(
-            leakage_inductance.get::<henry>(),
-            winding
-                .slot_leakage_inductance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    air_gap,
-                    &[],
-                    &Default::default(),
-                )
-                .get::<henry>(),
-            epsilon = 1e-7
-        );
-
+        for ph in 1..4 {
+            assert_abs_diff_eq!(
+                leakage_inductance.get::<henry>(),
+                winding
+                    .slot_leakage_inductance(
+                        CoreRef::Rot(&core),
+                        ph.try_into().unwrap(),
+                        air_gap,
+                        &[],
+                    )
+                    .get::<henry>(),
+                epsilon = 1e-7
+            );
+        }
         // ===============================
         // Short pitching by three slots
 
@@ -2192,18 +2199,19 @@ mod stem_core_tests {
             0.0021149, // Expected value in H
             epsilon = 1e-7
         );
-        assert_abs_diff_eq!(
-            leakage_inductance.get::<henry>(),
-            winding
-                .slot_leakage_inductance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    air_gap,
-                    &[],
-                    &Default::default(),
-                )
-                .get::<henry>(),
-            epsilon = 1e-7
-        );
+        for ph in 1..4 {
+            assert_abs_diff_eq!(
+                leakage_inductance.get::<henry>(),
+                winding
+                    .slot_leakage_inductance(
+                        CoreRef::Rot(&core),
+                        ph.try_into().unwrap(),
+                        air_gap,
+                        &[],
+                    )
+                    .get::<henry>(),
+                epsilon = 1e-7
+            );
+        }
     }
 }

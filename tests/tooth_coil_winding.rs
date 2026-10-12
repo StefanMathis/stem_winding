@@ -903,7 +903,7 @@ mod stem_core_tests {
     }
 
     #[test]
-    fn test_concentrated_winding_meas_servo() {
+    fn test_slot_leakage_meas_servo() {
         let core = create_core_meas_servo();
         let winding = create_winding_meas_servo();
 
@@ -917,23 +917,24 @@ mod stem_core_tests {
         );
 
         // Slot leakage inductance
-        approxim::assert_abs_diff_eq!(
-            winding
-                .slot_leakage_inductance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    Length::new::<millimeter>(1.0),
-                    &[],
-                    &Default::default(),
-                )
-                .get::<henry>(),
-            0.0018424,
-            epsilon = 1e-6
-        );
+        for ph in 1..4 {
+            approxim::assert_abs_diff_eq!(
+                winding
+                    .slot_leakage_inductance(
+                        CoreRef::Rot(&core),
+                        ph.try_into().unwrap(),
+                        Length::new::<millimeter>(1.0),
+                        &[],
+                    )
+                    .get::<henry>(),
+                0.0018424,
+                epsilon = 1e-6
+            );
+        }
     }
 
     #[test]
-    fn test_concentrated_winding_1210_sl() {
+    fn test_slot_leakage_1210_sl() {
         let core = create_core_1210_sl();
         let winding = create_winding_1210_sl();
 
@@ -947,18 +948,19 @@ mod stem_core_tests {
         );
 
         // Slot leakage inductance
-        approxim::assert_abs_diff_eq!(
-            winding
-                .slot_leakage_inductance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    Length::new::<millimeter>(1.0),
-                    &[],
-                    &Default::default(),
-                )
-                .get::<henry>(),
-            0.0044860,
-            epsilon = 1e-6
-        );
+        for ph in 1..4 {
+            approxim::assert_abs_diff_eq!(
+                winding
+                    .slot_leakage_inductance(
+                        CoreRef::Rot(&core),
+                        ph.try_into().unwrap(),
+                        Length::new::<millimeter>(1.0),
+                        &[],
+                    )
+                    .get::<henry>(),
+                0.0044860,
+                epsilon = 1e-6
+            );
+        }
     }
 }

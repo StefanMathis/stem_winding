@@ -170,19 +170,10 @@ impl Winding for SquirrelCageWinding {
         _phase: NonZeroU16,
         effective_air_gap: Length,
         conditions: &[DynQuantity<f64>],
-        overrides: &Overrides,
     ) -> Inductance {
         use uom::si::frequency::hertz;
 
         if let Some(slot) = core.slot() {
-            // Use cached slot leakage inductance only if current displacement is not
-            // considered
-            if !self.consider_current_displacement() {
-                if let Some(slot_leakage_inductance) = overrides.slot_leakage_inductance {
-                    return slot_leakage_inductance;
-                }
-            }
-
             let leakage_factor = slot.self_inductance_leakage_coefficient(0, &self.coil_layout())
                 + slot.leakage_coefficient_opening()
                 + slot.leakage_coefficient_tooth_tip(effective_air_gap);

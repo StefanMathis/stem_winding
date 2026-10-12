@@ -1122,7 +1122,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// .unwrap();
     ///
     /// let mut buffer = vec![0.0; usize::from(winding.slots().get())];
-    /// let three_phase_currents = [-1.0, 0.5, 0.5];
+    /// let three_phase_currents = [1.0, -0.5, -0.5];
     /// let expected_curve = &[
     ///         -0.5, 0.5, 1.5, 2.0, 2.5, 3.0, 2.5, 2.0, 1.5, 0.5, -0.5, -1.5,
     ///         -2.0, -2.5, -3.0, -2.5,-2.0, -1.5
@@ -1684,22 +1684,164 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     //             / (std::f64::consts::PI * winding.pole_pairs() as f64);
     // }
 
-    // TODO
-    /**
-    Calculate the slot leakage inductance for a symmetric winding
-     */
+    /// Calculates the slot leakage inductance of the specified `phase` for a
+    /// winding supplied by a symmetric sinusoidal multiphase system.
+    ///
+    /// The slot leakage inductance arises from leakage flux produced by
+    /// currents flowing through conductors in the slots of the core. The
+    /// time variation of this flux induces a voltage in the winding. A
+    /// similar effect occurs for conductors located in the air gap, but its
+    /// contribution is usually negligible. The slot leakage inductance is
+    /// zero if [`CoreExt::slot`] returns `None`.
+    ///
+    /// The induced voltage is described by
+    ///
+    /// `u(t) = L di(t) / dt`
+    ///
+    /// where `L` is the slot leakage inductance. The following explanation
+    /// of its calculation is based on [\[1\]](#slot_leakage_inductance_1),
+    /// section 3.5.2.
+    ///
+    /// The calculation proceeds on a per-slot basis. For each slot, the
+    /// algorithm iterates over its layers and considers each layer containing
+    /// a coil belonging to `phase`. For each such layer ("linked layer"), it
+    /// evaluates the coupling with every layer ("excitation layer") in the same
+    /// slot using the [`Slot::leakage_coefficient_matrix`]. The
+    /// matrix provides a dimensionless leakage coefficient for each
+    /// combination of linked and excitation layers. The coefficients from
+    /// [`Slot::leakage_coefficient_opening`] and
+    /// [`Slot::leakage_coefficient_tooth_tip`] are added to obtain the total
+    /// leakage coefficient, which is then multiplied by tthe sign of the
+    /// product of the signed phase assignments of the two layers.
+    ///
+    /// The contribution is then scaled by the normalized current in the
+    /// excitation layer, as calculated by [`multiphase_value`], with the
+    /// offset chosen such that the current of `phase` is 1 at `t = 0`.
+    /// The result is multiplied by the sign of the product of the phases
+    /// of the two layers: a positive product increases the inductance,
+    /// whereas a negative product decreases it.
+    ///
+    /// The contributions from all layer combinations and slots are summed
+    /// to obtain the slot leakage inductance of the specified phase.
+    ///
+    /// The `conditions` parameter may affect the inductance. The
+    /// `effective_air_gap` parameter is used by
+    /// [`Slot::leakage_coefficient_tooth_tip`]; see its documentation for
+    /// details.
+    ///
+    /// # Literature
+    ///
+    /// <a id="slot_leakage_inductance_1">[\[1\]]</a>
+    /// Müller, G., Vogt, K. and Ponick, B.: *Berechnung elektrischer
+    /// Maschinen*, 6th edition, Wiley-VCH, 2008
+    ///
+    /// # Examples
+    ///
+    /// The following example compares the result of this algorithm with the
+    /// analytical formula [\[1\]](#slot_leakage_inductance_1), eq. (3.7.15),
+    /// for a symmetric, short-pitched distributed winding. This
+    /// demonstrates that eq. (3.7.15) is a special case of the
+    /// general-purpose algorithm.
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    /// use std::sync::Arc;
+    ///
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// // Use a rectangular slot to compare the numerical result with the analytical formula.
+    /// let opening_height = Length::new::<millimeter>(2.0);
+    /// let opening_width = Length::new::<millimeter>(3.0);
+    /// let width = Length::new::<millimeter>(3.0);
+    /// let height = Length::new::<millimeter>(20.0);
+    /// let slot = RectangularSlot::new(width, opening_width, height, opening_height, true).expect("valid inputs");
+    /// let core: RotCore = RotCoreBuilder {
+    ///     air_gap_radius: Length::new::<millimeter>(55.0),
+    ///     yoke_radius: Length::new::<millimeter>(85.0),
+    ///     axial_length: Length::new::<millimeter>(165.0),
+    ///     axial_coil_overhang: Length::new::<millimeter>(0.0),
+    ///     iron_fill_factor: 0.95,
+    ///     material: Arc::new(Material::default()),
+    ///     pole_pairs: 2.try_into().expect("not zero"),
+    ///     skew_angle: 0.0,
+    ///     air_gap: Box::new(SlottedAirGap::new(
+    ///         36.try_into().expect("not zero"),
+    ///         true,
+    ///         CarterFactorModel::Bin12,
+    ///         Box::new(slot),
+    ///     )),
+    ///     flux_barrier: None,
+    /// }
+    /// .try_into()
+    /// .expect("valid magnetic core");
+    ///
+    /// let winding: DistributedWinding = DistributedBuilder {
+    ///     slots: 36.try_into().expect("not zero"),
+    ///     pole_pairs: 2.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 2.try_into().expect("not zero"),
+    ///     coil_span_reduction: 1, // Short-pitching
+    ///     zone_span_variation: 0,
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    ///     turns_per_coil: 10.try_into().expect("not zero"),
+    ///     parallel_paths: 1.try_into().expect("not zero"),
+    ///     connection: Connection::Star,
+    ///     end_winding_leakage_coefficient: 0.25,
+    ///     wire: Box::new(SffWire::default()),
+    ///     concentric_coils: false,
+    /// }
+    /// .try_into()
+    /// .expect("valid winding core");
+    ///
+    /// // Assumed air gap (needed for the tooth-tip leakage)
+    /// let air_gap = Length::new::<millimeter>(1.0);
+    ///
+    /// // Slot leakage coefficient from [1], eq. (3.7.15)
+    /// let span = winding.pole_pitch() - winding.coil_span_reduction() as f64;
+    ///
+    /// // Analytical slot leakage coefficient for the special case of a rectangular slot.
+    /// let lambda_l = f64::from((height - opening_height) / (3.0 * width));
+    /// let lambda_o = f64::from(opening_height / opening_width) + core.slot().unwrap().leakage_coefficient_tooth_tip(air_gap);
+    /// let lambda = (1.0 - 9.0 / 16.0 * (1.0 - span as f64 / winding.pole_pitch())) * lambda_l
+    ///     + (1.0 - 3.0 / 4.0 * (1.0 - span as f64 / winding.pole_pitch())) * lambda_o;
+    ///
+    /// // Slot leakage inductance from [1], eq. (3.7.15)
+    /// let leakage_inductance = 2.0
+    ///     * *VACUUM_PERMEABILITY
+    ///     * core.axial_coil_length()
+    ///     * winding.series_turns_per_phase_float(NonZeroU16::MIN).powi(2)
+    ///     / (winding.pole_pairs().get() as f64 * winding.hole_number_float())
+    ///     * lambda;
+    ///
+    /// assert_abs_diff_eq!(leakage_inductance.get::<henry>(), 0.0024743, epsilon = 1e-7);
+    /// for ph in 1..4 {
+    ///     let phase = ph.try_into().unwrap();
+    ///     let calculated_inductance = winding.slot_leakage_inductance(
+    ///         CoreRef::Rot(&core),
+    ///         phase,
+    ///         air_gap,
+    ///         &[],
+    ///     );
+    ///
+    ///     assert_abs_diff_eq!(
+    ///         analytical_inductance.get::<henry>(),
+    ///         calculated_inductance.get::<henry>(),
+    ///         epsilon = 1e-7
+    ///     );
+    /// }
+    /// ```
     #[cfg(feature = "stem_core")]
     fn slot_leakage_inductance(
         &self,
         core: CoreRef<'_>,
         phase: NonZeroU16,
         effective_air_gap: Length,
-        _conditions: &[DynQuantity<f64>],
-        overrides: &Overrides,
+        conditions: &[DynQuantity<f64>],
     ) -> Inductance {
-        if let Some(slot_leakage_inductance) = overrides.slot_leakage_inductance {
-            return slot_leakage_inductance;
-        }
+        // Argument for usage in overrides, for the default implementation it isn't
+        // needed.
+        let _ = conditions;
 
         let slot = match core.slot() {
             Some(s) => s,
@@ -1717,27 +1859,20 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         let number_layers = self.layers().get();
         let number_layers_squared = number_layers.pow(2);
 
-        // Calculate the normalized current of all phases
-        let normalized_current: Vec<f64> = multiphase_system(
-            Time::new::<second>(0.0),
-            Frequency::new::<hertz>(0.0),
-            0.0,
-            self.phases(),
-        )
-        .collect();
+        // Set the phase offset so that the current of `phase` is always 1.
+        let phase_offset = TAU / f64::from(self.phases().get()) * f64::from(phase.get() - 1);
 
         // Precalculate the leakage coefficient matrix
         let lambda_slot = slot.leakage_coefficient_matrix(&self.coil_layout());
 
         // Precalculate the product of axial length and vacuum permeability
-        let single_turn_inductance =
-            (*VACUUM_PERMEABILITY * core.axial_coil_length()).get::<si::inductance::henry>();
+        let single_turn_inductance = *VACUUM_PERMEABILITY * core.axial_coil_length();
 
         // Calculate the total slot inductance for the selected phase
-        let basic_winding_slot_inductance: f64 = slots
+        let basic_winding_slot_inductance: Inductance = slots
             .into_par_iter()
             .map(|slot_idx| {
-                // Calculate the self-inductance of a single slot according to [MVP08], section
+                // Calculate the self-inductance of a single slot according to [1], section
                 // 3.5.2.1 (p. 311)
                 return (0..number_layers_squared)
                     .into_iter()
@@ -1754,7 +1889,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
                         if let Some(linked_coil) = self.coil_at(Zone::new(slot_idx, linked_layer)) {
                             // Only consider the selected phase
                             if linked_coil.phase() != phase {
-                                return 0.0;
+                                return Inductance::default();
                             }
 
                             if let Some(excitation_coil) =
@@ -1762,39 +1897,44 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
                             {
                                 // Calculate the coupling direction between the linked coil and
                                 // the excitation coil
-                                let coupling = 1
-                                    * self.phase_at(Zone::new(slot_idx, linked_layer)).signum()
-                                    * self
-                                        .phase_at(Zone::new(slot_idx, excitation_layer))
-                                        .signum();
+                                let coupling =
+                                    self.phase_at(Zone::new(slot_idx, linked_layer)).signum()
+                                        * self
+                                            .phase_at(Zone::new(slot_idx, excitation_layer))
+                                            .signum();
 
                                 // Get the normalized excitation current and modify its
                                 // direction according to the coupling calculated above
-                                let idx = excitation_coil.phase().get() as usize - 1;
-                                let excitation_current = normalized_current[idx] * coupling as f64;
+                                let excitation_current = multiphase_value(
+                                    Time::new::<second>(0.0),
+                                    Frequency::new::<hertz>(0.0),
+                                    phase_offset,
+                                    excitation_coil.phase(),
+                                    self.phases(),
+                                );
 
                                 // Calculate the inductance
                                 return single_turn_inductance
                                     * linked_coil.turns().get() as f64
                                     * excitation_coil.turns().get() as f64
                                     * excitation_current
+                                    * f64::from(coupling)
                                     * (lambda_slot
                                         [(linked_layer as usize, excitation_layer as usize)]
                                         + lambda_opening_and_tooth_tip);
                             } else {
-                                return 0.0;
+                                return Inductance::default();
                             }
                         } else {
-                            return 0.0;
+                            return Inductance::default();
                         }
                     })
-                    .sum::<f64>();
+                    .sum::<Inductance>();
             })
             .sum();
 
         // Scale with the winding base_winding_count and the number of parallel paths
-        return Inductance::new::<si::inductance::henry>(basic_winding_slot_inductance)
-            * self.base_winding_count().get() as f64
+        return basic_winding_slot_inductance * self.base_winding_count().get() as f64
             / self.parallel_paths(phase).get() as f64;
     }
 

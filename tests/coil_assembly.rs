@@ -461,7 +461,6 @@ mod stem_core_tests {
                     NonZeroU16::MIN,
                     Length::new::<millimeter>(1.0),
                     &[],
-                    &Default::default(),
                 )
                 .get::<henry>(),
             0.0044122,
