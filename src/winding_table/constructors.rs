@@ -99,7 +99,8 @@ pub enum WindingTableConstructor {
 
     # Examples
 
-    A simple 6-slot, 2-layer, 3-phase winding can be constructed as follows:
+    A simple 6-slot, 2-layer, 3-phase winding with short-pitching can be
+    constructed as follows:
 
     ```
     use std::num::NonZeroU16;
@@ -111,23 +112,23 @@ pub enum WindingTableConstructor {
         NonZeroU16::new(2).unwrap(),
         NonZeroU16::new(1).unwrap(),
         NonZeroU16::new(3).unwrap(),
-        3,
+        2,
     )
     .unwrap();
 
-    assert_eq!(table[Zone::new(0, 0)], 1);
-    assert_eq!(table[Zone::new(1, 0)], -3);
-    assert_eq!(table[Zone::new(2, 0)], 2);
-    assert_eq!(table[Zone::new(3, 0)], -1);
-    assert_eq!(table[Zone::new(4, 0)], 3);
-    assert_eq!(table[Zone::new(5, 0)], -2);
+    assert_eq!(table[Zone::new(0, 0)], -3);
+    assert_eq!(table[Zone::new(1, 0)], 2);
+    assert_eq!(table[Zone::new(2, 0)], -1);
+    assert_eq!(table[Zone::new(3, 0)], 3);
+    assert_eq!(table[Zone::new(4, 0)], -2);
+    assert_eq!(table[Zone::new(5, 0)], 1);
 
-    assert_eq!(table[Zone::new(0, 1)], -2);
-    assert_eq!(table[Zone::new(1, 1)], 1);
-    assert_eq!(table[Zone::new(2, 1)], -3);
-    assert_eq!(table[Zone::new(3, 1)], 2);
-    assert_eq!(table[Zone::new(4, 1)], -1);
-    assert_eq!(table[Zone::new(5, 1)], 3);
+    assert_eq!(table[Zone::new(0, 1)], 1);
+    assert_eq!(table[Zone::new(1, 1)], -3);
+    assert_eq!(table[Zone::new(2, 1)], 2);
+    assert_eq!(table[Zone::new(3, 1)], -1);
+    assert_eq!(table[Zone::new(4, 1)], 3);
+    assert_eq!(table[Zone::new(5, 1)], -2);
     ```
     */
     Tingley,
@@ -196,7 +197,7 @@ pub enum WindingTableConstructor {
     assert_eq!(table[Zone::new(0, 0)], 1);
     assert_eq!(table[Zone::new(1, 0)], 1);
     assert_eq!(table[Zone::new(2, 0)], -3);
-    assert_eq!(table[Zone::new(3, 0)], -2);
+    assert_eq!(table[Zone::new(3, 0)], 2);
     assert_eq!(table[Zone::new(4, 0)], -1);
     assert_eq!(table[Zone::new(5, 0)], -1);
     assert_eq!(table[Zone::new(6, 0)], 3);
@@ -347,23 +348,23 @@ pub enum WindingTableConstructor {
     .unwrap();
 
     assert_eq!(table[Zone::new(0, 0)], 1);
-    assert_eq!(table[Zone::new(1, 0)], -3);
+    assert_eq!(table[Zone::new(1, 0)], 1);
     assert_eq!(table[Zone::new(2, 0)], -3);
     assert_eq!(table[Zone::new(3, 0)], 2);
     assert_eq!(table[Zone::new(4, 0)], -1);
-    assert_eq!(table[Zone::new(5, 0)], 3);
+    assert_eq!(table[Zone::new(5, 0)], -1);
     assert_eq!(table[Zone::new(6, 0)], 3);
-    assert_eq!(table[Zone::new(7, 0)], -2);
+    assert_eq!(table[Zone::new(7, 0)], 3);
     assert_eq!(table[Zone::new(8, 0)], -2);
     assert_eq!(table[Zone::new(9, 0)], 1);
     assert_eq!(table[Zone::new(10, 0)], -3);
-    assert_eq!(table[Zone::new(11, 0)], 2);
+    assert_eq!(table[Zone::new(11, 0)], -3);
     assert_eq!(table[Zone::new(12, 0)], 2);
-    assert_eq!(table[Zone::new(13, 0)], -1);
+    assert_eq!(table[Zone::new(13, 0)], 2);
     assert_eq!(table[Zone::new(14, 0)], -1);
     assert_eq!(table[Zone::new(15, 0)], 3);
     assert_eq!(table[Zone::new(16, 0)], -2);
-    assert_eq!(table[Zone::new(17, 0)], 1);
+    assert_eq!(table[Zone::new(17, 0)], -2);
      */
     StarOfSlots,
     /**

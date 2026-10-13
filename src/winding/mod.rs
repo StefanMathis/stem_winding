@@ -1741,19 +1741,17 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///         true,
     ///         NonZeroUsize::MIN,
     ///         NonZeroU16::MIN,
-    ///         full_coil_wire,
+    ///         Box::new(SffWire::default()),
     ///     )
-    ///     .expect("zones identical").into())
-    ///     .unwrap();
+    ///     .expect("zones identical")).unwrap();
     /// winding
     ///     .insert(HalfCoil::new(
     ///         Zone::new(2, 0),
     ///         true,
     ///         1.try_into().expect("not zero"),
     ///         2.try_into().expect("not zero"),
-    ///         Box::new(WireSff::default()),
-    ///     ))
-    ///     .unwrap();
+    ///         Box::new(SffWire::default()),
+    ///     )).unwrap();
     ///
     /// // The total number of coils is 2.
     /// assert_eq!(winding.coils_iter().count(), 2);
@@ -1960,6 +1958,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///     end_winding_leakage_coefficient: 0.25,
     ///     wire: Box::new(SffWire::default()),
     ///     concentric_coils: false,
+    ///     mean_end_winding_half_turn_length: None,
     /// }
     /// .try_into()
     /// .expect("valid winding core");
@@ -1982,7 +1981,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///     * core.axial_coil_length()
     ///     * winding.series_turns_per_phase_float(NonZeroU16::MIN).powi(2)
     ///     / (winding.pole_pairs().get() as f64 * winding.hole_number_float())
-    ///     * lambda;c
+    ///     * lambda;
     ///
     /// assert_abs_diff_eq!(analytical_inductance.get::<henry>(), 0.0024743, epsilon = 1e-7);
     /// for ph in 1..4 {
@@ -2183,8 +2182,6 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// Calculate the mass of a ll coils of the winding.
     ///
     /// ```
-    /// use std::collections::HashMap;
-    ///
     /// use approxim::assert_abs_diff_eq;
     /// use stem_winding::prelude::*;
     ///
@@ -2205,7 +2202,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///     .coil_properties_iter(core.as_core_ref())
     ///     .map(|cp| cp.volume() * cp.material().mass_density().get(&[])).sum();
     ///
-    /// assert_abs_diff_eq!(mass.get::<kilogram>(), 0.10108, epsilon = 0.0001);
+    /// assert_abs_diff_eq!(mass.get::<kilogram>(), 0.02142, epsilon = 0.0001);
     /// ```
     #[cfg(feature = "stem_core")]
     fn coil_properties_iter<'a>(
@@ -2358,6 +2355,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///     end_winding_leakage_coefficient: 0.25,
     ///     wire: Box::new(wire),
     ///     concentric_coils: false,
+    ///     mean_end_winding_half_turn_length: None,
     /// }
     /// .try_into()
     /// .unwrap();
@@ -2408,7 +2406,6 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///             CoreRef::Rot(&core),
     ///             1.try_into().unwrap(), // First phase
     ///             &conditions,
-    ///             &Default::default(),
     ///         )
     ///     .get::<ohm>(),
     ///     1.05673,
@@ -2422,7 +2419,6 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///             CoreRef::Rot(&core),
     ///             1.try_into().unwrap(), // First phase
     ///             &[DynQuantity::from_str("120 °C").expect("parseable")],
-    ///             &Default::default(),
     ///         )
     ///     .get::<ohm>(),
     ///     1.46055,
@@ -2525,7 +2521,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///         copper,
     ///         0.5, // slot_fill_factor_conductor
     ///         0.6, // slot_fill_factor_overall
-    ///     ).expect("valid inputs"))
+    ///     ).expect("valid inputs")),
+    ///     mean_end_winding_half_turn_length: None,
     /// }
     /// .try_into()
     /// .unwrap();
@@ -2533,7 +2530,6 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///
     /// let decomposition = winding.resistance_decomposition(
     ///     core.as_core_ref(),
-    ///     &Default::default()
     /// ).expect("symmetric winding");
     ///
     /// // Phase resistance at 20 °C.
@@ -2542,7 +2538,6 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///     CoreRef::Rot(&core),
     ///     1.try_into().unwrap(),
     ///     &conditions,
-    ///     &Default::default()
     /// ).get::<ohm>();
     /// assert_abs_diff_eq!(r20, 0.202179, epsilon = 0.0001);
     /// assert_abs_diff_eq!(r20, decomposition.resistance(&conditions).get::<ohm>(), epsilon = 0.0001);
@@ -2553,7 +2548,6 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///     CoreRef::Rot(&core),
     ///     1.try_into().unwrap(),
     ///     &conditions,
-    ///     &Default::default()
     /// ).get::<ohm>();
     /// assert_abs_diff_eq!(r120, 0.2816357, epsilon = 0.0001);
     /// assert_abs_diff_eq!(r120, decomposition.resistance(&conditions).get::<ohm>(), epsilon = 0.0001);

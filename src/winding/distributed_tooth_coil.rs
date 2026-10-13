@@ -26,7 +26,7 @@ use crate::{
 /**
 This iterator returns all possible configurations for the number of coils in a coil group of an distributed tooth-coil winding.
 ```
-use winding::CoilsPerCoilGroupIterator;
+use stem_winding::winding::CoilsPerCoilGroupIterator;
 let mut iter = CoilsPerCoilGroupIterator::new(12, 3, 2, false);
 assert_eq!(iter.next().unwrap(), 1);
 assert_eq!(iter.next().unwrap(), 2);
@@ -147,7 +147,7 @@ impl DistributedToothCoilWinding {
 
     # Example
     ```
-    use winding::DistributedToothCoilWinding;
+    use stem_winding::prelude::*;
 
     // Three coils per coil group, 10 turns per slot (5 per coil). The inner coil gets 5 - 2 = 3 turns, the middle coil gets 5 turns, the outer coil gets 5 + 2 = 7 turns.
     let turns = DistributedToothCoilWinding::double_layer_turn_distribution(3, 10, 2).unwrap();

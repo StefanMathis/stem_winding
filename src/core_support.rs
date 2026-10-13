@@ -210,17 +210,13 @@ impl<W: Winding> FromWinding<W> for LinCore {
 /// // with the temperature.
 /// let copper = {
 ///     let mut material = Material::default();
-///     material.electrical_resistivity = VarQuantity::Function(
-///         QuantityFunction::new(Box::new(
+///     material.electrical_resistivity = VarQuantity::new(
 ///         FirstOrderTaylor::new(
-///         DynQuantity::from_str("1 m/S").expect("parseable"),
-///         DynQuantity::from_str("0.4 % / K").expect("parseable"),
-///         DynQuantity::from_str("20.0 °C").expect("parseable"),
-///         )
-///         .expect("units match"),
-///     ))
-///     .expect("units match"),
-///     );
+///             DynQuantity::from_str("1 m/S").expect("parseable"),
+///             DynQuantity::from_str("0.4 % / K").expect("parseable"),
+///             DynQuantity::from_str("20.0 °C").expect("parseable"),
+///         ).expect("units match"),
+///     ).expect("units match");
 ///     Arc::new(material)
 /// };
 ///
@@ -577,9 +573,7 @@ impl<'a> CoilProperties<'a> {
 
     /// Returns the end-winding half-turn length for the specified [`Zone`].
     ///
-    /// If an override is provided for the zone in
-    /// [`CoilProperties::end_winding_half_turn_lengths`], that value is
-    /// returned. Otherwise, the length is calculated using
+    /// The length is calculated using
     /// [`Winding::end_winding_half_turn_length`].
     ///
     /// Returns zero if the specified zone does not belong to this coil.
@@ -604,24 +598,14 @@ impl<'a> CoilProperties<'a> {
     ///
     /// let core = RotCore::from_winding(&winding);
     ///
-    /// // Override one of the coil half turn lengths
-    /// let mut end_winding_half_turn_lengths = HashMap::new();
-    /// end_winding_half_turn_lengths.insert(Zone::new(11, 0), Length::new::<meter>(0.42));
-    ///
     /// let coil_properties = winding.coil_properties_at(
     ///     core.as_core_ref(),
     ///     Zone::new(0, 0),
-    ///     &end_winding_half_turn_lengths
     /// ).expect("coil exists");
     ///
     /// assert_abs_diff_eq!(
     ///     coil_properties.end_winding_half_turn_length(Zone::new(0, 0)).get::<meter>(),
     ///     0.01396,
-    ///     epsilon = 0.0001
-    /// );
-    /// assert_abs_diff_eq!(
-    ///     coil_properties.end_winding_half_turn_length(Zone::new(11, 0)).get::<meter>(),
-    ///     0.42,
     ///     epsilon = 0.0001
     /// );
     ///
@@ -782,18 +766,17 @@ impl<'a> CoilProperties<'a> {
     ///         copper,
     ///         0.5, // slot_fill_factor_conductor
     ///         0.6, // slot_fill_factor_overall
-    ///     ).expect("valid inputs"))
+    ///     ).expect("valid inputs")),
+    ///     mean_end_winding_half_turn_length: None,
     /// }
     /// .try_into()
     /// .unwrap();
     ///
     /// let core = RotCore::from_winding(&winding);
-    /// let end_winding_half_turn_lengths = HashMap::new();
     ///
     /// let coil_properties = winding.coil_properties_at(
     ///     core.as_core_ref(),
     ///     Zone::new(0,0),
-    ///     &end_winding_half_turn_lengths
     /// ).expect("coil exists");
     ///
     /// assert_abs_diff_eq!(
@@ -876,18 +859,17 @@ impl<'a> CoilProperties<'a> {
     ///         copper,
     ///         0.5, // slot_fill_factor_conductor
     ///         0.6, // slot_fill_factor_overall
-    ///     ).expect("valid inputs"))
+    ///     ).expect("valid inputs")),
+    ///     mean_end_winding_half_turn_length: None,
     /// }
     /// .try_into()
     /// .unwrap();
     ///
     /// let core = RotCore::from_winding(&winding);
-    /// let end_winding_half_turn_lengths = HashMap::new();
     ///
     /// let coil_properties = winding.coil_properties_at(
     ///     core.as_core_ref(),
     ///     Zone::new(0,0),
-    ///     &end_winding_half_turn_lengths
     /// ).expect("coil exists");
     ///
     /// let decomposition = coil_properties.resistance_decomposition();
