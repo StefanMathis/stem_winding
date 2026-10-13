@@ -62,11 +62,12 @@ pub use squirrel_cage::*;
 pub use support::*;
 pub use tooth_coil::*;
 
-/// A winding factor is considered zero if its absolute value is below this
-/// threshold. This accounts for floating-point rounding errors, which can
-/// cause theoretically zero winding factors to evaluate to nonzero values.
-/// Such small values are negligible for the purposes of this crate.
-const WINDING_FACTOR_ZERO_THRESHOLD: f64 = 1e-8;
+/// A value (winding factor, resistance, inductance, ...) is considered zero if
+/// its absolute value is below this threshold. This accounts for floating-point
+/// rounding errors, which can cause theoretically zero winding factors to
+/// evaluate to nonzero values. Such small values are negligible for the
+/// purposes of this crate.
+const ZERO_THRESHOLD: f64 = 1e-8;
 
 /**
 A trait for representing windings for AC multi-phase machines.
@@ -122,6 +123,12 @@ as [`DistributedWinding`].
   `stem_core` feature enabled) returns zero by default. Implementations should
   override this method if the winding has a non-negligible end-winding leakage
   inductance.
+- [`Winding::is_symmetric`] (only available with the `stem_core` feature enabled)
+  checks if the winding is symmetric across its phases. The default
+  implementation relies on comparing a couple of physical properties such as
+  the [`Winding::resistance`] or the [`Winding::main_inductance`]. If the
+  implementor of [`Winding`] is known to be symmetric, this function should be
+  overriden for performance reasons.
 - [`Winding::make_cache`] (only available with the `stem_core` feature enabled)
   creates a [`SimulationCache`] for the given winding–core combination.
   The default implementation populates cache entries for symmetric windings
@@ -406,6 +413,126 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
         let _ = spatial_order;
         let _ = conditions;
         return Default::default();
+    }
+
+    /// Checks whether the winding exhibits phase symmetry under a set of
+    /// specified evaluation conditions.
+    ///
+    /// The following properties are compared across all phases:
+    ///
+    /// - The fundamental winding factor.
+    /// - The electrical resistance.
+    /// - The main inductance, air-gap leakage inductance, end-winding leakage
+    ///   inductance and slot leakage inductance.
+    /// - The number of series turns per phase.
+    ///
+    /// The winding factor is evaluated at the fundamental electrical spatial
+    /// order. The inductances are evaluated with an effective air gap of 1 mm.
+    /// All properties are evaluated without environmental conditions, such as
+    /// temperature or excitation frequency.
+    ///
+    /// If all these properties are equal across phases, the winding is
+    /// considered symmetric.
+    ///
+    /// This check is only an indication of symmetry under the stated evaluation
+    /// conditions. In particular, it cannot guarantee symmetry for other
+    /// spatial orders, effective air gaps or environmental conditions, nor
+    /// can it account for arbitrary behavior introduced by overridden
+    /// methods.
+    ///
+    /// This method can be relatively expensive because it evaluates the listed
+    /// properties for every phase. Implementations known to be symmetric should
+    /// override this method to avoid these calculations. An example from this
+    /// crate would be [`DistributedWinding::is_symmetric`].
+    #[cfg(feature = "stem_core")]
+    fn is_symmetric(&self, core: CoreRef<'_>) -> bool {
+        use uom::si::electrical_resistance::ohm;
+
+        // Condition 1: Comparison of winding factors
+        if !self.equal_winding_factors() {
+            return false;
+        }
+
+        // All other conditions
+        let conditions = &[];
+        let air_gap = Length::new::<millimeter>(1.0);
+        let fundamental = SpatialOrder::Electrical(1);
+
+        // Condition 2: Calculate the phase resistance for some assumed conditions
+        let resistance_ref = self
+            .resistance(core, NonZeroU16::MIN, conditions)
+            .get::<ohm>();
+        let main_inductance_ref = self
+            .main_inductance(core, NonZeroU16::MIN, fundamental, air_gap, conditions)
+            .get::<henry>();
+        let air_gap_leakage_inductance_ref = self
+            .air_gap_leakage_inductance(core, NonZeroU16::MIN, fundamental, air_gap, conditions)
+            .get::<henry>();
+        let end_winding_leakage_inductance_ref = self
+            .end_winding_leakage_inductance(core, NonZeroU16::MIN, fundamental, conditions)
+            .get::<henry>();
+        let slot_leakage_inductance_ref = self
+            .slot_leakage_inductance(core, NonZeroU16::MIN, air_gap, conditions)
+            .get::<henry>();
+        let turns_phase_ref = self.series_turns_per_phase(NonZeroU16::MIN);
+
+        for ph in 2..(self.phases().get() + 1) {
+            let phase = NonZeroU16::new(ph).expect("not zero");
+
+            let resistance = self.resistance(core, phase, conditions).get::<ohm>();
+            if approxim::abs_diff_ne!(resistance, resistance_ref, epsilon = ZERO_THRESHOLD) {
+                return false;
+            }
+
+            let main_inductance = self
+                .main_inductance(core, phase, fundamental, air_gap, conditions)
+                .get::<henry>();
+            if approxim::abs_diff_ne!(
+                main_inductance,
+                main_inductance_ref,
+                epsilon = ZERO_THRESHOLD
+            ) {
+                return false;
+            }
+
+            let air_gap_leakage_inductance = self
+                .air_gap_leakage_inductance(core, phase, fundamental, air_gap, conditions)
+                .get::<henry>();
+            if approxim::abs_diff_ne!(
+                air_gap_leakage_inductance,
+                air_gap_leakage_inductance_ref,
+                epsilon = ZERO_THRESHOLD
+            ) {
+                return false;
+            }
+
+            let end_winding_leakage_inductance = self
+                .end_winding_leakage_inductance(core, phase, fundamental, conditions)
+                .get::<henry>();
+            if approxim::abs_diff_ne!(
+                end_winding_leakage_inductance,
+                end_winding_leakage_inductance_ref,
+                epsilon = ZERO_THRESHOLD
+            ) {
+                return false;
+            }
+
+            let slot_leakage_inductance = self
+                .slot_leakage_inductance(core, phase, air_gap, conditions)
+                .get::<henry>();
+            if approxim::abs_diff_ne!(
+                slot_leakage_inductance,
+                slot_leakage_inductance_ref,
+                epsilon = ZERO_THRESHOLD
+            ) {
+                return false;
+            }
+
+            if self.series_turns_per_phase(phase) != turns_phase_ref {
+                return false;
+            }
+        }
+        true
     }
 
     /// Creates a [`SimulationCache`] for this winding and the given core.
@@ -941,11 +1068,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
                 NonZeroU16::new(phase).expect("is not zero"),
                 SpatialOrder::Electrical(1),
             );
-            if approxim::abs_diff_ne!(
-                winding_factor,
-                ref_winding_factor,
-                epsilon = WINDING_FACTOR_ZERO_THRESHOLD
-            ) {
+            if approxim::abs_diff_ne!(winding_factor, ref_winding_factor, epsilon = ZERO_THRESHOLD)
+            {
                 return false;
             }
         }
@@ -1636,48 +1760,6 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// ```
     fn coils_iter(&self) -> CoilsIterator<'_> {
         return CoilsIterator::new(self.as_dyn());
-    }
-
-    // TODO
-    /// Checks whether the winding is symmetric, i.e. whether all phases have:
-    /// - Identical [`winding_factor`](Winding::winding_factor)s for the
-    ///   pole-pair spatial order.
-    /// - Identical electrical [`resistance`](Winding::resistance).
-    /// - The same [`series_turns_per_phase`](Winding::series_turns_per_phase).
-    #[cfg(feature = "stem_core")]
-    fn is_symmetric(&self, core: CoreRef<'_>) -> bool {
-        use uom::si::electrical_resistance::ohm;
-
-        // Condition 1: Comparison of winding factors
-        if !self.equal_winding_factors() {
-            return false;
-        }
-
-        // Condition 2: Calculate the phase resistance for some assumed conditions
-        let resistance_1 = self.resistance(core, NonZeroU16::MIN, &[]).get::<ohm>();
-        for phase in 2..(self.phases().get() + 1) {
-            if approxim::abs_diff_ne!(
-                self.resistance(core, NonZeroU16::new(phase).unwrap_or(NonZeroU16::MIN), &[])
-                    .get::<ohm>(),
-                resistance_1,
-                epsilon = 1e-10
-            ) {
-                return false;
-            }
-        }
-
-        // Condition 3: Add the number of turns of phase 1 and compare it to the number
-        // of turns of all phases
-        let turns_phase_1 = self.series_turns_per_phase(NonZeroU16::MIN);
-        for phase in 2..(self.phases().get() + 1) {
-            if self.series_turns_per_phase(NonZeroU16::new(phase).unwrap_or(NonZeroU16::MIN))
-                != turns_phase_1
-            {
-                return false;
-            }
-        }
-
-        true
     }
 
     /// Returns the main inductance of the specified phase for the given spatial

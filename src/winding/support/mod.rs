@@ -836,7 +836,7 @@ pub(super) fn is_harmonic<W: Winding + ?Sized>(
     if approxim::abs_diff_eq!(
         sum_corotating + sum_counterrotating,
         0.0,
-        epsilon = WINDING_FACTOR_ZERO_THRESHOLD
+        epsilon = ZERO_THRESHOLD
     ) {
         return None;
     }
