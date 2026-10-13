@@ -13,10 +13,7 @@
 
 use dyn_clone::DynClone;
 use num::{Complex, Integer, integer::gcd};
-#[cfg(feature = "stem_core")]
-use std::collections::HashMap;
 use std::{
-    any::Any,
     f64::consts::{PI, TAU},
     num::{NonZeroU16, NonZeroUsize},
 };
@@ -125,9 +122,14 @@ as [`DistributedWinding`].
   `stem_core` feature enabled) returns zero by default. Implementations should
   override this method if the winding has a non-negligible end-winding leakage
   inductance.
+- [`Winding::make_cache`] (only available with the `stem_core` feature enabled)
+  creates a [`SimulationCache`] for the given winding–core combination.
+  The default implementation populates cache entries for symmetric windings
+  using the default winding and core models. Implementations may override
+  this method to customize which entries are populated.
  */
 #[cfg_attr(feature = "serde", typetag::serde)]
-pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
+pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 'static {
     /// Returns the number of phases in the winding.
     fn phases(&self) -> NonZeroU16;
 
@@ -396,12 +398,84 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         &self,
         core: CoreRef<'_>,
         phase: NonZeroU16,
-        end_winding_half_turn_length: Option<Length>,
+        spatial_order: SpatialOrder,
+        conditions: &[DynQuantity<f64>],
     ) -> Inductance {
         let _ = core;
         let _ = phase;
-        let _ = end_winding_half_turn_length;
+        let _ = spatial_order;
+        let _ = conditions;
         return Default::default();
+    }
+
+    /// Creates a [`SimulationCache`] for this winding and the given core.
+    ///
+    /// The default implementation populates cache entries that can be
+    /// determined for [symmetric](Winding::is_symmetric) windings and
+    /// returns an empty cache for other windings. Implementations may
+    /// override this method to customize which entries are populated.
+    ///
+    /// The default implementation assumes that the inductances calculated by
+    /// the default implementations of the corresponding [`Winding`] methods
+    /// are independent of environmental conditions, as described in the
+    /// [`SimulationCache`] documentation. Implementations for which this
+    /// assumption does not hold must override this method to ensure that the
+    /// cache contains only valid values.
+    ///
+    /// A populated entry is authoritative: downstream code uses its value
+    /// instead of recalculating the corresponding quantity. Entries left as
+    /// `None` are calculated on demand, as described in the documentation of
+    /// each field.
+    ///
+    /// Implementations are responsible for ensuring that populated entries are
+    /// valid for the winding–core combination and the simulation conditions in
+    /// which they will be used.
+    #[cfg(feature = "stem_core")]
+    fn make_cache(&self, core: CoreRef<'_>, effective_air_gap: Length) -> SimulationCache {
+        if self.is_symmetric(core) {
+            let phase = NonZeroU16::MIN;
+            let fundamental = SpatialOrder::Electrical(1);
+
+            SimulationCache {
+                resistance_decomposition: self.resistance_decomposition(core),
+                fundamental_winding_factor: Some(self.winding_factor(phase, fundamental)),
+                fundamental_effective_winding_factor: Some(self.effective_winding_factor(
+                    core,
+                    phase,
+                    fundamental,
+                    effective_air_gap,
+                )),
+                main_inductance: Some(self.main_inductance(
+                    core,
+                    phase,
+                    fundamental,
+                    effective_air_gap,
+                    &[],
+                )),
+                air_gap_leakage_inductance: Some(self.air_gap_leakage_inductance(
+                    core,
+                    phase,
+                    fundamental,
+                    effective_air_gap,
+                    &[],
+                )),
+                slot_leakage_inductance: Some(self.slot_leakage_inductance(
+                    core,
+                    phase,
+                    effective_air_gap,
+                    &[],
+                )),
+                end_winding_leakage_inductance: Some(self.end_winding_leakage_inductance(
+                    core,
+                    phase,
+                    fundamental,
+                    &[],
+                )),
+                fundamental_slot_opening_factor: Some(core.slot_opening_factor(fundamental)),
+            }
+        } else {
+            SimulationCache::default()
+        }
     }
 
     // =========================================================================
@@ -1201,7 +1275,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     }
 
     /**
-    An iterator over the [`WindingHarmonic`]s of a winding.
+    Returns an iterator over the [`WindingHarmonic`]s of a winding.
 
     The iterator increments the mechanical spatial order and checks whether
     the corresponding harmonic exists using [`Winding::is_harmonic`]. If it
@@ -1564,17 +1638,14 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         return CoilsIterator::new(self.as_dyn());
     }
 
+    // TODO
     /// Checks whether the winding is symmetric, i.e. whether all phases have:
     /// - Identical [`winding_factor`](Winding::winding_factor)s for the
     ///   pole-pair spatial order.
     /// - Identical electrical [`resistance`](Winding::resistance).
     /// - The same [`series_turns_per_phase`](Winding::series_turns_per_phase).
     #[cfg(feature = "stem_core")]
-    fn is_symmetric(
-        &self,
-        core: CoreRef<'_>,
-        end_winding_half_turn_lengths: &HashMap<Zone, Length>,
-    ) -> bool {
+    fn is_symmetric(&self, core: CoreRef<'_>) -> bool {
         use uom::si::electrical_resistance::ohm;
 
         // Condition 1: Comparison of winding factors
@@ -1583,18 +1654,11 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         }
 
         // Condition 2: Calculate the phase resistance for some assumed conditions
-        let resistance_1 = self
-            .resistance(core, NonZeroU16::MIN, &[], end_winding_half_turn_lengths)
-            .get::<ohm>();
+        let resistance_1 = self.resistance(core, NonZeroU16::MIN, &[]).get::<ohm>();
         for phase in 2..(self.phases().get() + 1) {
             if approxim::abs_diff_ne!(
-                self.resistance(
-                    core,
-                    NonZeroU16::new(phase).unwrap_or(NonZeroU16::MIN),
-                    &[],
-                    end_winding_half_turn_lengths
-                )
-                .get::<ohm>(),
+                self.resistance(core, NonZeroU16::new(phase).unwrap_or(NonZeroU16::MIN), &[])
+                    .get::<ohm>(),
                 resistance_1,
                 epsilon = 1e-10
             ) {
@@ -1707,24 +1771,6 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         let leakage_factor = self.air_gap_leakage_factor(phase);
         return main_inductance * leakage_factor;
     }
-
-    //     /**
-    // Calculate the coupling factor k between the air gap flux B and the flux
-    // linkage psi: psi = B * k
-
-    // If the component has no winding, this factor is 0 (since no coupling occurs)
-    // See eq. (5.34) and (5.35) from [Mat19].
-    //  */
-    // fn convert_air_gap_flux_to_winding_linkage(&self) -> Area {
-    //         let series_turns_per_phase = winding.series_turns_per_phase(1);
-    //         let tpf_float = *series_turns_per_phase.numer() as f64 /
-    // *series_turns_per_phase.denom() as f64;         let ag_area = match
-    // self.core() {             CoreRef::Lin(c) => c.air_gap_area(),
-    //             CoreRef::Rot(c) => c.air_gap_area(),
-    //         };
-    //         return ag_area * tpf_float * self.winding_factor(1, 1.0)
-    //             / (std::f64::consts::PI * winding.pole_pairs() as f64);
-    // }
 
     /// Calculates the slot leakage inductance of the specified `phase` for a
     /// winding supplied by a symmetric sinusoidal multiphase system.
@@ -1854,7 +1900,7 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     ///     * core.axial_coil_length()
     ///     * winding.series_turns_per_phase_float(NonZeroU16::MIN).powi(2)
     ///     / (winding.pole_pairs().get() as f64 * winding.hole_number_float())
-    ///     * lambda;
+    ///     * lambda;c
     ///
     /// assert_abs_diff_eq!(analytical_inductance.get::<henry>(), 0.0024743, epsilon = 1e-7);
     /// for ph in 1..4 {
@@ -1980,39 +2026,65 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
             / self.parallel_paths(phase).get() as f64;
     }
 
-    // /// Return the total air gap inductance, which equals the sum of
-    // /// `self.air_gap_leakage_inductance(effective_air_gap)` and
-    // /// `self.main_inductance(effective_air_gap)`.
-    // fn air_gap_inductance(&self, phase: u16) -> Inductance {
-    //     let winding = match self.winding() {
-    //         Some(winding) => winding,
-    //         None => return Inductance::new::<henry>(0.0),
-    //     };
+    /// Returns the total air-gap inductance.
+    ///
+    /// This is the sum of [`Winding::main_inductance`] and
+    /// [`Winding::air_gap_leakage_inductance`].
+    fn air_gap_inductance(
+        &self,
+        core: CoreRef<'_>,
+        phase: NonZeroU16,
+        spatial_order: SpatialOrder,
+        effective_air_gap: Length,
+        conditions: &[DynQuantity<f64>],
+    ) -> Inductance {
+        self.main_inductance(core, phase, spatial_order, effective_air_gap, conditions)
+            + self.air_gap_leakage_inductance(
+                core,
+                phase,
+                spatial_order,
+                effective_air_gap,
+                conditions,
+            )
+    }
 
-    //     let leakage_factor = self
-    //         .overrides()
-    //         .air_gap_leakage_factor
-    //         .unwrap_or_else(|| winding.air_gap_leakage_factor());
+    /// Returns the total phase leakage inductance for the given spatial order.
+    ///
+    /// This is the sum of the [`Winding::air_gap_leakage_inductance`],
+    /// [`Winding::end_winding_leakage_inductance`] and
+    /// [`Winding::slot_leakage_inductance`]. See their respective documentation
+    /// for details on how each contribution is calculated.
+    fn leakage_inductance(
+        &self,
+        core: CoreRef<'_>,
+        phase: NonZeroU16,
+        spatial_order: SpatialOrder,
+        effective_air_gap: Length,
+        conditions: &[DynQuantity<f64>],
+    ) -> Inductance {
+        self.air_gap_leakage_inductance(core, phase, spatial_order, effective_air_gap, conditions)
+            + self.end_winding_leakage_inductance(core, phase, spatial_order, conditions)
+            + self.slot_leakage_inductance(core, phase, effective_air_gap, conditions)
+    }
 
-    //     return self.main_inductance(phase) * (1.0 + leakage_factor);
-    // }
-
-    // /// Return the total leakage inductance. The temperature and frequency
-    // /// parameters are used to take AC effects like current displacement into
-    // /// account. If only the DC behaviour is of interest, those values can
-    // /// be set to zero.
-    // fn leakage_inductance(&self, phase: u16, conditions: &[InfluencingQuantity])
-    // -> Inductance {     return self.air_gap_leakage_inductance(phase)
-    //         + self.end_winding_leakage_inductance(phase)
-    //         + self.slot_leakage_inductance(phase, conditions);
-    // }
-
-    // /// Return the total inductance.
-    // fn inductance(&self, phase: u16, conditions: &[InfluencingQuantity]) ->
-    // Inductance {     return self.air_gap_inductance(phase)
-    //         + self.end_winding_leakage_inductance(phase)
-    //         + self.slot_leakage_inductance(phase, conditions);
-    // }
+    /// Returns the total phase inductance for the given spatial order.
+    ///
+    /// This is the sum of the [`Winding::air_gap_inductance`],
+    /// [`Winding::end_winding_leakage_inductance`] and
+    /// [`Winding::slot_leakage_inductance`]. See their respective documentation
+    /// for details on how each contribution is calculated.
+    fn inductance(
+        &self,
+        core: CoreRef<'_>,
+        phase: NonZeroU16,
+        spatial_order: SpatialOrder,
+        effective_air_gap: Length,
+        conditions: &[DynQuantity<f64>],
+    ) -> Inductance {
+        self.air_gap_inductance(core, phase, spatial_order, effective_air_gap, conditions)
+            + self.end_winding_leakage_inductance(core, phase, spatial_order, conditions)
+            + self.slot_leakage_inductance(core, phase, effective_air_gap, conditions)
+    }
 
     /// Returns an iterator over all coils of the winding and their physical
     /// properties.
@@ -2045,11 +2117,10 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// .unwrap();
     ///
     /// let core = RotCore::from_winding(&winding);
-    /// let end_winding_half_turn_lengths = HashMap::new();
     ///
     /// // Calculate the total mass of all coils
     /// let mass: Mass = winding
-    ///     .coil_properties_iter(core.as_core_ref(), end_winding_half_turn_lengths)
+    ///     .coil_properties_iter(core.as_core_ref())
     ///     .map(|cp| cp.volume() * cp.material().mass_density().get(&[])).sum();
     ///
     /// assert_abs_diff_eq!(mass.get::<kilogram>(), 0.10108, epsilon = 0.0001);
@@ -2058,22 +2129,18 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     fn coil_properties_iter<'a>(
         &'a self,
         core: CoreRef<'a>,
-        end_winding_half_turn_lengths: &'a HashMap<Zone, Length>,
     ) -> crate::core_support::CoilPropertyIterator<'a> {
         return crate::core_support::CoilPropertyIterator {
             coils: self.coils_iter(),
             winding: self.as_dyn(),
             core,
-            end_winding_half_turn_lengths,
         };
     }
 
     /// Returns a [`CoilProperties`] context for the [`Coil`] containing the
     /// specified [`Zone`]. The returned `CoilProperties` combines the coil with
     /// this winding, the specified [`CoreRef`], and the supplied end-winding
-    /// half-turn length overrides. If `end_winding_half_turn_lengths` does not
-    /// contain an override for a zone of the coil, the end winding length is
-    /// calculated on demand with [`Winding::end_winding_half_turn_length`].
+    /// half-turn length overrides.
     ///
     /// These values are used by the physical-property calculations provided by
     /// [`CoilProperties`].
@@ -2084,14 +2151,12 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         &'a self,
         core: CoreRef<'a>,
         zone: Zone,
-        end_winding_half_turn_lengths: &'a HashMap<Zone, Length>,
     ) -> Option<crate::core_support::CoilProperties<'a>> {
         let coil = self.coil_at(zone)?;
         return Some(crate::core_support::CoilProperties::new(
             coil,
             self.as_dyn(),
             core,
-            end_winding_half_turn_lengths,
             None,
         ));
     }
@@ -2117,13 +2182,11 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// `turn_length = axial_coil_length + axial_coil_overhang +
     /// end_winding_half_turn_length`.
     ///
-    /// Here, axial_coil_length and axial_coil_overhang are obtained from `core`
-    /// via [`CoreExt::axial_coil_length`] and [`CoreExt::axial_coil_overhang`],
-    /// respectively. The end_winding_half_turn_length can be supplied
-    /// explicitly for each zone through the `end_winding_half_turn_lengths`
-    /// map. If no override is provided for a zone, it is calculated using
-    /// [`Winding::end_winding_half_turn_length`]. If no overrides are desired,
-    /// an empty map can be provided with [`Default::default`].
+    /// Here, `axial_coil_length` and `axial_coil_overhang` are obtained from
+    /// `core` via [`CoreExt::axial_coil_length`] and
+    /// [`CoreExt::axial_coil_overhang`], respectively. The
+    /// `end_winding_half_turn_length` value comes from
+    /// [`Winding::end_winding_half_turn_length`].
     ///
     /// The specified environmental conditions are forwarded to
     /// [`CoilExt::resistance`].
@@ -2290,7 +2353,6 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         core: CoreRef<'_>,
         phase: NonZeroU16,
         conditions: &[DynQuantity<f64>],
-        end_winding_half_turn_lengths: &HashMap<Zone, Length>,
     ) -> ElectricalResistance {
         // Calculate the phase resistance by calculating the phase resistance of each
         // individual coil and then summing them up
@@ -2302,10 +2364,8 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
                     if let Some(zone_contour) = core.winding_zone_at(&self.coil_layout(), zone) {
                         let zone_area = Area::new::<square_meter>(zone_contour.area());
 
-                        let end_winding_half_turn_length = end_winding_half_turn_lengths
-                            .get(&zone)
-                            .cloned()
-                            .unwrap_or_else(|| self.end_winding_half_turn_length(core, zone));
+                        let end_winding_half_turn_length =
+                            self.end_winding_half_turn_length(core, zone);
                         let length = core.axial_coil_length()
                             + core.axial_coil_overhang()
                             + end_winding_half_turn_length;
@@ -2417,18 +2477,14 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
     /// assert_abs_diff_eq!(r120, decomposition.resistance(&conditions).get::<ohm>(), epsilon = 0.0001);
     /// ```
     #[cfg(feature = "stem_core")]
-    fn resistance_decomposition(
-        &self,
-        core: CoreRef<'_>,
-        end_winding_half_turn_lengths: &HashMap<Zone, Length>,
-    ) -> Option<ResistanceDecomposition> {
-        if !self.is_symmetric(core, end_winding_half_turn_lengths) {
+    fn resistance_decomposition(&self, core: CoreRef<'_>) -> Option<ResistanceDecomposition> {
+        if !self.is_symmetric(core) {
             return None;
         }
 
         let material = self.coils_iter().next()?.wire().material_arc().clone();
 
-        let resistance = self.resistance(core, NonZeroU16::MIN, &[], end_winding_half_turn_lengths);
+        let resistance = self.resistance(core, NonZeroU16::MIN, &[]);
         let electrical_resistivity = material.electrical_resistivity().get(&[]);
         return Some(ResistanceDecomposition {
             resistance_constant: resistance / electrical_resistivity,
@@ -2462,6 +2518,51 @@ pub trait Winding: Sync + Send + Any + DynClone + std::fmt::Debug + 'static {
         self.winding_factor(phase, spatial_order)
             * core.air_gap_curvature_factor(effective_air_gap, spatial_order)
             * core.slot_opening_factor(spatial_order)
+    }
+
+    /// Returns the flux linkage per air-gap flux density for the given phase
+    /// and spatial order.
+    ///
+    /// The returned area `Cν` relates the air-gap flux density harmonic `Bν` to
+    /// the resulting flux linkage `Ψν`:
+    ///
+    /// `Ψν = Cν * Bν`.
+    ///
+    /// The time variation of the flux linkage induces a voltage:
+    ///
+    /// `uν = dΨν / dt`
+    ///
+    /// The factor `Cν` accounts for the coil geometry by transforming the
+    /// actual winding to an idealized single-turn coil spanning an entire
+    /// pole pair. Reference [\[1\]](#flux_linkage_per_air_gap_flux_density_1),
+    /// equations (5.34) and (5.35), derives this factor for rotary cores.
+    /// Generalized to both rotary and linear machines, it is calculated as
+    ///
+    /// `Cν = A * N_s * k_w,ν / (π * p)`
+    ///
+    /// where `A` is the air gap area of the core ([`CoreExt::air_gap_area`]),
+    /// `N_s` is the
+    /// [`series_turns_per_phase`](Winding::series_turns_per_phase), `k_w,ν`
+    /// is the [`effective_winding_factor`](Winding::effective_winding_factor)
+    /// for the spatial order `ν` and `p` is the number of
+    /// [`pole_pairs`](Winding::pole_pairs).
+    ///
+    /// # Literature
+    /// <a id="flux_linkage_per_air_gap_flux_density_1">\[1\]</a>
+    /// Mathis, S.: Permanentmagneterregte Line-Start-Antriebe in Ferrittechnik,
+    /// PhD thesis, Shaker, 2019, URL:
+    /// <https://kluedo.ub.rptu.de/frontdoor/index/index/docId/8192>
+    fn flux_linkage_per_air_gap_flux_density(
+        &self,
+        core: CoreRef<'_>,
+        phase: NonZeroU16,
+        spatial_order: SpatialOrder,
+        effective_air_gap: Length,
+    ) -> Area {
+        return core.air_gap_area()
+            * self.series_turns_per_phase_float(phase)
+            * self.effective_winding_factor(core, phase, spatial_order, effective_air_gap)
+            / (PI * f64::from(self.pole_pairs().get()));
     }
 
     // TODO

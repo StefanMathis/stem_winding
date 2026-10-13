@@ -1,5 +1,3 @@
-#[cfg(feature = "stem_core")]
-use std::collections::HashMap;
 use std::num::{NonZeroU16, NonZeroUsize};
 
 use compare_variables::compare_variables;
@@ -381,11 +379,7 @@ impl Winding for DistributedToothCoilWinding {
     }
 
     #[cfg(feature = "stem_core")]
-    fn is_symmetric(
-        &self,
-        _core: CoreRef<'_>,
-        _end_winding_half_turn_lengths: &HashMap<Zone, Length>,
-    ) -> bool {
+    fn is_symmetric(&self, _core: CoreRef<'_>) -> bool {
         true
     }
 
@@ -394,14 +388,12 @@ impl Winding for DistributedToothCoilWinding {
         &self,
         core: CoreRef<'_>,
         _phase: NonZeroU16,
-        end_winding_half_turn_length: Option<Length>,
+        spatial_order: SpatialOrder,
+        conditions: &[DynQuantity<f64>],
     ) -> Inductance {
-        end_winding_leakage_inductance_tooth_coil(
-            self,
-            core,
-            end_winding_half_turn_length,
-            self.end_winding_leakage_coefficient,
-        )
+        let _ = spatial_order;
+        let _ = conditions;
+        end_winding_leakage_inductance_tooth_coil(self, core, self.end_winding_leakage_coefficient)
     }
 
     #[cfg(feature = "stem_core")]

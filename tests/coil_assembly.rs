@@ -414,6 +414,7 @@ mod stem_core_tests {
             end_winding_leakage_coefficient: 0.25,
             wire: Box::new(wire.clone()),
             concentric_coils: false,
+            mean_end_winding_half_turn_length: None,
         }
         .try_into()
         .unwrap();
@@ -431,7 +432,7 @@ mod stem_core_tests {
         // Check the wire volume
         approxim::assert_abs_diff_eq!(
             winding
-                .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
+                .coil_properties_iter(CoreRef::Rot(&core))
                 .map(|cp| cp.volume())
                 .sum::<Volume>()
                 .get::<cubic_centimeter>(),
@@ -442,12 +443,7 @@ mod stem_core_tests {
         // Check the phase resistance
         approxim::assert_abs_diff_eq!(
             coil_assembly
-                .resistance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    &[],
-                    &Default::default(),
-                )
+                .resistance(CoreRef::Rot(&core), NonZeroU16::MIN, &[],)
                 .get::<ohm>(),
             1.04848,
             epsilon = 0.0001
@@ -469,7 +465,12 @@ mod stem_core_tests {
 
         approxim::assert_abs_diff_eq!(
             coil_assembly
-                .end_winding_leakage_inductance(CoreRef::Rot(&core), NonZeroU16::MIN, None,)
+                .end_winding_leakage_inductance(
+                    CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
+                    SpatialOrder::Electrical(1),
+                    &[]
+                )
                 .get::<henry>(),
             0.0,
             epsilon = 1e-6

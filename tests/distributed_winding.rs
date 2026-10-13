@@ -273,6 +273,7 @@ fn test_set_concentric() {
         wire: Box::new(SffWire::default()),
         concentric_coils: true,
         winding_table_constructor: WindingTableConstructor::Tingley,
+        mean_end_winding_half_turn_length: None,
     }
     .try_into()
     .unwrap();
@@ -291,6 +292,7 @@ fn test_set_concentric() {
         wire: Box::new(SffWire::default()),
         concentric_coils: false,
         winding_table_constructor: WindingTableConstructor::Tingley,
+        mean_end_winding_half_turn_length: None,
     }
     .try_into()
     .unwrap();
@@ -449,6 +451,7 @@ fn test_coil_span() {
             wire: Box::new(SffWire::default()),
             concentric_coils: true,
             winding_table_constructor: WindingTableConstructor::Tingley,
+            mean_end_winding_half_turn_length: None,
         }
         .try_into()
         .unwrap();
@@ -482,6 +485,7 @@ fn test_coil_span() {
             wire: Box::new(SffWire::default()),
             concentric_coils: true,
             winding_table_constructor: WindingTableConstructor::Tingley,
+            mean_end_winding_half_turn_length: None,
         }
         .try_into()
         .unwrap();
@@ -664,6 +668,7 @@ fn test_failed_creation() {
             wire: Box::new(SffWire::default()),
             concentric_coils: false,
             winding_table_constructor: WindingTableConstructor::Tingley,
+            mean_end_winding_half_turn_length: None,
         })
         .is_err()
     );
@@ -926,6 +931,7 @@ fn test_series_turns_per_phase() {
         wire: Box::new(SffWire::default()),
         concentric_coils: false,
         winding_table_constructor: WindingTableConstructor::Tingley,
+        mean_end_winding_half_turn_length: None,
     }
     .try_into()
     .unwrap();
@@ -947,6 +953,7 @@ fn test_series_turns_per_phase() {
         wire: Box::new(SffWire::default()),
         concentric_coils: false,
         winding_table_constructor: WindingTableConstructor::Tingley,
+        mean_end_winding_half_turn_length: None,
     }
     .try_into()
     .unwrap();
@@ -971,6 +978,7 @@ fn test_doubled_zone_span() {
             wire: Box::new(SffWire::default()),
             winding_table_constructor: WindingTableConstructor::Tingley,
             concentric_coils: false,
+            mean_end_winding_half_turn_length: None,
         })
         .is_err()
     );
@@ -987,6 +995,7 @@ fn test_doubled_zone_span() {
         wire: Box::new(SffWire::default()),
         winding_table_constructor: WindingTableConstructor::Tingley,
         concentric_coils: false,
+        mean_end_winding_half_turn_length: None,
     })
     .unwrap();
 
@@ -1147,6 +1156,7 @@ fn test_normalized_induction_amp() {
             wire: Box::new(SffWire::default()),
             concentric_coils: false,
             winding_table_constructor: WindingTableConstructor::Tingley,
+            mean_end_winding_half_turn_length: None,
         })
         .unwrap();
 
@@ -1557,7 +1567,7 @@ mod stem_core_tests {
             WireGroup::new(Box::new(wire_2), 3.try_into().unwrap()),
         ];
         let wire = StrandedWire::new(strand_list).unwrap();
-        let winding: DistributedWinding = DistributedBuilder {
+        let mut winding: DistributedWinding = DistributedBuilder {
             slots: 36.try_into().expect("not zero"),
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
@@ -1571,16 +1581,10 @@ mod stem_core_tests {
             end_winding_leakage_coefficient: 0.25,
             wire: Box::new(wire.clone()),
             concentric_coils: false,
+            mean_end_winding_half_turn_length: None,
         }
         .try_into()
         .unwrap();
-
-        let end_winding_half_turn_length = Length::new::<millimeter>(157.57);
-        let mut overrides = Overrides::default();
-        overrides.set_same_end_winding_half_turn_length(
-            winding.coils_iter(),
-            end_winding_half_turn_length,
-        );
 
         // Check the coil turn length in the core
         assert_abs_diff_eq!(
@@ -1601,7 +1605,7 @@ mod stem_core_tests {
         // Check the wire volume
         assert_abs_diff_eq!(
             winding
-                .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
+                .coil_properties_iter(CoreRef::Rot(&core))
                 .map(|cp| cp.volume())
                 .sum::<Volume>()
                 .get::<cubic_centimeter>(),
@@ -1610,7 +1614,7 @@ mod stem_core_tests {
         );
         assert_abs_diff_eq!(
             winding
-                .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
+                .coil_properties_iter(CoreRef::Rot(&core))
                 .map(|cp| cp.axial_volume())
                 .sum::<Volume>()
                 .get::<cubic_centimeter>(),
@@ -1619,7 +1623,7 @@ mod stem_core_tests {
         );
         assert_abs_diff_eq!(
             winding
-                .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
+                .coil_properties_iter(CoreRef::Rot(&core))
                 .map(|cp| cp.end_winding_volume())
                 .sum::<Volume>()
                 .get::<cubic_centimeter>(),
@@ -1627,74 +1631,14 @@ mod stem_core_tests {
             epsilon = 0.0001
         );
 
-        assert_abs_diff_eq!(
-            winding
-                .coil_properties_iter(
-                    CoreRef::Rot(&core),
-                    &overrides.end_winding_half_turn_lengths
-                )
-                .map(|cp| cp.volume())
-                .sum::<Volume>()
-                .get::<cubic_centimeter>(),
-            681.4172333,
-            epsilon = 0.0001
-        );
-        assert_abs_diff_eq!(
-            winding
-                .coil_properties_iter(
-                    CoreRef::Rot(&core),
-                    &overrides.end_winding_half_turn_lengths
-                )
-                .map(|cp| cp.axial_volume())
-                .sum::<Volume>()
-                .get::<cubic_centimeter>(),
-            348.55641,
-            epsilon = 0.0001
-        );
-        assert_abs_diff_eq!(
-            winding
-                .coil_properties_iter(
-                    CoreRef::Rot(&core),
-                    &overrides.end_winding_half_turn_lengths
-                )
-                .map(|cp| cp.end_winding_volume())
-                .sum::<Volume>()
-                .get::<cubic_centimeter>(),
-            332.86081,
-            epsilon = 0.0001
-        );
-
-        // Mass of the winding
-        assert_abs_diff_eq!(
-            winding
-                .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
-                .map(|cp| cp.volume() * cp.material().mass_density().get(&[]))
-                .sum::<Mass>()
-                .get::<kilogram>(),
-            5.6297,
-            epsilon = 1e-3
-        );
-
         for ph in 1..4 {
             let phase = NonZeroU16::new(ph).expect("not zero");
 
             assert_abs_diff_eq!(
                 winding
-                    .resistance(CoreRef::Rot(&core), phase, &[], &Default::default(),)
+                    .resistance(CoreRef::Rot(&core), phase, &[])
                     .get::<ohm>(),
                 1.04848,
-                epsilon = 0.0001
-            );
-            assert_abs_diff_eq!(
-                winding
-                    .resistance(
-                        CoreRef::Rot(&core),
-                        phase,
-                        &[],
-                        &overrides.end_winding_half_turn_lengths
-                    )
-                    .get::<ohm>(),
-                1.13201,
                 epsilon = 0.0001
             );
 
@@ -1739,17 +1683,89 @@ mod stem_core_tests {
             );
             assert_abs_diff_eq!(
                 winding
-                    .end_winding_leakage_inductance(CoreRef::Rot(&core), phase, None)
+                    .end_winding_leakage_inductance(
+                        CoreRef::Rot(&core),
+                        phase,
+                        SpatialOrder::Electrical(1),
+                        &[]
+                    )
                     .get::<henry>(),
                 0.0014538,
                 epsilon = 1e-6
+            );
+        }
+
+        // Mass of the winding
+        assert_abs_diff_eq!(
+            winding
+                .coil_properties_iter(CoreRef::Rot(&core))
+                .map(|cp| cp.volume() * cp.material().mass_density().get(&[]))
+                .sum::<Mass>()
+                .get::<kilogram>(),
+            5.6297,
+            epsilon = 1e-3
+        );
+
+        winding
+            .set_mean_end_winding_half_turn_length(Some(Length::new::<millimeter>(157.57)))
+            .unwrap();
+
+        assert_abs_diff_eq!(
+            winding
+                .coil_properties_iter(CoreRef::Rot(&core),)
+                .map(|cp| cp.volume())
+                .sum::<Volume>()
+                .get::<cubic_centimeter>(),
+            681.4172333,
+            epsilon = 0.0001
+        );
+        assert_abs_diff_eq!(
+            winding
+                .coil_properties_iter(CoreRef::Rot(&core),)
+                .map(|cp| cp.axial_volume())
+                .sum::<Volume>()
+                .get::<cubic_centimeter>(),
+            348.55641,
+            epsilon = 0.0001
+        );
+        assert_abs_diff_eq!(
+            winding
+                .coil_properties_iter(CoreRef::Rot(&core),)
+                .map(|cp| cp.end_winding_volume())
+                .sum::<Volume>()
+                .get::<cubic_centimeter>(),
+            332.86081,
+            epsilon = 0.0001
+        );
+
+        // Mass of the winding
+        assert_abs_diff_eq!(
+            winding
+                .coil_properties_iter(CoreRef::Rot(&core))
+                .map(|cp| cp.volume() * cp.material().mass_density().get(&[]))
+                .sum::<Mass>()
+                .get::<kilogram>(),
+            6.0782,
+            epsilon = 1e-3
+        );
+
+        for ph in 1..4 {
+            let phase = NonZeroU16::new(ph).expect("not zero");
+
+            assert_abs_diff_eq!(
+                winding
+                    .resistance(CoreRef::Rot(&core), phase, &[],)
+                    .get::<ohm>(),
+                1.13201,
+                epsilon = 0.0001
             );
             assert_abs_diff_eq!(
                 winding
                     .end_winding_leakage_inductance(
                         CoreRef::Rot(&core),
                         phase,
-                        Some(end_winding_half_turn_length)
+                        SpatialOrder::Electrical(1),
+                        &[]
                     )
                     .get::<henry>(),
                 0.0017129,
@@ -1798,16 +1814,10 @@ mod stem_core_tests {
             end_winding_leakage_coefficient: 0.25,
             wire: Box::new(wire.clone()),
             concentric_coils: false,
+            mean_end_winding_half_turn_length: None,
         }
         .try_into()
         .unwrap();
-
-        let end_winding_half_turn_length = Length::new::<millimeter>(157.57);
-        let mut overrides = Overrides::default();
-        overrides.set_same_end_winding_half_turn_length(
-            winding.coils_iter(),
-            end_winding_half_turn_length,
-        );
 
         // Check the coil turn length in the core
         assert_abs_diff_eq!(
@@ -1831,24 +1841,11 @@ mod stem_core_tests {
             let phase = NonZeroU16::new(ph).expect("not zero");
             assert_abs_diff_eq!(
                 winding
-                    .resistance(CoreRef::Rot(&core), phase, &[], &Default::default(),)
+                    .resistance(CoreRef::Rot(&core), phase, &[])
                     .get::<ohm>(),
                 2.04493,
                 epsilon = 0.0001
             );
-            assert_abs_diff_eq!(
-                winding
-                    .resistance(
-                        CoreRef::Rot(&core),
-                        phase,
-                        &[],
-                        &overrides.end_winding_half_turn_lengths
-                    )
-                    .get::<ohm>(),
-                2.26403,
-                epsilon = 0.0001
-            );
-
             assert_abs_diff_eq!(
                 winding
                     .slot_leakage_inductance(
@@ -1859,17 +1856,6 @@ mod stem_core_tests {
                     )
                     .get::<henry>(),
                 0.0175133,
-                epsilon = 1e-6
-            );
-            assert_abs_diff_eq!(
-                winding
-                    .end_winding_leakage_inductance(
-                        CoreRef::Rot(&core),
-                        phase,
-                        Some(end_winding_half_turn_length)
-                    )
-                    .get::<henry>(),
-                0.00685029,
                 epsilon = 1e-6
             );
         }
@@ -1915,6 +1901,7 @@ mod stem_core_tests {
             end_winding_leakage_coefficient: 0.25,
             wire: Box::new(wire.clone()),
             concentric_coils: false,
+            mean_end_winding_half_turn_length: None,
         }
         .try_into()
         .unwrap();
@@ -1926,36 +1913,12 @@ mod stem_core_tests {
             epsilon = 0.0001
         );
 
-        let end_winding_half_turn_length = Length::new::<millimeter>(157.57);
-        let mut overrides = Overrides::default();
-        overrides.set_same_end_winding_half_turn_length(
-            winding.coils_iter(),
-            end_winding_half_turn_length,
-        );
-
         // Check the phase resistance
         assert_abs_diff_eq!(
             winding
-                .resistance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    &[],
-                    &Default::default()
-                )
+                .resistance(CoreRef::Rot(&core), NonZeroU16::MIN, &[],)
                 .get::<ohm>(),
             2.06280, // Expected value in Ohm
-            epsilon = 0.0001
-        );
-        assert_abs_diff_eq!(
-            winding
-                .resistance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    &[],
-                    &overrides.end_winding_half_turn_lengths
-                )
-                .get::<ohm>(),
-            2.28190, // Expected value in Ohm
             epsilon = 0.0001
         );
     }
@@ -2000,6 +1963,7 @@ mod stem_core_tests {
             end_winding_leakage_coefficient: 0.25,
             wire: Box::new(wire.clone()),
             concentric_coils: false,
+            mean_end_winding_half_turn_length: None,
         }
         .try_into()
         .unwrap();
@@ -2028,12 +1992,7 @@ mod stem_core_tests {
         // Check the phase resistance
         assert_abs_diff_eq!(
             winding
-                .resistance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    &[],
-                    &Default::default(),
-                )
+                .resistance(CoreRef::Rot(&core), NonZeroU16::MIN, &[],)
                 .get::<ohm>(),
             1.96508,
             epsilon = 0.0001
@@ -2065,6 +2024,7 @@ mod stem_core_tests {
                 end_winding_leakage_coefficient: 0.25,
                 wire: Box::new(wire.clone()),
                 concentric_coils: false,
+                mean_end_winding_half_turn_length: None,
             }
             .try_into()
             .unwrap()

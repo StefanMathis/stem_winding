@@ -1,8 +1,6 @@
-#[cfg(feature = "stem_core")]
-use std::collections::HashMap;
 use std::num::{NonZeroU16, NonZeroUsize};
 
-use compare_variables::compare_variables;
+use compare_variables::{Comparison, compare_variables};
 
 use dyn_clone::clone_box;
 use num::rational::Ratio;
@@ -68,6 +66,7 @@ pub struct DistributedWinding {
     coils: Coils,
     winding_table_constructor: WindingTableConstructor,
     concentric_coils: bool,
+    mean_end_winding_half_turn_length: Option<Length>,
 }
 
 impl DistributedWinding {
@@ -144,6 +143,22 @@ impl DistributedWinding {
 
     pub fn end_winding_leakage_coefficient(&self) -> f64 {
         self.end_winding_leakage_coefficient
+    }
+
+    pub fn mean_end_winding_half_turn_length(&self) -> Option<Length> {
+        self.mean_end_winding_half_turn_length
+    }
+
+    pub fn set_mean_end_winding_half_turn_length(
+        &mut self,
+        mean_end_winding_half_turn_length: Option<Length>,
+    ) -> Result<(), Comparison<Length>> {
+        if let Some(mean_end_winding_half_turn_length) = mean_end_winding_half_turn_length {
+            let zero_length = Length::new::<meter>(0.0);
+            compare_variables!(mean_end_winding_half_turn_length >= zero_length)?;
+        }
+        self.mean_end_winding_half_turn_length = mean_end_winding_half_turn_length;
+        Ok(())
     }
 
     /**
@@ -450,6 +465,7 @@ impl Default for DistributedWinding {
             wire: Box::new(SffWire::default()),
             winding_table_constructor: WindingTableConstructor::Tingley,
             concentric_coils: false,
+            mean_end_winding_half_turn_length: None,
         }
         .try_into()
         .expect("valid inputs")
@@ -520,11 +536,7 @@ impl Winding for DistributedWinding {
     }
 
     #[cfg(feature = "stem_core")]
-    fn is_symmetric(
-        &self,
-        _core: CoreRef<'_>,
-        _end_winding_half_turn_lengths: &HashMap<Zone, Length>,
-    ) -> bool {
+    fn is_symmetric(&self, _core: CoreRef<'_>) -> bool {
         return true;
     }
 
@@ -533,24 +545,25 @@ impl Winding for DistributedWinding {
         &self,
         core: CoreRef<'_>,
         _phase: NonZeroU16,
-        end_winding_half_turn_length: Option<Length>,
+        spatial_order: SpatialOrder,
+        conditions: &[DynQuantity<f64>],
     ) -> Inductance {
-        end_winding_leakage_inductance_distributed(
-            self,
-            core,
-            end_winding_half_turn_length,
-            self.end_winding_leakage_coefficient,
-        )
+        let _ = spatial_order;
+        let _ = conditions;
+        end_winding_leakage_inductance_distributed(self, core, self.end_winding_leakage_coefficient)
     }
 
     #[cfg(feature = "stem_core")]
     fn end_winding_half_turn_length(&self, core: CoreRef<'_>, zone: Zone) -> Length {
-        match core {
-            CoreRef::Lin(lin_core) => end_winding_half_turn_length_straight(self, lin_core, zone),
-            CoreRef::Rot(rot_core) => {
-                end_winding_half_turn_length_circular_arc(self, rot_core, zone)
-            }
-        }
+        self.mean_end_winding_half_turn_length
+            .unwrap_or_else(|| match core {
+                CoreRef::Lin(lin_core) => {
+                    end_winding_half_turn_length_straight(self, lin_core, zone)
+                }
+                CoreRef::Rot(rot_core) => {
+                    end_winding_half_turn_length_circular_arc(self, rot_core, zone)
+                }
+            })
     }
 }
 
@@ -574,6 +587,8 @@ pub struct DistributedBuilder {
     pub end_winding_leakage_coefficient: f64,
     pub wire: Box<dyn Wire>,
     pub concentric_coils: bool,
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub mean_end_winding_half_turn_length: Option<Length>,
 }
 
 impl TryFrom<DistributedBuilder> for DistributedWinding {
@@ -642,7 +657,9 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
             coils: Coils::with_capacity(num_zones, num_coils),
             winding_table_constructor: builder.winding_table_constructor,
             concentric_coils: builder.concentric_coils,
+            mean_end_winding_half_turn_length: None,
         };
+        winding.set_mean_end_winding_half_turn_length(builder.mean_end_winding_half_turn_length)?;
         winding.create_coils(&winding_table)?;
 
         if winding.equal_winding_factors() {
@@ -668,6 +685,8 @@ pub struct DistributedDoubleZoneSpanBuilder {
     pub wire: Box<dyn Wire>,
     pub winding_table_constructor: WindingTableConstructor,
     pub concentric_coils: bool,
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub mean_end_winding_half_turn_length: Option<Length>,
 }
 
 impl TryFrom<DistributedDoubleZoneSpanBuilder> for DistributedWinding {
@@ -698,6 +717,7 @@ impl TryFrom<DistributedDoubleZoneSpanBuilder> for DistributedWinding {
             end_winding_leakage_coefficient: builder.end_winding_leakage_coefficient,
             wire: builder.wire,
             concentric_coils: builder.concentric_coils,
+            mean_end_winding_half_turn_length: builder.mean_end_winding_half_turn_length,
         }
         .try_into()
     }
@@ -736,6 +756,7 @@ impl TryFrom<DistributedMinimalBuilder> for DistributedWinding {
             end_winding_leakage_coefficient: 0.0,
             wire: Box::new(SffWire::default()),
             concentric_coils: false,
+            mean_end_winding_half_turn_length: None,
         }
         .try_into();
     }

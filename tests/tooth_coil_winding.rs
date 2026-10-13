@@ -873,6 +873,7 @@ mod stem_core_tests {
             end_winding_leakage_coefficient: 0.25,
             wire: Box::new(wire),
             winding_table_constructor: WindingTableConstructor::Tingley,
+            mean_end_winding_half_turn_length: None,
         }
         .try_into()
         .unwrap()
@@ -893,6 +894,7 @@ mod stem_core_tests {
             end_winding_leakage_coefficient: 0.25,
             wire: Box::new(wire),
             winding_table_constructor: WindingTableConstructor::Tingley,
+            mean_end_winding_half_turn_length: None,
         }
         .try_into()
         .unwrap()

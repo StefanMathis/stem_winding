@@ -1,8 +1,6 @@
-#[cfg(feature = "stem_core")]
-use std::collections::HashMap;
 use std::num::{NonZeroU16, NonZeroUsize};
 
-use compare_variables::compare_variables;
+use compare_variables::{Comparison, compare_variables};
 use dyn_clone::clone_box;
 use num::Integer;
 use stem_types::{CoilLayout, Zone};
@@ -116,6 +114,7 @@ pub struct QuadrupleLayerToothCoilWinding {
     #[cfg_attr(feature = "serde", serde(skip))]
     coils: Coils,
     winding_table_constructor: WindingTableConstructor,
+    mean_end_winding_half_turn_length: Option<Length>,
 }
 
 impl QuadrupleLayerToothCoilWinding {
@@ -149,6 +148,22 @@ impl QuadrupleLayerToothCoilWinding {
 
     pub fn end_winding_leakage_coefficient(&self) -> f64 {
         self.end_winding_leakage_coefficient
+    }
+
+    pub fn mean_end_winding_half_turn_length(&self) -> Option<Length> {
+        self.mean_end_winding_half_turn_length
+    }
+
+    pub fn set_mean_end_winding_half_turn_length(
+        &mut self,
+        mean_end_winding_half_turn_length: Option<Length>,
+    ) -> Result<(), Comparison<Length>> {
+        if let Some(mean_end_winding_half_turn_length) = mean_end_winding_half_turn_length {
+            let zero_length = Length::new::<meter>(0.0);
+            compare_variables!(mean_end_winding_half_turn_length >= zero_length)?;
+        }
+        self.mean_end_winding_half_turn_length = mean_end_winding_half_turn_length;
+        Ok(())
     }
 
     /**
@@ -377,11 +392,7 @@ impl Winding for QuadrupleLayerToothCoilWinding {
     }
 
     #[cfg(feature = "stem_core")]
-    fn is_symmetric(
-        &self,
-        _core: CoreRef<'_>,
-        _end_winding_half_turn_lengths: &HashMap<Zone, Length>,
-    ) -> bool {
+    fn is_symmetric(&self, _core: CoreRef<'_>) -> bool {
         return true;
     }
 
@@ -390,14 +401,12 @@ impl Winding for QuadrupleLayerToothCoilWinding {
         &self,
         core: CoreRef<'_>,
         _phase: NonZeroU16,
-        end_winding_half_turn_length: Option<Length>,
+        spatial_order: SpatialOrder,
+        conditions: &[DynQuantity<f64>],
     ) -> Inductance {
-        end_winding_leakage_inductance_tooth_coil(
-            self,
-            core,
-            end_winding_half_turn_length,
-            self.end_winding_leakage_coefficient,
-        )
+        let _ = spatial_order;
+        let _ = conditions;
+        end_winding_leakage_inductance_tooth_coil(self, core, self.end_winding_leakage_coefficient)
     }
 
     #[cfg(feature = "stem_core")]
@@ -420,6 +429,8 @@ pub struct QuadrupleLayerToothCoilBuilder {
     pub end_winding_leakage_coefficient: f64,
     pub wire: Box<dyn Wire>,
     pub winding_table_constructor: WindingTableConstructor,
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub mean_end_winding_half_turn_length: Option<Length>,
 }
 
 impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding {
@@ -519,7 +530,9 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
                 usize::from(builder.slots.get()) * 4,
                 usize::from(builder.slots.get()) * 2,
             ),
+            mean_end_winding_half_turn_length: None,
         };
+        winding.set_mean_end_winding_half_turn_length(builder.mean_end_winding_half_turn_length)?;
 
         /*
         Assert that all coils of a coil group are located next to each other.
@@ -593,6 +606,7 @@ impl TryFrom<QuadrupleLayerToothCoilMinimalBuilder> for QuadrupleLayerToothCoilW
             end_winding_leakage_coefficient: 0.0,
             wire: Box::new(SffWire::default()),
             winding_table_constructor: builder.winding_table_constructor,
+            mean_end_winding_half_turn_length: None,
         }
         .try_into()
     }

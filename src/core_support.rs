@@ -10,7 +10,6 @@
 //! here, such as the end-winding half-turn length calculations.
 
 use std::{
-    collections::HashMap,
     f64::consts::{FRAC_PI_2, PI, TAU},
     num::NonZeroU16,
     sync::Arc,
@@ -20,9 +19,6 @@ use stem_core::{planar_geo::composite::Composite, prelude::*};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-
-#[cfg(feature = "serde")]
-use dyn_quantity::deserialize_opt_quantity;
 
 #[cfg(feature = "serde")]
 use serde_mosaic::{deserialize_arc_link, serialize_arc_link};
@@ -271,6 +267,32 @@ pub struct ResistanceDecomposition {
 }
 
 impl ResistanceDecomposition {
+    /// Returns a new [`ResistanceDecomposition`] for the given `winding` and
+    /// `core`.
+    ///
+    /// This function assumes that all phase resistances of the winding can be
+    /// modeled by the relationship
+    ///
+    /// `R_i = k_R * rho`,
+    ///
+    /// with `i = 1, ..., winding.phases()` (`k_R` and `rho` are the same for
+    /// all phases). In particular this means that the winding
+    /// [`is_symmetric`](Winding::is_symmetric) and that each coil consists of
+    /// the same material. This is not checked during construction!
+    pub fn new<W: Winding + ?Sized>(winding: &W, core: CoreRef<'_>) -> Self {
+        let material = winding
+            .coils_iter()
+            .next()
+            .map(|c| c.wire().material_arc().clone())
+            .unwrap_or(Arc::new(Material::default()));
+        let resistance = winding.resistance(core, NonZeroU16::MIN, &[]);
+        let electrical_resistivity = material.electrical_resistivity().get(&[]);
+        return ResistanceDecomposition {
+            resistance_constant: resistance / electrical_resistivity,
+            material,
+        };
+    }
+
     /// Calculates the phase resistance for the specified environmental
     /// conditions.
     ///
@@ -284,107 +306,103 @@ impl ResistanceDecomposition {
 }
 
 /**
-This struct allows to overwrite certain calculated properties of an electric motor. This is useful if e.g.
-the phase resistance is known from measurements and a simulation should use this value instead of a calculated one.
+A cache for properties of a winding–core combination.
 
-Some properties depend on other properties, for example the phase resistance constant
-depends on the end winding length. These situations are resolved as follows:
-MOVE THIS TO FIELD DOCSTRINGS
+The cache allows downstream simulation code to reuse precomputed values
+instead of repeatedly calculating them. Winding implementations can populate
+cache entries in [`Winding::make_cache`] using their knowledge of the winding
+and core.
 
-1) phase resistance constant is None, end winding length is None
-When querying the phase resistance, the end winding length is calculated, then the phase resistance constant
-(and subsequently the phase resistance) is calculated.
+A populated entry is authoritative: downstream code should use its value
+instead of recalculating the corresponding quantity. If an entry is `None`,
+the downstream code calculates the quantity on demand using the method
+specified in the field's documentation. All fields can be overwritten
+manually, for example to use measured values in simulations.
 
-2) phase resistance constant is None, end winding length is Some
-When querying the phase resistance, the cached end winding length is used to calculate the phase resistance constant
+The set of cached quantities may evolve as additional quantities become useful
+for simulation. It is therefore recommended to use the struct update syntax:
 
-3) phase resistance constant is Some, end winding length is None
-When querying the phase resistance, the cached phase resistance constant is used (the end winding length is not calculated).
+```rust,ignore
+let cache = SimulationCache {
+    fundamental_winding_factor: Some(0.95),
+    ..SimulationCache::default()
+};
+```
 
-4) phase resistance constant is Some, end winding length is Some
-When querying the phase resistance, the cached phase resistance constant is used (the cached end winding length is ignored).
+# Design rationale
 
-The default value for all properties is `None`.
- */
-#[derive(Clone, Default, Debug, PartialEq)]
+Although this cache is primarily consumed by downstream crates such as
+[stem_motor](https://crates.io/crates/stem_motor), it is defined here because
+populating it can require winding-specific knowledge. Defining the cache
+alongside [`Winding::make_cache`] allows winding implementations to provide that
+knowledge directly, without requiring downstream crates to introduce extension
+traits or other mechanisms to customize cache creation.
+*/
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct Overrides {
-    /// Overrides for individual coils, characterised by one of their zones.
-    /// If more than one zone of a single coil is specified, the value which
-    /// corresponds to the first zone returned by [`CoilExt::zones`] is used.
-    /// See [`Winding::end_winding_half_turn_length`] on which zone corresponds
-    /// to which end winding.
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub end_winding_half_turn_lengths: HashMap<Zone, Length>,
-
-    /**
-    This value is a machine constant containing all non-changing parts of the phase resistance.
-    The phase resistance is calculated as `resistance = resistance_constant * electric_resistivity`.
-     */
-    #[cfg_attr(feature = "serde", serde(default))]
+pub struct SimulationCache {
+    /// The [`ResistanceDecomposition`] of the phases. If `None`, use
+    /// [`Winding::resistance`] to calculate the resistance.
+    pub resistance_decomposition: Option<ResistanceDecomposition>,
+    /// The (ideal) winding factor for the fundamental electrical spatial order
+    /// ([`SpatialOrder::Electrical(1)`](SpatialOrder::Electrical). If `None`,
+    /// use [`Winding::winding_factor`] to calculate it.
+    pub fundamental_winding_factor: Option<f64>,
+    /// The effective winding factor for the fundamental electrical spatial
+    /// order ([`SpatialOrder::Electrical(1)`](SpatialOrder::Electrical). If
+    /// `None`, use [`Winding::effective_winding_factor`] to calculate it.
+    pub fundamental_effective_winding_factor: Option<f64>,
     #[cfg_attr(
         feature = "serde",
         serde(deserialize_with = "deserialize_opt_quantity")
     )]
-    pub resistance_constant: Option<ReciprocalLength>,
-
-    #[cfg_attr(feature = "serde", serde(default))]
-    #[cfg_attr(
-        feature = "serde",
-        serde(deserialize_with = "deserialize_opt_quantity")
-    )]
+    /// The main inductance for the fundamental electrical spatial order
+    /// ([`SpatialOrder::Electrical(1)`](SpatialOrder::Electrical) and the
+    /// `effective_air_gap` passed to [`Winding::make_cache`]. If
+    /// `None`, use [`Winding::main_inductance`] to calculate it.
     pub main_inductance: Option<Inductance>,
-
-    #[cfg_attr(feature = "serde", serde(default))]
     #[cfg_attr(
         feature = "serde",
         serde(deserialize_with = "deserialize_opt_quantity")
     )]
+    /// The air gap leakage inductance for the fundamental electrical spatial
+    /// order ([`SpatialOrder::Electrical(1)`](SpatialOrder::Electrical) and the
+    /// `effective_air_gap` passed to [`Winding::make_cache`]. If
+    /// `None`, use [`Winding::air_gap_leakage_inductance`] to calculate it.
+    pub air_gap_leakage_inductance: Option<Inductance>,
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "deserialize_opt_quantity")
+    )]
+    /// The slot leakage inductance for the `effective_air_gap` passed to
+    /// [`Winding::make_cache`]. If `None`, use
+    /// [`Winding::slot_leakage_inductance`] to calculate it.
     pub slot_leakage_inductance: Option<Inductance>,
-
-    #[cfg_attr(feature = "serde", serde(default))]
+    /// The air gap leakage inductance for the fundamental electrical spatial
+    /// order ([`SpatialOrder::Electrical(1)`](SpatialOrder::Electrical). If
+    /// `None`, use [`Winding::end_winding_leakage_inductance`] to calculate
+    /// it.
     #[cfg_attr(
         feature = "serde",
         serde(deserialize_with = "deserialize_opt_quantity")
     )]
     pub end_winding_leakage_inductance: Option<Inductance>,
-
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub air_gap_leakage_factor: Option<f64>,
+    /// The slot opening factor for the fundamental electrical spatial order
+    /// ([`SpatialOrder::Electrical(1)`](SpatialOrder::Electrical). If `None`,
+    /// use [`CoreExt::slot_opening_factor`] to calculate it.
+    pub fundamental_slot_opening_factor: Option<f64>,
 }
 
-impl Overrides {
-    /**
-    Clear the cache by setting all values to None.
-     */
-    pub fn clear(&mut self) {
-        self.end_winding_half_turn_lengths = Default::default();
-        self.resistance_constant = None;
-        self.main_inductance = None;
-        self.slot_leakage_inductance = None;
-        self.end_winding_leakage_inductance = None;
-        self.air_gap_leakage_factor = None;
-    }
-
-    pub fn set_end_winding_half_turn_length(
-        &mut self,
-        coil: &Coil,
-        end_winding_half_turn_length: Length,
-    ) {
-        for zone in coil.zones() {
-            self.end_winding_half_turn_lengths
-                .insert(zone, end_winding_half_turn_length);
-        }
-    }
-
-    pub fn set_same_end_winding_half_turn_length<'a, I: Iterator<Item = &'a Coil>>(
-        &mut self,
-        coils: I,
-        end_winding_half_turn_length: Length,
-    ) {
-        for coil in coils {
-            self.set_end_winding_half_turn_length(coil, end_winding_half_turn_length);
-        }
+impl SimulationCache {
+    /// Returns a new [`SimulationCache`] from [`Winding::make_cache`].
+    ///
+    /// This is a wrapper around `winding.make_cache(core)`.
+    pub fn new<W: Winding + ?Sized>(
+        winding: &W,
+        core: CoreRef<'_>,
+        effective_air_gap: Length,
+    ) -> Self {
+        winding.make_cache(core, effective_air_gap)
     }
 }
 
@@ -392,7 +410,6 @@ pub struct CoilPropertyIterator<'a> {
     pub coils: crate::winding::CoilsIterator<'a>,
     pub winding: &'a dyn Winding,
     pub core: CoreRef<'a>,
-    pub end_winding_half_turn_lengths: &'a HashMap<Zone, Length>,
 }
 
 impl<'a> Iterator for CoilPropertyIterator<'a> {
@@ -401,13 +418,7 @@ impl<'a> Iterator for CoilPropertyIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.coils
             .next()
-            .map(|coil| {
-                self.winding.coil_properties_at(
-                    self.core,
-                    coil.any_zone(),
-                    self.end_winding_half_turn_lengths,
-                )
-            })
+            .map(|coil| self.winding.coil_properties_at(self.core, coil.any_zone()))
             .flatten()
     }
 }
@@ -443,7 +454,6 @@ pub struct CoilProperties<'a> {
     coil: &'a Coil,
     winding: &'a dyn Winding,
     core: CoreRef<'a>,
-    end_winding_half_turn_lengths: &'a HashMap<Zone, Length>,
     end_winding_volume: Option<Volume>,
 }
 
@@ -473,14 +483,12 @@ impl<'a> CoilProperties<'a> {
         coil: &'a Coil,
         winding: &'a dyn Winding,
         core: CoreRef<'a>,
-        end_winding_half_turn_lengths: &'a HashMap<Zone, Length>,
         end_winding_volume: Option<Volume>,
     ) -> Self {
         Self {
             coil,
             winding,
             core,
-            end_winding_half_turn_lengths,
             end_winding_volume,
         }
     }
@@ -499,11 +507,6 @@ impl<'a> CoilProperties<'a> {
     /// calculations.
     pub fn core(&self) -> CoreRef<'a> {
         self.core
-    }
-
-    /// Returns the end-winding half-turn length overrides.
-    pub fn end_winding_half_turn_lengths_overrides(&self) -> &'a HashMap<Zone, Length> {
-        self.end_winding_half_turn_lengths
     }
 
     /// Returns the end-winding volume override.
@@ -633,10 +636,7 @@ impl<'a> CoilProperties<'a> {
         if !self.coil().zones().any(|z| z == zone) {
             return Length::new::<meter>(0.0);
         }
-        self.end_winding_half_turn_lengths
-            .get(&zone)
-            .cloned()
-            .unwrap_or_else(|| self.winding.end_winding_half_turn_length(self.core, zone))
+        self.winding.end_winding_half_turn_length(self.core, zone)
     }
 
     /// Returns the conductor volume of the end-winding half turn associated
@@ -943,21 +943,19 @@ impl<'a> CoilProperties<'a> {
 pub fn end_winding_leakage_inductance_tooth_coil<W: Winding>(
     winding: &W,
     core: CoreRef<'_>,
-    end_winding_half_turn_length: Option<Length>,
     end_winding_leakage_coefficient: f64,
 ) -> Inductance {
-    let end_winding_half_turn_length = end_winding_half_turn_length.unwrap_or_else(|| {
-        let mut end_winding_half_turn_length = Length::new::<meter>(0.0);
-        let mut counter = 0.0;
-        for coil in winding.coils_iter() {
-            for zone in coil.zones() {
-                end_winding_half_turn_length += winding.end_winding_half_turn_length(core, zone);
-                counter += 1.0;
-            }
+    let mut sum_end_winding_half_turn_length = Length::new::<meter>(0.0);
+    let mut counter = 0.0;
+    for coil in winding.coils_iter() {
+        for zone in coil.zones() {
+            sum_end_winding_half_turn_length += winding.end_winding_half_turn_length(core, zone);
+            counter += 1.0;
         }
-        // Mean end winding half turn length
-        end_winding_half_turn_length / counter
-    });
+    }
+
+    // Mean end winding half turn length
+    let end_winding_half_turn_length = sum_end_winding_half_turn_length / counter;
 
     *VACUUM_PERMEABILITY * end_winding_leakage_coefficient * f64::from(winding.slots().get())
         / (f64::from(winding.layers().get()) * f64::from(winding.phases().get()))
@@ -1001,21 +999,19 @@ pub fn end_winding_leakage_inductance_tooth_coil<W: Winding>(
 pub fn end_winding_leakage_inductance_distributed<W: Winding>(
     winding: &W,
     core: CoreRef<'_>,
-    end_winding_half_turn_length: Option<Length>,
     end_winding_leakage_coefficient: f64,
 ) -> Inductance {
-    let end_winding_half_turn_length = end_winding_half_turn_length.unwrap_or_else(|| {
-        let mut end_winding_half_turn_length = Length::new::<meter>(0.0);
-        let mut counter = 0.0;
-        for coil in winding.coils_iter() {
-            for zone in coil.zones() {
-                end_winding_half_turn_length += winding.end_winding_half_turn_length(core, zone);
-                counter += 1.0;
-            }
+    let mut sum_end_winding_half_turn_length = Length::new::<meter>(0.0);
+    let mut counter = 0.0;
+    for coil in winding.coils_iter() {
+        for zone in coil.zones() {
+            sum_end_winding_half_turn_length += winding.end_winding_half_turn_length(core, zone);
+            counter += 1.0;
         }
-        // Mean end winding half turn length
-        end_winding_half_turn_length / counter
-    });
+    }
+
+    // Mean end winding half turn length
+    let end_winding_half_turn_length = sum_end_winding_half_turn_length / counter;
 
     2.0 * end_winding_leakage_coefficient
         * *VACUUM_PERMEABILITY
@@ -1060,22 +1056,20 @@ pub fn end_winding_leakage_inductance_distributed<W: Winding>(
 pub fn end_winding_leakage_inductance_cage<W: Winding>(
     winding: &W,
     core: CoreRef<'_>,
-    end_winding_half_turn_length: Option<Length>,
     end_winding_leakage_coefficient: f64,
 ) -> Inductance {
     use std::f64::consts::PI;
-    let end_winding_half_turn_length = end_winding_half_turn_length.unwrap_or_else(|| {
-        let mut end_winding_half_turn_length = Length::new::<meter>(0.0);
-        let mut counter = 0.0;
-        for coil in winding.coils_iter() {
-            for zone in coil.zones() {
-                end_winding_half_turn_length += winding.end_winding_half_turn_length(core, zone);
-                counter += 1.0;
-            }
+    let mut sum_end_winding_half_turn_length = Length::new::<meter>(0.0);
+    let mut counter = 0.0;
+    for coil in winding.coils_iter() {
+        for zone in coil.zones() {
+            sum_end_winding_half_turn_length += winding.end_winding_half_turn_length(core, zone);
+            counter += 1.0;
         }
-        // Mean end winding half turn length
-        end_winding_half_turn_length / counter
-    });
+    }
+
+    // Mean end winding half turn length
+    let end_winding_half_turn_length = sum_end_winding_half_turn_length / counter;
 
     let ring_segment_inductance =
         *VACUUM_PERMEABILITY * end_winding_leakage_coefficient * end_winding_half_turn_length

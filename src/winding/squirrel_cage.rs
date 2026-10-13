@@ -1,5 +1,3 @@
-#[cfg(feature = "stem_core")]
-use std::collections::HashMap;
 use std::num::{NonZeroU16, NonZeroUsize};
 
 use compare_variables::compare_variables;
@@ -155,11 +153,7 @@ impl Winding for SquirrelCageWinding {
     }
 
     #[cfg(feature = "stem_core")]
-    fn is_symmetric(
-        &self,
-        _core: CoreRef<'_>,
-        _end_winding_half_turn_lengths: &HashMap<Zone, Length>,
-    ) -> bool {
+    fn is_symmetric(&self, _core: CoreRef<'_>) -> bool {
         return true;
     }
 
@@ -210,7 +204,6 @@ impl Winding for SquirrelCageWinding {
         &'a self,
         core: CoreRef<'a>,
         zone: Zone,
-        end_winding_half_turn_lengths: &'a HashMap<Zone, Length>,
     ) -> Option<crate::core_support::CoilProperties<'a>> {
         let coil = self.coil_at(zone)?;
 
@@ -235,7 +228,6 @@ impl Winding for SquirrelCageWinding {
             coil,
             self.as_dyn(),
             core,
-            end_winding_half_turn_lengths,
             Some(end_winding_volume),
         ));
     }
@@ -246,7 +238,6 @@ impl Winding for SquirrelCageWinding {
         core: CoreRef<'_>,
         phase: NonZeroU16,
         conditions: &[DynQuantity<f64>],
-        _end_winding_half_turn_lengths: &HashMap<Zone, Length>,
     ) -> ElectricalResistance {
         use std::f64::consts::PI;
         use uom::si::frequency::hertz;
@@ -338,14 +329,12 @@ impl Winding for SquirrelCageWinding {
         &self,
         core: CoreRef<'_>,
         _phase: NonZeroU16,
-        end_winding_half_turn_length: Option<Length>,
+        spatial_order: SpatialOrder,
+        conditions: &[DynQuantity<f64>],
     ) -> Inductance {
-        end_winding_leakage_inductance_cage(
-            self,
-            core,
-            end_winding_half_turn_length,
-            self.end_winding_leakage_coefficient,
-        )
+        let _ = spatial_order;
+        let _ = conditions;
+        end_winding_leakage_inductance_cage(self, core, self.end_winding_leakage_coefficient)
     }
 
     #[cfg(feature = "stem_core")]
@@ -364,6 +353,69 @@ impl Winding for SquirrelCageWinding {
             CoreRef::Lin(core_lin) => {
                 return core_lin.width() / f64::from(self.slots().get());
             }
+        }
+    }
+
+    #[cfg(feature = "stem_core")]
+    fn resistance_decomposition(&self, core: CoreRef<'_>) -> Option<ResistanceDecomposition> {
+        if self.consider_current_displacement {
+            return None;
+        }
+
+        let material = self.wire().material_arc().clone();
+
+        let resistance = self.resistance(core, NonZeroU16::MIN, &[]);
+        let electrical_resistivity = material.electrical_resistivity().get(&[]);
+        return Some(ResistanceDecomposition {
+            resistance_constant: resistance / electrical_resistivity,
+            material,
+        });
+    }
+
+    #[cfg(feature = "stem_core")]
+    fn make_cache(&self, core: CoreRef<'_>, effective_air_gap: Length) -> SimulationCache {
+        let phase = NonZeroU16::MIN;
+        let fundamental = SpatialOrder::Electrical(1);
+
+        // If we need to consider current displacement, the slot leakage inductance
+        // cannot be cached.
+        let slot_leakage_inductance = if self.consider_current_displacement {
+            None
+        } else {
+            Some(self.slot_leakage_inductance(core, phase, effective_air_gap, &[]))
+        };
+
+        SimulationCache {
+            resistance_decomposition: self.resistance_decomposition(core),
+            fundamental_winding_factor: Some(self.winding_factor(phase, fundamental)),
+            fundamental_effective_winding_factor: Some(self.effective_winding_factor(
+                core,
+                phase,
+                fundamental,
+                effective_air_gap,
+            )),
+            main_inductance: Some(self.main_inductance(
+                core,
+                phase,
+                fundamental,
+                effective_air_gap,
+                &[],
+            )),
+            air_gap_leakage_inductance: Some(self.air_gap_leakage_inductance(
+                core,
+                phase,
+                fundamental,
+                effective_air_gap,
+                &[],
+            )),
+            slot_leakage_inductance,
+            end_winding_leakage_inductance: Some(self.end_winding_leakage_inductance(
+                core,
+                phase,
+                fundamental,
+                &[],
+            )),
+            fundamental_slot_opening_factor: Some(core.slot_opening_factor(fundamental)),
         }
     }
 }

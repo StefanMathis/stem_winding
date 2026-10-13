@@ -290,7 +290,6 @@ mod stem_core_tests {
                         ThermodynamicTemperature::new::<degree_celsius>(20.0).into(),
                         Frequency::new::<hertz>(0.0).into(),
                     ],
-                    &Default::default(),
                 )
                 .get::<ohm>(),
             8.51814834e-5,
@@ -305,7 +304,6 @@ mod stem_core_tests {
                         ThermodynamicTemperature::new::<degree_celsius>(20.0).into(),
                         Frequency::new::<hertz>(50.0).into(),
                     ],
-                    &Default::default(),
                 )
                 .get::<ohm>(),
             8.6414995e-5,
@@ -320,7 +318,6 @@ mod stem_core_tests {
                         ThermodynamicTemperature::new::<degree_celsius>(20.0).into(),
                         Frequency::new::<hertz>(200.0).into(),
                     ],
-                    &Default::default(),
                 )
                 .get::<ohm>(),
             10.38810492e-5,
@@ -335,7 +332,6 @@ mod stem_core_tests {
                         ThermodynamicTemperature::new::<degree_celsius>(120.0).into(),
                         Frequency::new::<hertz>(0.0).into(),
                     ],
-                    &Default::default(),
                 )
                 .get::<ohm>(),
             11.8657806e-5,
@@ -345,7 +341,7 @@ mod stem_core_tests {
         // Volume and mass of the winding
         approxim::assert_abs_diff_eq!(
             winding
-                .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
+                .coil_properties_iter(CoreRef::Rot(&core))
                 .map(|cp| cp.axial_volume())
                 .sum::<Volume>()
                 .get::<cubic_centimeter>(),
@@ -354,7 +350,7 @@ mod stem_core_tests {
         );
         approxim::assert_abs_diff_eq!(
             winding
-                .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
+                .coil_properties_iter(CoreRef::Rot(&core))
                 .map(|cp| cp.end_winding_volume())
                 .sum::<Volume>()
                 .get::<cubic_centimeter>(),
@@ -363,7 +359,7 @@ mod stem_core_tests {
         );
         approxim::assert_abs_diff_eq!(
             winding
-                .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
+                .coil_properties_iter(CoreRef::Rot(&core))
                 .map(|cp| cp.volume())
                 .sum::<Volume>()
                 .get::<cubic_centimeter>(),
@@ -372,7 +368,7 @@ mod stem_core_tests {
         );
         approxim::assert_abs_diff_eq!(
             winding
-                .coil_properties_iter(CoreRef::Rot(&core), &Default::default())
+                .coil_properties_iter(CoreRef::Rot(&core))
                 .map(|cp| cp.volume() * cp.material().mass_density().get(&[]))
                 .sum::<Mass>()
                 .get::<kilogram>(),

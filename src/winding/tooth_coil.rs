@@ -1,5 +1,3 @@
-#[cfg(feature = "stem_core")]
-use std::collections::HashMap;
 use std::num::{NonZeroU16, NonZeroUsize};
 
 use num::Integer;
@@ -37,6 +35,7 @@ pub struct ToothCoilWinding {
     #[cfg_attr(feature = "serde", serde(skip))]
     coils: Coils,
     winding_table_constructor: WindingTableConstructor,
+    mean_end_winding_half_turn_length: Option<Length>,
 }
 
 impl ToothCoilWinding {
@@ -58,6 +57,24 @@ impl ToothCoilWinding {
 
     pub fn end_winding_leakage_coefficient(&self) -> f64 {
         return self.end_winding_leakage_coefficient;
+    }
+
+    pub fn mean_end_winding_half_turn_length(&self) -> Option<Length> {
+        self.mean_end_winding_half_turn_length
+    }
+
+    pub fn set_mean_end_winding_half_turn_length(
+        &mut self,
+        mean_end_winding_half_turn_length: Option<Length>,
+    ) -> Result<(), compare_variables::Comparison<Length>> {
+        if let Some(mean_end_winding_half_turn_length) = mean_end_winding_half_turn_length {
+            let zero_length = Length::new::<meter>(0.0);
+            compare_variables::compare_variables!(
+                mean_end_winding_half_turn_length >= zero_length
+            )?;
+        }
+        self.mean_end_winding_half_turn_length = mean_end_winding_half_turn_length;
+        Ok(())
     }
 
     fn create_coils(
@@ -171,6 +188,7 @@ impl Default for ToothCoilWinding {
             end_winding_leakage_coefficient: 0.0,
             wire: Box::new(SffWire::default()),
             winding_table_constructor: WindingTableConstructor::Tingley,
+            mean_end_winding_half_turn_length: None,
         }
         .try_into()
         .expect("valid inputs")
@@ -241,11 +259,7 @@ impl Winding for ToothCoilWinding {
     }
 
     #[cfg(feature = "stem_core")]
-    fn is_symmetric(
-        &self,
-        _core: CoreRef<'_>,
-        _end_winding_half_turn_lengths: &HashMap<Zone, Length>,
-    ) -> bool {
+    fn is_symmetric(&self, _core: CoreRef<'_>) -> bool {
         return true;
     }
 
@@ -254,14 +268,12 @@ impl Winding for ToothCoilWinding {
         &self,
         core: CoreRef<'_>,
         _phase: NonZeroU16,
-        end_winding_half_turn_length: Option<Length>,
+        spatial_order: SpatialOrder,
+        conditions: &[DynQuantity<f64>],
     ) -> Inductance {
-        end_winding_leakage_inductance_tooth_coil(
-            self,
-            core,
-            end_winding_half_turn_length,
-            self.end_winding_leakage_coefficient,
-        )
+        let _ = spatial_order;
+        let _ = conditions;
+        end_winding_leakage_inductance_tooth_coil(self, core, self.end_winding_leakage_coefficient)
     }
 
     #[cfg(feature = "stem_core")]
@@ -284,6 +296,8 @@ pub struct ToothCoilBuilder {
     pub connection: Connection,
     pub end_winding_leakage_coefficient: f64,
     pub wire: Box<dyn Wire>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub mean_end_winding_half_turn_length: Option<Length>,
 }
 
 impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
@@ -341,7 +355,9 @@ impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
             wire: builder.wire,
             coils: Coils::with_capacity(num_zones, num_coils),
             winding_table_constructor: builder.winding_table_constructor,
+            mean_end_winding_half_turn_length: None,
         };
+        winding.set_mean_end_winding_half_turn_length(builder.mean_end_winding_half_turn_length)?;
         winding.create_coils(&winding_table, true)?;
 
         if winding.equal_winding_factors() {
@@ -378,6 +394,7 @@ impl TryFrom<ToothCoilMinimalBuilder> for ToothCoilWinding {
             end_winding_leakage_coefficient: 0.0,
             wire: Box::new(SffWire::default()),
             winding_table_constructor: builder.winding_table_constructor,
+            mean_end_winding_half_turn_length: None,
         }
         .try_into()
     }
