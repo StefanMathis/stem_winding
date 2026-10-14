@@ -35,7 +35,7 @@ pub use coil_drawables::*;
 /// .try_into()
 /// .unwrap();
 /// let core = LinCore::from_winding(&winding);
-/// let params = CoilDrawablesParameters::from(&core);
+/// let params = CoilDrawablesConfig::from(&core);
 ///
 /// // Adaptation of the iterator
 /// let iter = winding.coil_drawables(&params).map(|(mut drawable, kind)| {

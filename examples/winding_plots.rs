@@ -14,6 +14,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     winding_table_reference_img()?;
     phd_stator()?;
     zone_drawables_config()?;
+    coil_drawables_method()?;
+    zone_drawables_method()?;
     return Ok(());
 }
 
@@ -121,7 +123,7 @@ fn zone_polarity() -> Result<(), Box<dyn std::error::Error>> {
     let xshift = core.width().get::<meter>() * 1.5;
     let yshift = 0.5 * core.height().get::<meter>();
 
-    let mut params = CoilDrawablesParameters::from(&core);
+    let mut params = CoilDrawablesConfig::from(&core);
     params.line_width = 2.0;
     drawables.extend(
         coil_assembly
@@ -532,5 +534,149 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
         })?;
     }
 
+    return Ok(());
+}
+
+fn zone_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
+    let side_length = SideLength::Long(600);
+
+    let winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 12.try_into()?,
+        pole_pairs: 1.try_into()?,
+        phases: 3.try_into()?,
+        layers: 2.try_into()?,
+        coil_span_reduction: 1,
+        zone_span_variation: 0,
+        winding_table_constructor: WindingTableConstructor::Tingley,
+    }
+    .try_into()?;
+    let core = LinCore::from_winding(&winding);
+
+    let config = ZoneDrawablesConfig {
+        background_color: ZoneBackgroundColor::None,
+        center_config: ZoneCenterConfig::Arrow(ZoneArrowConfig {
+            color_by_phase: true,
+            relative_diameter: 0.8,
+            normalized_current: None,
+        }),
+        show_empty_zones: true,
+    };
+    let mut drawables: Vec<Drawable> = vec![core.drawable().into()];
+    drawables.extend(
+        winding
+            .zone_drawables(core.as_core_ref(), &config)
+            .map(|z| z.0),
+    );
+    drawables
+        .iter_mut()
+        .for_each(|d| d.line_reflection([0.0, 0.0], [1.0, 0.0]));
+
+    let mut bb =
+        BoundingBox::from_bounded_entities(drawables.iter()).expect("has at least one element");
+    bb.scale(1.02);
+
+    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join(&format!("docs/img/zone_drawable_method_1.svg"));
+    let view = Viewport::from_bounding_box(&bb, side_length);
+    view.write_to_file(&fp, |cr| {
+        cr.set_source_rgb(1.0, 1.0, 1.0);
+        cr.paint()?;
+
+        for d in drawables.iter() {
+            d.draw(cr)?;
+        }
+
+        return Ok(());
+    })?;
+
+    let config = ZoneDrawablesConfig {
+        background_color: ZoneBackgroundColor::Phase,
+        center_config: ZoneCenterConfig::AmpereTurns(12.0),
+        show_empty_zones: true,
+    };
+    let mut drawables: Vec<Drawable> = vec![core.drawable().into()];
+    drawables.extend(
+        winding
+            .zone_drawables(core.as_core_ref(), &config)
+            .map(|z| z.0),
+    );
+    drawables
+        .iter_mut()
+        .for_each(|d| d.line_reflection([0.0, 0.0], [1.0, 0.0]));
+
+    let mut bb =
+        BoundingBox::from_bounded_entities(drawables.iter()).expect("has at least one element");
+    bb.scale(1.02);
+
+    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join(&format!("docs/img/zone_drawable_method_2.svg"));
+    let view = Viewport::from_bounding_box(&bb, side_length);
+    view.write_to_file(&fp, |cr| {
+        cr.set_source_rgb(1.0, 1.0, 1.0);
+        cr.paint()?;
+
+        for d in drawables.iter() {
+            d.draw(cr)?;
+        }
+
+        return Ok(());
+    })?;
+    return Ok(());
+}
+
+fn coil_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
+    let side_length = SideLength::Long(600);
+
+    let winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 12.try_into()?,
+        pole_pairs: 1.try_into()?,
+        phases: 3.try_into()?,
+        layers: 2.try_into()?,
+        coil_span_reduction: 1,
+        zone_span_variation: 0,
+        winding_table_constructor: WindingTableConstructor::Tingley,
+    }
+    .try_into()?;
+    let core = RotCore::from_winding(&winding);
+
+    let mut config = CoilDrawablesConfig::from(&core);
+    let mut bb = config.bounding_box(&winding);
+    bb.scale(1.08);
+
+    let drawables = winding.coil_drawables(&config).map(|z| z.0);
+
+    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join(&format!("docs/img/coil_drawable_method_1.svg"));
+    let view = Viewport::from_bounding_box(&bb, side_length);
+    view.write_to_file(&fp, |cr| {
+        cr.set_source_rgb(1.0, 1.0, 1.0);
+        cr.paint()?;
+
+        for d in drawables {
+            d.draw(cr)?;
+        }
+
+        return Ok(());
+    })?;
+
+    config.end_winding_style = EndWindingStyle::Layered;
+    let mut bb = config.bounding_box(&winding);
+    bb.scale(1.08);
+
+    let drawables = winding.coil_drawables(&config).map(|z| z.0);
+
+    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join(&format!("docs/img/coil_drawable_method_2.svg"));
+    let view = Viewport::from_bounding_box(&bb, side_length);
+    view.write_to_file(&fp, |cr| {
+        cr.set_source_rgb(1.0, 1.0, 1.0);
+        cr.paint()?;
+
+        for d in drawables {
+            d.draw(cr)?;
+        }
+
+        return Ok(());
+    })?;
     return Ok(());
 }

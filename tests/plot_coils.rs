@@ -12,7 +12,7 @@ mod cairo_tests {
 
     #[test]
     fn test_coil() {
-        let params = CoilDrawablesParameters {
+        let params = CoilDrawablesConfig {
             arrowhead_length: 0.5,
             line_width: 1.0,
             slot_width: 1.0,
@@ -166,7 +166,7 @@ mod cairo_tests {
         }
     }
 
-    fn check<W: Winding>(winding: &W, params: &CoilDrawablesParameters, name: &str) {
+    fn check<W: Winding>(winding: &W, params: &CoilDrawablesConfig, name: &str) {
         let mut drawables: Vec<Drawable> = Vec::new();
         for d in winding.coil_drawables(&params).map(|t| t.0) {
             drawables.push(d);
@@ -233,7 +233,7 @@ mod cairo_tests {
             EndWindingStyle::Layered => 0.0,
         };
 
-        let params = CoilDrawablesParameters {
+        let params = CoilDrawablesConfig {
             arrowhead_length: 0.5,
             line_width: 1.0,
             slot_width: 1.0,
@@ -398,7 +398,7 @@ mod cairo_tests {
 
     #[test]
     fn test_tooth_coil_winding() {
-        let params = CoilDrawablesParameters {
+        let params = CoilDrawablesConfig {
             arrowhead_length: 0.5,
             line_width: 1.0,
             slot_width: 1.0,
@@ -432,7 +432,7 @@ mod cairo_tests {
 
     #[test]
     fn test_tooth_coil_winding_half() {
-        let params = CoilDrawablesParameters {
+        let params = CoilDrawablesConfig {
             arrowhead_length: 0.5,
             line_width: 1.0,
             slot_width: 1.0,
@@ -470,7 +470,7 @@ mod cairo_tests {
 
     #[test]
     fn test_coil_assembly() {
-        let params = CoilDrawablesParameters {
+        let params = CoilDrawablesConfig {
             arrowhead_length: 0.5,
             line_width: 1.0,
             slot_width: 1.0,

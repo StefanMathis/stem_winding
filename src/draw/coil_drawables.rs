@@ -36,7 +36,7 @@ pub enum CoilOrAnnotation {
 /// - Annotations, if the coil wraps around
 pub struct CoilDrawables<'a> {
     winding: &'a dyn Winding,
-    parameters: &'a CoilDrawablesParameters,
+    config: &'a CoilDrawablesConfig,
     layer_winding_head_map: Option<HashMap<Zone, usize>>,
     colors: Vec<Color>,
     drawables: [Option<(Drawable, DrawableKind)>; 8],
@@ -45,7 +45,7 @@ pub struct CoilDrawables<'a> {
 }
 
 impl<'a> CoilDrawables<'a> {
-    pub fn new(winding: &'a dyn Winding, parameters: &'a CoilDrawablesParameters) -> Self {
+    pub fn new(winding: &'a dyn Winding, config: &'a CoilDrawablesConfig) -> Self {
         let colors: Vec<Color> = (0..winding.phases().get())
             .map(|p| {
                 phase_color(
@@ -57,9 +57,9 @@ impl<'a> CoilDrawables<'a> {
 
         // If the end winding should be layered, create a hashmap of ranks
         let mut layer_winding_head_map: Option<HashMap<Zone, usize>> = None;
-        if parameters.end_winding_style == EndWindingStyle::Layered {
+        if config.end_winding_style == EndWindingStyle::Layered {
             let mut map = HashMap::with_capacity(winding.num_coils());
-            for coil_and_rank in EndWindingLayouter::new(winding, parameters.cyclic) {
+            for coil_and_rank in EndWindingLayouter::new(winding, config.cyclic) {
                 map.insert(
                     coil_and_rank.coil.any_zone(),
                     coil_and_rank.winding_head_layer,
@@ -70,7 +70,7 @@ impl<'a> CoilDrawables<'a> {
 
         Self {
             winding,
-            parameters,
+            config,
             layer_winding_head_map,
             colors,
             drawables: [None, None, None, None, None, None, None, None],
@@ -87,7 +87,7 @@ impl<'a> Iterator for CoilDrawables<'a> {
         // First draw the teeth
         let slots = self.winding.slots();
         if self.index <= usize::from(slots.get()) {
-            let drawable = self.parameters.tooth_drawable(self.index as u16, slots);
+            let drawable = self.config.tooth_drawable(self.index as u16, slots);
             self.index += 1;
             return Some((drawable, DrawableKind::Tooth(self.index as u16)));
         }
@@ -123,7 +123,7 @@ impl<'a> Iterator for CoilDrawables<'a> {
                         })
                         .unwrap_or(0);
 
-                    let coil_drawables = self.parameters.coil(
+                    let coil_drawables = self.config.coil(
                         coil,
                         self.winding.slots(),
                         self.winding.layers(),
@@ -141,14 +141,14 @@ impl<'a> Iterator for CoilDrawables<'a> {
                         });
                     }
 
-                    if let Ok(arrowheads) = self.parameters.arrowhead_drawables(
+                    if let Ok(arrowheads) = self.config.arrowhead_drawables(
                         coil,
                         self.winding.slots(),
                         self.winding.layers(),
                     ) {
                         // Cannot underflow, since phase is NonZeroU16, i.e. larger than 0.
                         let color_idx = usize::from(coil.phase().get()) - 1;
-                        let style = self.parameters.coil_style(self.colors[color_idx]);
+                        let style = self.config.coil_style(self.colors[color_idx]);
                         for (i, c) in arrowheads.into_iter().enumerate() {
                             self.drawables[offset + i] = Some((
                                 Drawable::new(c, style.clone()),
@@ -159,8 +159,8 @@ impl<'a> Iterator for CoilDrawables<'a> {
                 }
             }
             None => {
-                let contour = self.parameters.empty_zone(self.zone, layers);
-                let style = self.parameters.empty_zone_style();
+                let contour = self.config.empty_zone(self.zone, layers);
+                let style = self.config.empty_zone_style();
                 self.drawables[0] = Some((
                     Drawable::new(contour, style),
                     DrawableKind::EmptyZone(self.zone),
@@ -172,10 +172,10 @@ impl<'a> Iterator for CoilDrawables<'a> {
 }
 
 /**
-This struct contains the parameters needed to create the air gap view of the end winding.
+This struct contains the config needed to create the air gap view of the end winding.
  */
 #[derive(Debug, Clone)]
-pub struct CoilDrawablesParameters {
+pub struct CoilDrawablesConfig {
     pub arrowhead_length: f64,
     pub line_width: f64,
     pub slot_width: f64,
@@ -215,7 +215,7 @@ pub enum EndWindingStyle {
     Layered,
 }
 
-impl Default for CoilDrawablesParameters {
+impl Default for CoilDrawablesConfig {
     fn default() -> Self {
         Self {
             arrowhead_length: 0.5,
@@ -237,11 +237,11 @@ impl Default for CoilDrawablesParameters {
     }
 }
 
-impl<'a, T> From<T> for CoilDrawablesParameters
+impl<'a, T> From<T> for CoilDrawablesConfig
 where
     T: Into<CoreRef<'a>>,
 {
-    fn from(core: T) -> CoilDrawablesParameters {
+    fn from(core: T) -> CoilDrawablesConfig {
         let core: CoreRef = core.into();
         let mut tooth_width = core
             .tooth_width_at(0.5 * core.tooth_height())
@@ -274,7 +274,7 @@ where
     }
 }
 
-impl CoilDrawablesParameters {
+impl CoilDrawablesConfig {
     pub fn max_coil_height(&self, winding: &dyn Winding) -> f64 {
         let layers = winding.layers();
         match self.end_winding_style {

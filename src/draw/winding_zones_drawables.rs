@@ -1,7 +1,7 @@
 use planar_geo::prelude::*;
 use std::{f64::consts::SQRT_2, num::NonZeroU16};
-use stem_types::Zone;
 use stem_core::prelude::*;
+use stem_types::Zone;
 
 use super::{DrawableKind, phase_color};
 use crate::winding::Winding;
@@ -13,6 +13,8 @@ const INVISIBLE: Color = Color {
     a: 0.0,
 };
 
+/// [`WindingZoneDrawables`] is a wrapper around the [`WindingZones`]
+/// iterator created by [`core.winding_zones()`](CoreExt::winding_zones)
 pub struct WindingZoneDrawables<'a> {
     winding: &'a dyn Winding,
     winding_zones: WindingZones,

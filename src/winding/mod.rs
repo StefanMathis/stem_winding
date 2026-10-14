@@ -30,9 +30,7 @@ use crate::core_support::*;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "cairo")]
-use crate::draw::{
-    CoilDrawables, CoilDrawablesParameters, WindingZoneDrawables, ZoneDrawablesConfig,
-};
+use crate::draw::{CoilDrawables, CoilDrawablesConfig, WindingZoneDrawables, ZoneDrawablesConfig};
 
 use stem_types::{CoilLayout, Zone};
 use stem_wire::{stem_material::si::Length, wire::Wire};
@@ -2172,8 +2170,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///
     /// This method uses [`Winding::coils_iter`] to iterate over all coils of
     /// the winding. Each coil is wrapped in a
-    /// [`CoilProperties`](crate::core_support::CoilProperties) which is then
-    /// returned as an iterator item.
+    /// [`CoilProperties`] which is then returned as an iterator item.
     ///
     /// See [`Winding::coil_properties_at`] for details.
     ///
@@ -2641,20 +2638,235 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
             / (PI * f64::from(self.pole_pairs().get()));
     }
 
-    // TODO
+    /// Returns the [`WindingZoneDrawables`] iterator of the winding styled by
+    /// the provided `config`.
+    ///
+    /// [`WindingZoneDrawables`] is a wrapper around the [`WindingZones`]
+    /// iterator created by [`core.winding_zones()`](CoreExt::winding_zones)
+    /// which customizes the appearance of the zones via
+    /// [`ZoneDrawablesConfig`]. The following two images show the visualization
+    /// of the same winding with the only difference being the `config`:
+    ///
+    /// ## Example 1:
+    ///
+    /// ```rust,ignore
+    /// ZoneDrawablesConfig {
+    ///     background_color: ZoneBackgroundColor::None,
+    ///     center_config: ZoneCenterConfig::Arrow(ZoneArrowConfig {
+    ///         color_by_phase: true,
+    ///         relative_diameter: 0.8,
+    ///         normalized_current: None,
+    ///     }),
+    ///     show_empty_zones: true,
+    /// }
+    /// ```
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![Zone drawables with example config 1][zone_drawable_method_1]"
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    ///
+    /// ## Example 2:
+    ///
+    /// ```rust,ignore
+    /// ZoneDrawablesConfig {
+    ///     background_color: ZoneBackgroundColor::Phase,
+    ///     center_config: ZoneCenterConfig::AmpereTurns(12.0),
+    ///     show_empty_zones: true,
+    /// }
+    /// ```
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![Zone drawables with example config 2][zone_drawable_method_2]"
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image(
+            "zone_drawable_method_1",
+            "docs/img/zone_drawable_method_1.svg"
+        ),
+        embed_doc_image::embed_doc_image(
+            "zone_drawable_method_2",
+            "docs/img/zone_drawable_method_2.svg"
+        )
+    )]
+    ///
+    /// [`WindingZoneDrawables`] returns tuples of
+    /// [`Drawable`](stem_core::planar_geo::draw::Drawable) and
+    /// [`DrawableKind`](crate::draw::DrawableKind). The latter is metadata
+    /// which can be used to filter the produced drawables, see its
+    /// documentation for an example.
+    ///
+    /// The shown images have been created with _examples/winding_plots.rs_,
+    /// function `zone_drawables_method`.
+    ///
+    /// # Examples
+    ///
+    /// The following code demonstrates how to create the first shown example
+    /// plot.
+    ///
+    /// ```no_run
+    /// use cairo_viewport::*;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let side_length = SideLength::Long(600);
+    ///
+    /// let winding: DistributedWinding = DistributedMinimalBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 1.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 2.try_into().expect("not zero"),
+    ///     coil_span_reduction: 1,
+    ///     zone_span_variation: 0,
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    /// }.try_into().expect("valid winding");
+    /// let core = LinCore::from_winding(&winding);
+    ///
+    /// let config = ZoneDrawablesConfig {
+    ///     background_color: ZoneBackgroundColor::None,
+    ///     center_config: ZoneCenterConfig::Arrow(ZoneArrowConfig {
+    ///         color_by_phase: true,
+    ///         relative_diameter: 0.8,
+    ///         normalized_current: None,
+    ///     }),
+    ///     show_empty_zones: true,
+    /// };
+    /// let mut drawables: Vec<_> = vec![core.drawable().into()];
+    /// drawables.extend(
+    ///     winding
+    ///         .zone_drawables(core.as_core_ref(), &config)
+    ///         .map(|z| z.0), // Do not use the metadata
+    /// );
+    ///
+    /// let bb = BoundingBox::from_bounded_entities(drawables.iter()).expect("has at least one element");
+    /// let view = Viewport::from_bounding_box(&bb, side_length);
+    /// view.write_to_file("example_zone_drawables.svg", |cr| {
+    ///     cr.set_source_rgb(1.0, 1.0, 1.0);
+    ///     cr.paint()?;
+    ///
+    ///     for d in drawables.iter() {
+    ///     d.draw(cr)?;
+    ///     }
+    ///
+    ///     return Ok(());
+    /// }).expect("succeeded");
+    /// ```
     #[cfg(all(feature = "cairo", feature = "stem_core"))]
     fn zone_drawables<'a>(
         &'a self,
         core: CoreRef<'_>,
-        zone_config: &'a ZoneDrawablesConfig,
+        config: &'a ZoneDrawablesConfig,
     ) -> WindingZoneDrawables<'a> {
-        WindingZoneDrawables::new(self.as_dyn(), core, zone_config)
+        WindingZoneDrawables::new(self.as_dyn(), core, config)
     }
 
-    // TODO
+    /// Returns the [`CoilDrawables`] iterator of the winding styled by the
+    /// provided `config`.
+    ///
+    /// [`CoilDrawables`] returns tuples of
+    /// [`Drawable`](stem_core::planar_geo::draw::Drawable) and
+    /// [`DrawableKind`](crate::draw::DrawableKind). The
+    /// [`Drawable`](stem_core::planar_geo::draw::Drawable)s show the
+    /// winding teeth and the winding coils as seen from the air gap. The latter
+    /// is metadata which can be used to filter the produced drawables, see
+    /// its documentation for an example.
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![Coil drawables example 1][coil_drawable_method_1]"
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image(
+            "coil_drawable_method_1",
+            "docs/img/coil_drawable_method_1.svg"
+        )
+    )]
+    ///
+    /// The appearance of the coils and teeth can be customized via the
+    /// [`CoilDrawablesConfig`]. It is also possible to derive this struct from
+    /// an existing core, see the example below. The following image shows the
+    /// same winding as the first one, but with the end winding displayed in
+    /// layers (using
+    /// [`EndWindingStyle::Layered`](crate::draw::EndWindingStyle::Layered)):
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![Coil drawables example 2][coil_drawable_method_2]"
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image(
+            "coil_drawable_method_2",
+            "docs/img/coil_drawable_method_2.svg"
+        )
+    )]
+    ///
+    /// The shown image has been created with _examples/winding_plots.rs_,
+    /// function `coil_drawables_method`.
+    ///
+    /// # Examples
+    ///
+    /// The following code demonstrates how to create the first shown example
+    /// plot.
+    ///
+    /// ```no_run
+    /// use cairo_viewport::*;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let side_length = SideLength::Long(600);
+    ///
+    /// let winding: DistributedWinding = DistributedMinimalBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 1.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 2.try_into().expect("not zero"),
+    ///     coil_span_reduction: 1,
+    ///     zone_span_variation: 0,
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    /// }.try_into().expect("valid winding");    ///
+    /// let core = RotCore::from_winding(&winding);
+    ///
+    /// let config = CoilDrawablesConfig::from(&core);
+    /// let bb = config.bounding_box(&winding);
+    /// let drawables = winding.coil_drawables(&config).map(|z| z.0);
+    ///
+    /// let view = Viewport::from_bounding_box(&bb, side_length);
+    /// view.write_to_file("example_coil_drawables.svg", |cr| {
+    ///     cr.set_source_rgb(1.0, 1.0, 1.0);
+    ///     cr.paint()?;
+    ///
+    ///     for d in drawables {
+    ///     d.draw(cr)?;
+    ///     }
+    ///
+    ///     return Ok(());
+    /// }).expect("succeeded");
+    /// ```
     #[cfg(all(feature = "cairo", feature = "stem_core"))]
-    fn coil_drawables<'a>(&'a self, parameters: &'a CoilDrawablesParameters) -> CoilDrawables<'a> {
-        CoilDrawables::new(self.as_dyn(), parameters)
+    fn coil_drawables<'a>(&'a self, config: &'a CoilDrawablesConfig) -> CoilDrawables<'a> {
+        CoilDrawables::new(self.as_dyn(), config)
     }
 }
 
