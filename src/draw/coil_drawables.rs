@@ -1,4 +1,26 @@
-//! Create a schematic drawing of the coils as seen from the air gap.
+//! Types and functions for drawing [`Coil`]s and entire [`Winding`]s as seen
+//! from the air gap.
+//!
+//! This module contains the [`CoilDrawables`] iterator for drawing the coils
+//! of a winding. The appearence of the coils is defined by the
+//! [`CoilDrawablesConfig`], which also exposes functions for drawing individual
+//! coils. The public items are re-exported from the parent module.
+//!
+//! The images below shows an example which has been created with
+//! _examples/winding_plots.rs_, function `coil_drawables_method`.
+#![cfg_attr(feature = "doc-images", doc = "")]
+#![cfg_attr(
+    feature = "doc-images",
+    doc = "![Winding coils as seen from the air gap][coil_drawable_method_1.svg]"
+)]
+#![cfg_attr(feature = "doc-images",
+cfg_attr(all(),
+doc = ::embed_doc_image::embed_image!("coil_drawable_method_1.svg", "docs/img/coil_drawable_method_1.svg"),
+))]
+#![cfg_attr(
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile docs with `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+)]
 
 use std::{
     collections::HashMap,
@@ -12,10 +34,9 @@ use stem_core::prelude::*;
 
 use crate::{
     coils::{Coil, CoilExt},
+    draw::{DrawableKind, end_winding_layouter::EndWindingLayouter, phase_color},
     winding::Winding,
 };
-
-use super::{DrawableKind, EndWindingLayouter, phase_color};
 
 const BLACK: Color = Color {
     r: 0.0,
@@ -24,16 +45,13 @@ const BLACK: Color = Color {
     a: 1.0,
 };
 
-#[derive(Debug, Copy, Clone)]
-pub enum CoilOrAnnotation {
-    Coil,
-    Annotation,
-}
-
-/// Iterator over the coil drawables and one of the coil zones:
-/// - Coil lines itself
-/// - arrows
-/// - Annotations, if the coil wraps around
+/// An iterator over [`Drawable`], [`DrawableKind`] tuples representing the
+/// teeth and coils of a [`Winding`] as seen from the air gap.
+///
+/// This struct is created by the [`Winding::coil_drawables`] method, see its
+/// documentation for details and examples. Equivalently, the
+/// [`CoilDrawables::new`] method can be used.
+#[derive(Debug, Clone)]
 pub struct CoilDrawables<'a> {
     winding: &'a dyn Winding,
     config: &'a CoilDrawablesConfig,
@@ -45,6 +63,12 @@ pub struct CoilDrawables<'a> {
 }
 
 impl<'a> CoilDrawables<'a> {
+    /// Returns a new [`CoilDrawables`] for the given [`Winding`] and
+    /// [`CoilDrawablesConfig`].
+    ///
+    /// This method is equivalent to [`Winding::coil_drawables`], but with
+    /// `winding` replacing `self`. See the documentation of
+    /// [`Winding::coil_drawables`] for details and examples.
     pub fn new(winding: &'a dyn Winding, config: &'a CoilDrawablesConfig) -> Self {
         let colors: Vec<Color> = (0..winding.phases().get())
             .map(|p| {
@@ -132,13 +156,7 @@ impl<'a> Iterator for CoilDrawables<'a> {
                     );
                     let offset = coil_drawables.len();
                     for (i, d) in coil_drawables.into_iter().enumerate() {
-                        self.drawables[i] = d.map(|(comp, drawable)| {
-                            let kind = match comp {
-                                CoilOrAnnotation::Coil => DrawableKind::Coil(self.zone),
-                                CoilOrAnnotation::Annotation => DrawableKind::Annotation(self.zone),
-                            };
-                            (drawable, kind)
-                        });
+                        self.drawables[i] = d;
                     }
 
                     if let Ok(arrowheads) = self.config.arrowhead_drawables(
@@ -463,7 +481,7 @@ impl CoilDrawablesConfig {
         layers: NonZeroU16,
         colors: &[Color],
         winding_head_layer: usize,
-    ) -> [Option<(CoilOrAnnotation, Drawable)>; 6] {
+    ) -> [Option<(Drawable, DrawableKind)>; 6] {
         // Cannot underflow, since phase is NonZeroU16, i.e. larger than 0.
         let color_idx = usize::from(coil.phase().get()) - 1;
         let phase_col = colors.get(color_idx).cloned().unwrap_or(BLACK);
@@ -482,6 +500,7 @@ impl CoilDrawablesConfig {
                 return self.coil_drawable_from_coordinates(
                     slots,
                     layers,
+                    coil_half.zone,
                     x_pos,
                     x_pos,
                     coil_style,
@@ -502,6 +521,7 @@ impl CoilDrawablesConfig {
                 return self.coil_drawable_from_coordinates(
                     slots,
                     layers,
+                    pos_zone,
                     x_outward,
                     x_return,
                     coil_style,
@@ -523,13 +543,14 @@ impl CoilDrawablesConfig {
         &self,
         slots: NonZeroU16,
         layers: NonZeroU16,
+        zone: Zone,
         x_outward: f64,
         x_return: f64,
         coil_style: Style,
         positive_slot_direction: bool,
         winding_head_layer: usize,
         annotation_info: Option<AnnotationInfo>,
-    ) -> [Option<(CoilOrAnnotation, Drawable)>; 6] {
+    ) -> [Option<(Drawable, DrawableKind)>; 6] {
         let separated_coil = (positive_slot_direction && x_return < x_outward)
             || (!positive_slot_direction && x_return > x_outward);
 
@@ -587,12 +608,12 @@ impl CoilDrawablesConfig {
                         .enumerate()
                     {
                         drawables[i + 2] =
-                            Some((CoilOrAnnotation::Annotation, Drawable::from(annotation)));
+                            Some((Drawable::from(annotation), DrawableKind::Annotation(zone)));
                     }
                 } else {
                     for (i, annotation) in annotations.into_iter().enumerate() {
                         drawables[i + 2] =
-                            Some((CoilOrAnnotation::Annotation, Drawable::from(annotation)));
+                            Some((Drawable::from(annotation), DrawableKind::Annotation(zone)));
                     }
                 }
             }
@@ -610,8 +631,8 @@ impl CoilDrawablesConfig {
                     }
                 }
                 drawables[i] = Some((
-                    CoilOrAnnotation::Coil,
                     Drawable::new(pos_line, coil_style.clone()),
+                    DrawableKind::Coil(zone),
                 ));
             }
         }

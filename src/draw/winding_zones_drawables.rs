@@ -1,3 +1,31 @@
+//! Iterators and configuration structs for drawing [`WindingZones`] while
+//! taking the winding layout (phases, polarities, ampere turns, ...) into
+//! account
+//!
+//! This module provides the [`WindingZoneDrawables`] iterator, which wraps
+//! [`WindingZones`] from stem_core and uses the [`ZoneDrawablesConfig`] to
+//! define the styling and annotations of the returned [`Contour`]s.
+//!
+//! The images below show the same winding, but with different settings for
+//! [`ZoneDrawablesConfig`], see its documentation for details and more
+//! examples. These images have been created with _examples/winding_plots.rs_,
+//! function `zone_drawables_method`.
+#![cfg_attr(feature = "doc-images", doc = "")]
+#![cfg_attr(
+    feature = "doc-images",
+    doc = "![First example][zone_drawable_method_1.svg]",
+    doc = "![Second example][zone_drawable_method_2.svg]"
+)]
+#![cfg_attr(feature = "doc-images",
+cfg_attr(all(),
+doc = ::embed_doc_image::embed_image!("zone_drawable_method_1.svg", "docs/img/zone_drawable_method_1.svg"),
+doc = ::embed_doc_image::embed_image!("zone_drawable_method_2.svg", "docs/img/zone_drawable_method_2.svg"),
+))]
+#![cfg_attr(
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile docs with `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+)]
+
 use planar_geo::prelude::*;
 use std::{f64::consts::SQRT_2, num::NonZeroU16};
 use stem_core::prelude::*;
@@ -13,8 +41,11 @@ const INVISIBLE: Color = Color {
     a: 0.0,
 };
 
-/// [`WindingZoneDrawables`] is a wrapper around the [`WindingZones`]
-/// iterator created by [`core.winding_zones()`](CoreExt::winding_zones)
+/// A wrapper around the [`WindingZones`] iterator created by
+/// [`core.winding_zones()`](CoreExt::winding_zones).
+///
+///
+/// TODO
 pub struct WindingZoneDrawables<'a> {
     winding: &'a dyn Winding,
     winding_zones: WindingZones,
@@ -27,6 +58,12 @@ pub struct WindingZoneDrawables<'a> {
 }
 
 impl<'a> WindingZoneDrawables<'a> {
+    /// Returns a new [`WindingZoneDrawables`] for the given [`Winding`],
+    /// [`CoreRef`] and [`ZoneDrawablesConfig`]
+    ///
+    /// This method is equivalent to [`Winding::zone_drawables`], but with
+    /// `winding` replacing `self`. See the documentation of
+    /// [`Winding::zone_drawables`] for details and examples.
     pub fn new(
         winding: &'a dyn Winding,
         core: CoreRef<'_>,
@@ -132,6 +169,7 @@ pub struct ZoneDrawablesConfig {
 }
 
 impl ZoneDrawablesConfig {
+    /// Returns a new [`ZoneDrawablesConfig`] from its components.
     pub fn new(
         background_color: ZoneBackgroundColor,
         center_config: ZoneCenterConfig,
@@ -288,16 +326,21 @@ pub enum ZoneBackgroundColor {
 }
 
 impl ZoneBackgroundColor {
+    /// Returns the background [`Color`] based on the variant of `self`.
+    ///
+    /// * [`ZoneBackgroundColor::Phase`]: The arguments are forwarded to
+    ///   [`phase_color`] to determine the color (`phase == 0` results in a
+    ///   transparent / invisible color).
+    /// * [`ZoneBackgroundColor::Default`]: Returns the
+    ///   [`background_color`](Style::background_color) of
+    ///   [`stem_slot::SLOT_STYLE`].
+    /// * [`ZoneBackgroundColor::None`]: Returns a transparent / invisible
+    ///   color.
     pub fn color(&self, phase: u16, phases: NonZeroU16) -> Color {
         match self {
             ZoneBackgroundColor::Phase => match NonZeroU16::new(phase) {
                 Some(ph) => phase_color(ph, phases),
-                None => Color {
-                    r: 0.0,
-                    g: 0.0,
-                    b: 0.0,
-                    a: 0.0,
-                },
+                None => INVISIBLE,
             },
             ZoneBackgroundColor::Default => stem_slot::SLOT_STYLE.background_color,
             ZoneBackgroundColor::None => INVISIBLE,
@@ -305,13 +348,6 @@ impl ZoneBackgroundColor {
     }
 }
 
-/**
-This struct describes the inner element of the zone shape.
-
-# Variants
-* `AmpereTurns`: Write the number of ampere turns in the shape middle, taking into account the polarity of the zone according to the zone plan.
-* `Arrow`: Draw an arrow inside the zone shape which is defined by a `ZoneArrowConfig` struct.
- */
 /// Visualization of coil side properties in the zone center.
 ///
 /// This enum is used to define the [`ZoneDrawablesConfig`] which is given as an
@@ -455,6 +491,7 @@ pub struct ZoneArrowConfig {
 }
 
 impl ZoneArrowConfig {
+    /// Returns a new [`ZoneArrowConfig`] from its components.
     pub fn new(
         color_by_phase: bool,
         relative_diameter: f64,
@@ -539,7 +576,7 @@ impl Default for ZoneArrowConfig {
     }
 }
 
-/// Create an arrow symbolizing a positive current flow "out of the drawing
+/// Creates an arrow symbolizing a positive current flow "out of the drawing
 /// area".
 fn positive_current_arrow(
     diameter_arrow: f64,
@@ -564,7 +601,8 @@ fn positive_current_arrow(
     return Some([outline, tip]);
 }
 
-/// Create an arrow symbolizing a negative current flow "into the drawing area".
+/// Creates an arrow symbolizing a negative current flow "into the drawing
+/// area".
 fn negative_current_arrow(diameter_arrow: f64, color: Color) -> Option<[Drawable; 3]> {
     let mut style = Style::default();
     style.line_color = color;
@@ -610,9 +648,7 @@ fn negative_current_arrow(diameter_arrow: f64, color: Color) -> Option<[Drawable
     return Some([outline, first_line, second_line]);
 }
 
-/**
-Returns [arrow circle diameter, arrow tip diameter]
- */
+/// Returns [arrow circle diameter, arrow tip diameter]
 fn arrow_diameters<I: Iterator<Item = Contour>>(contours: I, relative_diameter: f64) -> [f64; 2] {
     // Get the maximum arrow diameter by identifying the maximum circle which can be
     // fitted in the slot when its center equals the centroid.

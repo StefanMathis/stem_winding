@@ -1,3 +1,7 @@
+//! This module contains the [`EndWindingLayouter`] which is used when using the
+//! [`EndWindingStyle::Layered`](super::EndWindingStyle) variant for creating a
+//! [`CoilDrawablesConfig`](super::CoilDrawablesConfig).
+
 use std::num::NonZeroU16;
 
 use stem_types::Zone;
@@ -6,12 +10,15 @@ use crate::coils::{Coil, CoilExt, FullCoil};
 use crate::winding::{CoilsIterator, Winding};
 
 /**
-To plot an end winding with horizontal coil connectors, it is necessary to separate
-the winding heads of each coil into different layers so they don't superimpose.
-To keep the visualization as clean as possible, it is a good idea to minimize the number
-of "crossovers" over different coils. This means that the layer of a coil with a short span
-should be closer to the core than that of a coil with a longer span. Applying these rules
-to a 18-slot, 4-pole-pair single-layer winding results in the following representation:
+An iterator for defining the "end winding layer" of a coil for drawing.
+
+To plot an end winding with horizontal coil connectors, it is necessary to
+separate the winding heads of each coil into different layers so they don't
+superimpose. To keep the visualization as clean as possible, it is a good idea
+to minimize the number of "crossovers" over different coils. This means that the
+layer of a coil with a short span should be closer to the core than that of a
+coil with a longer span. Applying these rules to a 18-slot, 4-pole-pair
+single-layer winding results in the following representation:
 
 ```text
 End winding layer:
@@ -19,12 +26,15 @@ End winding layer:
 0)   ┌─│──┐ ┌──│──┐ ┌─│──┐ ┌──│──┐ ┌─│──┐ ┌──│──┐
      1 2 -1 3 -2 -3 2 3 -2 1 -3 -1 3 1 -3 2 -1 -2
 ```
-The short coils with a span of 2 are all in the zeroth layer, while the longer coils with a span of 3 are in layer one.
 
-This iterator returns all coils of a winding together with the respective layer of its winding head, starting with the coils
-in layer 0 and adding as many layers as needed.
+The short coils with a span of 2 are all in the zeroth layer, while the longer
+coils with a span of 3 are in layer one.
+
+This iterator returns all coils of a winding together with the respective layer
+of its winding head, starting with the coils in layer 0 and adding as many
+layers as needed.
  */
-pub struct EndWindingLayouter<'a> {
+pub(super) struct EndWindingLayouter<'a> {
     winding: &'a dyn Winding,
     layer: u16,
     slot: u16,
@@ -37,7 +47,7 @@ pub struct EndWindingLayouter<'a> {
 }
 
 impl<'a> EndWindingLayouter<'a> {
-    pub fn new(winding: &'a dyn Winding, cyclic: bool) -> Self {
+    pub(super) fn new(winding: &'a dyn Winding, cyclic: bool) -> Self {
         /*
         The start zone of the iterator is the left zone of the full coil with the shortest span.
         If the winding has no full coil, the start zone is slot 0, layer 0.
@@ -61,14 +71,11 @@ impl<'a> EndWindingLayouter<'a> {
         };
     }
 
-    pub fn all_zones_treated(&self) -> bool {
+    pub(super) fn all_zones_treated(&self) -> bool {
         return self.treated_zones.iter().all(|elem| *elem);
     }
 
-    /**
-    First step through the layers, then through the slots.
-     */
-    pub fn step(&mut self) {
+    pub(super) fn step(&mut self) {
         self.layer += 1;
         if self.layer == self.winding.layers().get() {
             // Set back to the zeroth layer and increase the slot number.
@@ -237,30 +244,9 @@ impl<'a> Iterator for EndWindingLayouter<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct CoilAndRank<'a> {
-    pub coil: &'a Coil,
-    pub winding_head_layer: usize,
-}
-
-#[derive(Debug, Clone)]
-pub struct CoilZoneAndRank {
-    pub first_zone: Zone,
-    pub winding_head_layer: usize,
-}
-
-impl CoilZoneAndRank {
-    pub fn new(coil_and_rank: CoilAndRank<'_>) -> Self {
-        return Self {
-            first_zone: coil_and_rank.coil.any_zone(),
-            winding_head_layer: coil_and_rank.winding_head_layer,
-        };
-    }
-}
-
-impl<'a> From<CoilAndRank<'a>> for CoilZoneAndRank {
-    fn from(value: CoilAndRank<'a>) -> Self {
-        return Self::new(value);
-    }
+pub(super) struct CoilAndRank<'a> {
+    pub(super) coil: &'a Coil,
+    pub(super) winding_head_layer: usize,
 }
 
 /**
@@ -321,5 +307,210 @@ mod tests {
         let zone =
             find_left_zone_of_shortest_coil(winding.coils_iter(), Some(winding.slots())).unwrap();
         assert_eq!(zone, Zone::new(11, 0));
+    }
+
+    #[test]
+    fn test_single_layer_18_4() {
+        let winding: DistributedWinding = DistributedMinimalBuilder {
+            slots: 18.try_into().expect("not zero"),
+            pole_pairs: 4.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            layers: 1.try_into().expect("not zero"),
+            coil_span_reduction: 0,
+            zone_span_variation: 0,
+            winding_table_constructor: WindingTableConstructor::CoilSide,
+        }
+        .try_into()
+        .unwrap();
+
+        let mut layouter = EndWindingLayouter::new(&winding, true);
+        {
+            let item = layouter.next().unwrap();
+            assert_eq!(item.winding_head_layer, 0);
+            assert_eq!(
+                item.coil.zones().collect::<Vec<_>>(),
+                vec![Zone::new(0, 0), Zone::new(2, 0)]
+            );
+        }
+        {
+            let item = layouter.next().unwrap();
+            assert_eq!(item.winding_head_layer, 0);
+            assert_eq!(
+                item.coil.zones().collect::<Vec<_>>(),
+                vec![Zone::new(3, 0), Zone::new(5, 0)]
+            );
+        }
+        {
+            let item = layouter.next().unwrap();
+            assert_eq!(item.winding_head_layer, 0);
+            assert_eq!(
+                item.coil.zones().collect::<Vec<_>>(),
+                vec![Zone::new(6, 0), Zone::new(8, 0)]
+            );
+        }
+        {
+            let item = layouter.next().unwrap();
+            assert_eq!(item.winding_head_layer, 0);
+            assert_eq!(
+                item.coil.zones().collect::<Vec<_>>(),
+                vec![Zone::new(9, 0), Zone::new(11, 0)]
+            );
+        }
+        {
+            let item = layouter.next().unwrap();
+            assert_eq!(item.winding_head_layer, 0);
+            assert_eq!(
+                item.coil.zones().collect::<Vec<_>>(),
+                vec![Zone::new(12, 0), Zone::new(14, 0)]
+            );
+        }
+        {
+            let item = layouter.next().unwrap();
+            assert_eq!(item.winding_head_layer, 0);
+            assert_eq!(
+                item.coil.zones().collect::<Vec<_>>(),
+                vec![Zone::new(15, 0), Zone::new(17, 0)]
+            );
+        }
+        {
+            let item = layouter.next().unwrap();
+            assert_eq!(item.winding_head_layer, 1);
+            assert_eq!(
+                item.coil.zones().collect::<Vec<_>>(),
+                vec![Zone::new(1, 0), Zone::new(4, 0)]
+            );
+        }
+        {
+            let item = layouter.next().unwrap();
+            assert_eq!(item.winding_head_layer, 1);
+            assert_eq!(
+                item.coil.zones().collect::<Vec<_>>(),
+                vec![Zone::new(7, 0), Zone::new(10, 0)]
+            );
+        }
+        {
+            let item = layouter.next().unwrap();
+            assert_eq!(item.winding_head_layer, 1);
+            assert_eq!(
+                item.coil.zones().collect::<Vec<_>>(),
+                vec![Zone::new(13, 0), Zone::new(16, 0)]
+            );
+        }
+        assert!(layouter.next().is_none());
+    }
+
+    #[test]
+    fn test_single_layer_18_1_dl() {
+        let mut winding: DistributedWinding = DistributedMinimalBuilder {
+            slots: 18.try_into().expect("not zero"),
+            pole_pairs: 1.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            layers: 2.try_into().expect("not zero"),
+            coil_span_reduction: 0,
+            zone_span_variation: 0,
+            winding_table_constructor: WindingTableConstructor::Tingley,
+        }
+        .try_into()
+        .unwrap();
+        winding.set_concentric_coils(true);
+
+        let layouter = EndWindingLayouter::new(&winding, true);
+        let coils_and_rank: Vec<_> = layouter.collect();
+        assert_eq!(coils_and_rank.len(), 18);
+    }
+
+    #[test]
+    fn test_single_layer_36_2() {
+        let mut winding: DistributedWinding = DistributedMinimalBuilder {
+            slots: 36.try_into().expect("not zero"),
+            pole_pairs: 2.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            layers: 2.try_into().expect("not zero"),
+            coil_span_reduction: 0,
+            zone_span_variation: 0,
+            winding_table_constructor: WindingTableConstructor::Tingley,
+        }
+        .try_into()
+        .unwrap();
+        winding.set_concentric_coils(true);
+
+        let layouter = EndWindingLayouter::new(&winding, true);
+        let coils_and_rank: Vec<_> = layouter.collect();
+        assert_eq!(coils_and_rank.len(), 36);
+    }
+
+    #[test]
+    fn test_single_layer_12_1_concentric() {
+        let mut winding: DistributedWinding = DistributedMinimalBuilder {
+            slots: 12.try_into().expect("not zero"),
+            pole_pairs: 1.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            layers: 1.try_into().expect("not zero"),
+            coil_span_reduction: 0,
+            zone_span_variation: 0,
+            winding_table_constructor: WindingTableConstructor::Tingley,
+        }
+        .try_into()
+        .unwrap();
+        winding.set_concentric_coils(true);
+
+        let mut layouter = EndWindingLayouter::new(&winding, true);
+
+        {
+            let item = layouter.next().unwrap();
+            assert_eq!(item.winding_head_layer, 0);
+            assert_eq!(item.coil.phase().get(), 1);
+            assert_eq!(
+                item.coil.zones().collect::<Vec<_>>(),
+                vec![Zone::new(1, 0), Zone::new(6, 0)]
+            );
+        }
+        {
+            let item = layouter.next().unwrap();
+            assert_eq!(item.winding_head_layer, 1);
+            assert_eq!(item.coil.phase().get(), 3);
+            assert_eq!(
+                item.coil.zones().collect::<Vec<_>>(),
+                vec![Zone::new(9, 0), Zone::new(2, 0)]
+            );
+        }
+        {
+            let item = layouter.next().unwrap();
+            assert_eq!(item.winding_head_layer, 2);
+            assert_eq!(item.coil.phase().get(), 2);
+            assert_eq!(
+                item.coil.zones().collect::<Vec<_>>(),
+                vec![Zone::new(5, 0), Zone::new(10, 0)]
+            );
+        }
+        {
+            let item = layouter.next().unwrap();
+            assert_eq!(item.winding_head_layer, 3);
+            assert_eq!(item.coil.phase().get(), 1);
+            assert_eq!(
+                item.coil.zones().collect::<Vec<_>>(),
+                vec![Zone::new(0, 0), Zone::new(7, 0)]
+            );
+        }
+        {
+            let item = layouter.next().unwrap();
+            assert_eq!(item.winding_head_layer, 4);
+            assert_eq!(item.coil.phase().get(), 3);
+            assert_eq!(
+                item.coil.zones().collect::<Vec<_>>(),
+                vec![Zone::new(8, 0), Zone::new(3, 0)]
+            );
+        }
+        {
+            let item = layouter.next().unwrap();
+            assert_eq!(item.winding_head_layer, 5);
+            assert_eq!(item.coil.phase().get(), 2);
+            assert_eq!(
+                item.coil.zones().collect::<Vec<_>>(),
+                vec![Zone::new(4, 0), Zone::new(11, 0)]
+            );
+        }
+
+        assert!(layouter.next().is_none());
     }
 }

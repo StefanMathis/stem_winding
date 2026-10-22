@@ -38,6 +38,7 @@ mod cairo_tests {
             let drawables = params.coil_drawable_from_coordinates(
                 NonZeroU16::new(6).unwrap(),
                 NonZeroU16::new(1).unwrap(),
+                Zone::new(0, 0),
                 x_outward,
                 x_return,
                 style.clone(),
@@ -47,7 +48,7 @@ mod cairo_tests {
             );
 
             let view = Viewport::from_bounded_entities(
-                drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.1)),
+                drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.0)),
                 SideLength::Long(500),
             )
             .unwrap();
@@ -57,7 +58,7 @@ mod cairo_tests {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
-                    for drawable in drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.1)) {
+                    for drawable in drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.0)) {
                         drawable.draw(cr)?;
                     }
                     return Ok(());
@@ -71,6 +72,7 @@ mod cairo_tests {
             let drawables = params.coil_drawable_from_coordinates(
                 NonZeroU16::new(6).unwrap(),
                 NonZeroU16::new(1).unwrap(),
+                Zone::new(0, 0),
                 x_outward,
                 x_return,
                 Style::default(),
@@ -80,7 +82,7 @@ mod cairo_tests {
             );
 
             let view = Viewport::from_bounded_entities(
-                drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.1)),
+                drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.0)),
                 SideLength::Long(500),
             )
             .unwrap();
@@ -90,7 +92,7 @@ mod cairo_tests {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
-                    for drawable in drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.1)) {
+                    for drawable in drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.0)) {
                         drawable.draw(cr)?;
                     }
                     return Ok(());
@@ -104,6 +106,7 @@ mod cairo_tests {
             let drawables = params.coil_drawable_from_coordinates(
                 NonZeroU16::new(6).unwrap(),
                 NonZeroU16::new(1).unwrap(),
+                Zone::new(0, 0),
                 x_outward,
                 x_return,
                 Style::default(),
@@ -113,7 +116,7 @@ mod cairo_tests {
             );
 
             let view = Viewport::from_bounded_entities(
-                drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.1)),
+                drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.0)),
                 SideLength::Long(500),
             )
             .unwrap();
@@ -123,7 +126,7 @@ mod cairo_tests {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
-                    for drawable in drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.1)) {
+                    for drawable in drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.0)) {
                         drawable.draw(cr)?;
                     }
                     return Ok(());
@@ -137,6 +140,7 @@ mod cairo_tests {
             let drawables = params.coil_drawable_from_coordinates(
                 NonZeroU16::new(6).unwrap(),
                 NonZeroU16::new(1).unwrap(),
+                Zone::new(0, 0),
                 x_outward,
                 x_return,
                 Style::default(),
@@ -146,7 +150,7 @@ mod cairo_tests {
             );
 
             let view = Viewport::from_bounded_entities(
-                drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.1)),
+                drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.0)),
                 SideLength::Long(500),
             )
             .unwrap();
@@ -156,7 +160,7 @@ mod cairo_tests {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
-                    for drawable in drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.1)) {
+                    for drawable in drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.0)) {
                         drawable.draw(cr)?;
                     }
                     return Ok(());

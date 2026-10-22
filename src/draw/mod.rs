@@ -1,14 +1,13 @@
 use std::num::NonZeroU16;
 
 use colorgrad::Gradient;
-use stem_types::Zone;
 use stem_core::planar_geo::draw::*;
+use stem_types::Zone;
 
 pub mod winding_zones_drawables;
 pub use winding_zones_drawables::*;
 
-pub mod end_winding_layouter;
-pub use end_winding_layouter::*;
+mod end_winding_layouter;
 
 pub mod coil_drawables;
 pub use coil_drawables::*;
