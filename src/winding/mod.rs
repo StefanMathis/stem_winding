@@ -1791,7 +1791,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///
     /// # Literature
     ///
-    /// <a id="main_inductance_1">[\[1\]]</a>
+    /// <a id="main_inductance_1">\[1\]</a>
     /// Binder, A.: Elektrische Maschinen und Antriebe, 1st edition, Springer
     /// Heidelberg, 2012
     fn main_inductance(
@@ -1833,7 +1833,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///
     /// # Literature
     ///
-    /// <a id="air_gap_leakage_inductance_1">[\[1\]]</a>
+    /// <a id="air_gap_leakage_inductance_1">\[1\]</a>
     /// Müller, G., Vogt, K. and Ponick, B.: *Berechnung elektrischer
     /// Maschinen*, 6th edition, Wiley-VCH, 2008
     fn air_gap_leakage_inductance(
@@ -1897,7 +1897,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///
     /// # Literature
     ///
-    /// <a id="slot_leakage_inductance_1">[\[1\]]</a>
+    /// <a id="slot_leakage_inductance_1">\[1\]</a>
     /// Müller, G., Vogt, K. and Ponick, B.: *Berechnung elektrischer
     /// Maschinen*, 6th edition, Wiley-VCH, 2008
     ///
@@ -2176,7 +2176,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///
     /// # Examples
     ///
-    /// Calculate the mass of a ll coils of the winding.
+    /// Calculate the mass of all coils of the winding.
     ///
     /// ```
     /// use approxim::assert_abs_diff_eq;
@@ -2394,8 +2394,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// // 1) Material data: The electrical resistivity of the copper or the
     /// // temperature relationship might be slightly off.
     /// //
-    /// // 2) End winding length: Here, we use a calculated value, which is an
-    /// // approximation of an idealized end winding geometry.
+    /// // 2) End winding length: Here, we use an approximation of an idealized
+    /// // end winding geometry which differs from reality.
     /// let conditions = [DynQuantity::from_str("22 °C").expect("parseable")];
     /// assert_abs_diff_eq!(
     ///     winding

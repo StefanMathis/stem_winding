@@ -44,8 +44,20 @@ const INVISIBLE: Color = Color {
 /// A wrapper around the [`WindingZones`] iterator created by
 /// [`core.winding_zones()`](CoreExt::winding_zones).
 ///
+/// This iterator wraps the [`Contour`] items returned by the [`WindingZones`]
+/// iterator with [`Drawable`]s. The [`Style`] is determined by the properties
+/// of the [`Coil`](crate::coils::Coil) in the corresponding [`Zone`] and the
+/// [`ZoneDrawablesConfig`] used to construct the [`WindingZoneDrawables`].
+/// Depending on the [`ZoneDrawablesConfig`] values, additional [`Drawable`]s
+/// may be interspersed: For example, if the
+/// [`ZoneDrawablesConfig::center_config`] is set to the
+/// [`ZoneCenterConfig::Arrow`] variant, the geometric entities representing the
+/// arrow are returned directly after the corresponding contour. To determine
+/// the kind of the current [`Drawable`], a [`DrawableKind`] is returned
+/// alongside it.
 ///
-/// TODO
+/// This struct is created by the [`Winding::zone_drawables`] method, see its
+/// documentation for details and examples.
 pub struct WindingZoneDrawables<'a> {
     winding: &'a dyn Winding,
     winding_zones: WindingZones,

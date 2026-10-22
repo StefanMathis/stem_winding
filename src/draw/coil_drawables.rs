@@ -49,8 +49,8 @@ const BLACK: Color = Color {
 /// teeth and coils of a [`Winding`] as seen from the air gap.
 ///
 /// This struct is created by the [`Winding::coil_drawables`] method, see its
-/// documentation for details and examples. Equivalently, the
-/// [`CoilDrawables::new`] method can be used.
+/// documentation for details and examples. The visual appearence of the teeth
+/// and coil is defined by the [`CoilDrawablesConfig`] used during the creation.
 #[derive(Debug, Clone)]
 pub struct CoilDrawables<'a> {
     winding: &'a dyn Winding,

@@ -4,8 +4,8 @@ use colorgrad::Gradient;
 use stem_core::planar_geo::draw::*;
 use stem_types::Zone;
 
-pub mod winding_zones_drawables;
-pub use winding_zones_drawables::*;
+pub mod winding_zone_drawables;
+pub use winding_zone_drawables::*;
 
 mod end_winding_layouter;
 
