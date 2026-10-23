@@ -2823,7 +2823,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
         )
     )]
     ///
-    /// The shown image has been created with _examples/winding_plots.rs_,
+    /// The shown images have been created with _examples/winding_plots.rs_,
     /// function `coil_drawables_method`.
     ///
     /// # Examples

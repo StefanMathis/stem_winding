@@ -20,11 +20,10 @@ mod cairo_tests {
             axial_length: 4.0,
             axial_coil_overhang: 0.8,
             arrow_head_height: 1.0,
-            start_height: 0.0,
             delta_empty_zone: 0.1,
-            font_size: 14,
+            font_size: 14.0,
             end_winding_style: EndWindingStyle::Pointed {
-                end_winding_coil_angle: 30.0 / 180.0 * PI,
+                vertex_angle: 30.0 / 180.0 * PI,
             },
             draw_both_sides: true,
             cyclic: true,
@@ -220,7 +219,7 @@ mod cairo_tests {
     #[test]
     fn test_pointed() {
         test_plot_impl(EndWindingStyle::Pointed {
-            end_winding_coil_angle: 30.0 / 180.0 * PI,
+            vertex_angle: 30.0 / 180.0 * PI,
         });
     }
 
@@ -231,9 +230,7 @@ mod cairo_tests {
 
     fn test_plot_impl(end_winding_style: EndWindingStyle) {
         let axial_coil_overhang = match end_winding_style {
-            EndWindingStyle::Pointed {
-                end_winding_coil_angle: _,
-            } => 0.8,
+            EndWindingStyle::Pointed { vertex_angle: _ } => 0.8,
             EndWindingStyle::Layered => 0.0,
         };
 
@@ -244,9 +241,8 @@ mod cairo_tests {
             tooth_width: 1.0,
             axial_length: 4.0,
             arrow_head_height: 1.0,
-            start_height: 0.0,
             delta_empty_zone: 0.1,
-            font_size: 14,
+            font_size: 14.0,
             end_winding_style,
             draw_both_sides: true,
             axial_coil_overhang,
@@ -254,9 +250,7 @@ mod cairo_tests {
         };
 
         let ew_style = match end_winding_style {
-            EndWindingStyle::Pointed {
-                end_winding_coil_angle: _,
-            } => "pointed",
+            EndWindingStyle::Pointed { vertex_angle: _ } => "pointed",
             EndWindingStyle::Layered => "layered",
         };
 
@@ -410,11 +404,10 @@ mod cairo_tests {
             axial_length: 4.0,
             axial_coil_overhang: 0.8,
             arrow_head_height: 1.0,
-            start_height: 0.0,
             delta_empty_zone: 0.1,
-            font_size: 14,
+            font_size: 14.0,
             end_winding_style: EndWindingStyle::Pointed {
-                end_winding_coil_angle: 30.0 / 180.0 * PI,
+                vertex_angle: 30.0 / 180.0 * PI,
             },
             draw_both_sides: true,
             cyclic: true,
@@ -444,11 +437,10 @@ mod cairo_tests {
             axial_length: 4.0,
             axial_coil_overhang: 0.8,
             arrow_head_height: 1.0,
-            start_height: 0.0,
             delta_empty_zone: 0.1,
-            font_size: 14,
+            font_size: 14.0,
             end_winding_style: EndWindingStyle::Pointed {
-                end_winding_coil_angle: 30.0 / 180.0 * PI,
+                vertex_angle: 30.0 / 180.0 * PI,
             },
             draw_both_sides: false,
             cyclic: true,
@@ -482,11 +474,10 @@ mod cairo_tests {
             axial_length: 4.0,
             axial_coil_overhang: 0.8,
             arrow_head_height: 1.0,
-            start_height: 0.0,
             delta_empty_zone: 0.1,
-            font_size: 14,
+            font_size: 14.0,
             end_winding_style: EndWindingStyle::Pointed {
-                end_winding_coil_angle: 30.0 / 180.0 * PI,
+                vertex_angle: 30.0 / 180.0 * PI,
             },
             draw_both_sides: true,
             cyclic: true,

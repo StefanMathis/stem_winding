@@ -189,48 +189,133 @@ impl<'a> Iterator for CoilDrawables<'a> {
     }
 }
 
-/**
-This struct contains the config needed to create the air gap view of the end winding.
- */
-#[derive(Debug, Clone)]
-pub struct CoilDrawablesConfig {
-    pub arrowhead_length: f64,
-    pub line_width: f64,
-    pub slot_width: f64,
-    pub tooth_width: f64,
-    pub axial_length: f64,
-    pub start_height: f64,
-    pub arrow_head_height: f64,
-    pub axial_coil_overhang: f64,
-    /**
-    Relative margin between the border of an empty zone and the tooth.
-    The absolute margin is calculated as `delta_empty_zone * slot_width / layers`.
-     */
-    pub delta_empty_zone: f64,
-    pub font_size: u32,
-    pub end_winding_style: EndWindingStyle,
-    /**
-    If true, draw both the positive and the negative side. If false, just draw the positive side
-     */
-    pub draw_both_sides: bool,
-    pub cyclic: bool,
-}
-
-/**
-If this value is set to true, the end winding is represented by horizontal lines which
-are layered by an `EndWindingLayouter`
- */
+/// An enum to define the visual appearance of the end winding / "coil head" of
+/// the individual [`Drawable`]s created by the[`CoilDrawables`] iterator.
+///
+/// This enum is used to build the [`CoilDrawablesConfig`] which defines all
+/// visual properties of the coils. The images below show the same
+/// [`CoilDrawablesConfig`] and the same winding, but for different variants of
+/// this enum. These images have been created with _examples/winding_plots.rs_,
+/// function `coil_drawables_method`.
+///
+/// # [`EndWindingStyle::Pointed`]
+#[doc = ""]
+#[cfg_attr(
+    feature = "doc-images",
+    doc = "![Coil drawables with a pointed coil head][coil_drawable_method_1]"
+)]
+#[cfg_attr(
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+)]
+#[cfg_attr(
+    feature = "doc-images",
+    embed_doc_image::embed_doc_image(
+        "coil_drawable_method_1",
+        "docs/img/coil_drawable_method_1.svg"
+    )
+)]
+/// # [`EndWindingStyle::Layered`]
+#[doc = ""]
+#[cfg_attr(
+    feature = "doc-images",
+    doc = "![Coil drawables with a layered coil head][coil_drawable_method_2]"
+)]
+#[cfg_attr(
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+)]
+#[cfg_attr(
+    feature = "doc-images",
+    embed_doc_image::embed_doc_image(
+        "coil_drawable_method_2",
+        "docs/img/coil_drawable_method_2.svg"
+    )
+)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum EndWindingStyle {
+    /// A coil head is represented by two lines forming an isosceles triangle.
     Pointed {
-        /**
-        In case of an angled winding head representation,
-        this value is the angle in rad between the lines
-        and the horizontal axis.
-         */
-        end_winding_coil_angle: f64,
+        /// Angle between the two "legs" (sides of equal length).
+        vertex_angle: f64,
     },
+    /// A coil head is represented by a horizontal line which is connected to
+    /// the vertical coil sides inside a slot via a quarter circle.
+    ///
+    /// The coil sides heights of the individual coils is calculated to ensure
+    /// that no horizontal parts of two coils overlap, resulting in a "layered"
+    /// pattern (hence the variant's name).
     Layered,
+}
+
+/// Configuration for creating the [`CoilDrawables`] of a winding.
+///
+/// This struct specifies the rendering parameters for the individual
+/// [`Drawable`]s produced by the [`CoilDrawables`] iterator. It contains the
+/// relevant core dimensions for visualizing the winding, along with additional
+/// metadata such as the [`EndWindingStyle`]. A configuration can be created
+/// from a [`CoreRef`] using the [`From`] implementation.
+///
+/// All core parameters that were originally represented as [`Length`] are
+/// represented as `f64` so they can be directly related to other rendering
+/// parameters, such as [`CoilDrawablesConfig::arrowhead_length`] and
+/// [`CoilDrawablesConfig::line_width`]. At this point, these values are used
+/// exclusively for visualizing the coils and no longer represent physical
+/// quantities. The conversion from [`Length`] is performed by extracting the
+/// value in meters. For example, if a core has an
+/// [`axial_length`](CoreExt::axial_length) of 165 mm, the resulting
+/// [`CoilDrawablesConfig::axial_length`] value is `0.165`.
+///
+/// The [`Default`] implementation provides reasonable values for creating
+/// visually appealing coil drawings.
+#[derive(Debug, Clone)]
+pub struct CoilDrawablesConfig {
+    /// Length of the arrow head indicating the coil side orientation (up or
+    /// down). Is used as input for [`Contour::arrow_from_head_length_angle`] to
+    /// create the arrow [`Drawable`].
+    pub arrowhead_length: f64,
+    /// Height of the arrow head indicating the coil side orientation (up or
+    /// down). Is used as input for [`Contour::arrow_from_head_length_angle`] to
+    /// create the arrow [`Drawable`].
+    pub arrow_head_height: f64,
+    /// Width of the lines representing the coils.
+    pub line_width: f64,
+    /// Width of a slot, i.e. the distance between two teeth.
+    pub slot_width: f64,
+    /// Width of a tooth.
+    pub tooth_width: f64,
+    /// Axial length of the core. In the drawing, this equals the height of the
+    /// grey boxes representing the teeth.
+    pub axial_length: f64,
+    /// Axial overhang of the coil (both sides). This value determines by how
+    /// much the vertical part of the coil line extends beyond the grey teeth
+    /// boxes (half this value on each side of the core).
+    pub axial_coil_overhang: f64,
+    /// Relative margin between the border of an empty zone and a neighboring
+    /// tooth. The absolute margin is calculated as
+    /// [`CoilDrawablesConfig::delta_empty_zone`] *
+    /// [`CoilDrawablesConfig::slot_width`] / [`Winding::layers`] (where the
+    /// winding layers are taken from the `winding` argument to
+    /// [`CoilDrawables::new`]).
+    pub delta_empty_zone: f64,
+    /// Defines the text font size of the slot index annotations in points (pt).
+    /// If set to a negative value, the text is not shown. A pt is roughly
+    /// 0.3528 mm on a screen. The font size is not scaled with the canvas.
+    pub font_size: f64,
+    /// Visual representation of the end winding / "coil head". See the
+    /// [`EndWindingStyle`] for examples.
+    pub end_winding_style: EndWindingStyle,
+    /// The coil [`Drawable`]s are symmetric along the x-axis of their
+    /// coordinate system. If this value is set to `false`, the drawables are
+    /// modified to only represent the coil halves with positive y-values.
+    pub draw_both_sides: bool,
+    /// Whether the core is cyclic, i.e. a coil can be closed by going "around"
+    /// the unrolled representation of the core. This is true for a [`RotCore`]
+    /// and false for a [`LinCore`]. This parameter is used when determining the
+    /// coil throw, see [`CoilExt::throw`] for details.
+    pub cyclic: bool,
 }
 
 impl Default for CoilDrawablesConfig {
@@ -242,12 +327,11 @@ impl Default for CoilDrawablesConfig {
             tooth_width: 1.0,
             axial_length: 4.0,
             axial_coil_overhang: 0.8,
-            start_height: 0.0,
             arrow_head_height: 1.0,
             delta_empty_zone: 0.1,
-            font_size: 14,
+            font_size: 14.0,
             end_winding_style: EndWindingStyle::Pointed {
-                end_winding_coil_angle: 30.0 / 180.0 * PI,
+                vertex_angle: 30.0 / 180.0 * PI,
             },
             draw_both_sides: true,
             cyclic: true,
@@ -280,11 +364,10 @@ where
             axial_length: core.axial_length().get::<meter>(),
             axial_coil_overhang: 0.2 * core.axial_length().get::<meter>(),
             arrow_head_height: 0.25 * core.axial_length().get::<meter>(),
-            start_height: 0.0,
             delta_empty_zone: 0.1,
-            font_size: 14,
+            font_size: 14.0,
             end_winding_style: EndWindingStyle::Pointed {
-                end_winding_coil_angle: 30.0 / 180.0 * PI,
+                vertex_angle: 30.0 / 180.0 * PI,
             },
             draw_both_sides: true,
             cyclic,
@@ -292,13 +375,13 @@ where
     }
 }
 
+// TODO
+
 impl CoilDrawablesConfig {
     pub fn max_coil_height(&self, winding: &dyn Winding) -> f64 {
         let layers = winding.layers();
         match self.end_winding_style {
-            EndWindingStyle::Pointed {
-                end_winding_coil_angle,
-            } => {
+            EndWindingStyle::Pointed { vertex_angle } => {
                 let total_len = f64::from(winding.slots().get()) * self.slot_and_tooth_width();
 
                 // Find the coil with the largest throw; it determines the
@@ -329,7 +412,7 @@ impl CoilDrawablesConfig {
                     }
                     Coil::Half(_) => acc,
                 });
-                let height = 0.5 * max_dist * end_winding_coil_angle.sin();
+                let height = 0.5 * max_dist * vertex_angle.sin();
                 return height + 0.5 * self.axial_coil_length();
             }
             EndWindingStyle::Layered => {
@@ -555,14 +638,12 @@ impl CoilDrawablesConfig {
             || (!positive_slot_direction && x_return > x_outward);
 
         let (pos_lines, center_annotations) = match self.end_winding_style {
-            EndWindingStyle::Pointed {
-                end_winding_coil_angle,
-            } => (
+            EndWindingStyle::Pointed { vertex_angle } => (
                 self.coil_head_pointed(
                     slots,
                     x_outward,
                     x_return,
-                    end_winding_coil_angle,
+                    vertex_angle,
                     positive_slot_direction,
                 ),
                 false,
@@ -645,7 +726,7 @@ impl CoilDrawablesConfig {
         slots: NonZeroU16,
         x_outward: f64,
         x_return: f64,
-        end_winding_coil_angle: f64,
+        vertex_angle: f64,
         positive_slot_direction: bool,
     ) -> [Option<Polysegment>; 2] {
         let mut polysegments = [None, None];
@@ -658,7 +739,7 @@ impl CoilDrawablesConfig {
 
         let half_axial_coil_length = 0.5 * self.axial_coil_length();
         let total_width = self.total_width(slots);
-        let ew_angle_sin = end_winding_coil_angle.sin();
+        let ew_angle_sin = vertex_angle.sin();
 
         // If the end winding crosses the upper or lower limit (middle of first and last
         // tooth respectively), separate the connection in two halfes.
@@ -730,25 +811,25 @@ impl CoilDrawablesConfig {
             polysegments[0] = Some(Polysegment::from_points(&[
                 [x1b, height_at_cutoff + half_axial_coil_length],
                 [x1a, half_axial_coil_length],
-                [x1a, self.start_height],
+                [x1a, 0.0],
             ]));
 
             polysegments[1] = Some(Polysegment::from_points(&[
                 [x2a, height_at_cutoff + half_axial_coil_length],
                 [x2b, middle_vertex[1] + half_axial_coil_length],
                 [x2c, half_axial_coil_length],
-                [x2c, self.start_height],
+                [x2c, 0.0],
             ]));
         } else {
             // End winding is fully located between first and last tooth
             if x_outward != x_return {
                 let middle_vertex = get_middle_vertex(x_outward, x_return, ew_angle_sin);
                 polysegments[0] = Some(Polysegment::from_points(&[
-                    [x_outward, self.start_height],
+                    [x_outward, 0.0],
                     [x_outward, half_axial_coil_length],
                     [middle_vertex[0], middle_vertex[1] + half_axial_coil_length],
                     [x_return, half_axial_coil_length],
-                    [x_return, self.start_height],
+                    [x_return, 0.0],
                 ]));
             }
         }
@@ -790,8 +871,7 @@ impl CoilDrawablesConfig {
             ) {
                 ps1.push_back(arc.into());
             }
-            if let Ok(line) = LineSegment::new([x_left, layer_height], [x_left, self.start_height])
-            {
+            if let Ok(line) = LineSegment::new([x_left, layer_height], [x_left, 0.0]) {
                 ps1.push_back(line.into());
             }
             polysegments[0] = Some(ps1);
@@ -811,16 +891,13 @@ impl CoilDrawablesConfig {
             ) {
                 ps2.push_back(arc.into());
             }
-            if let Ok(line) =
-                LineSegment::new([x_right, layer_height], [x_right, self.start_height])
-            {
+            if let Ok(line) = LineSegment::new([x_right, layer_height], [x_right, 0.0]) {
                 ps2.push_back(line.into());
             }
             polysegments[1] = Some(ps2);
         } else {
             let mut ps = Polysegment::new();
-            if let Ok(line) = LineSegment::new([x_left, self.start_height], [x_left, layer_height])
-            {
+            if let Ok(line) = LineSegment::new([x_left, 0.0], [x_left, layer_height]) {
                 ps.push_back(line.into());
             }
             if let Ok(arc) = ArcSegment::from_start_center_angle(
@@ -843,9 +920,7 @@ impl CoilDrawablesConfig {
             ) {
                 ps.push_back(arc.into());
             }
-            if let Ok(line) =
-                LineSegment::new([x_right, layer_height], [x_right, self.start_height])
-            {
+            if let Ok(line) = LineSegment::new([x_right, layer_height], [x_right, 0.0]) {
                 ps.push_back(line.into());
             }
             polysegments[0] = Some(ps);
