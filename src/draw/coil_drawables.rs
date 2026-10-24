@@ -24,18 +24,20 @@ doc = ::embed_doc_image::embed_image!("coil_drawable_method_1.svg", "docs/img/co
 
 use std::{
     collections::HashMap,
-    f64::consts::{FRAC_PI_2, PI},
+    f64::{
+        INFINITY,
+        consts::{FRAC_PI_2, PI},
+    },
     num::NonZeroU16,
 };
 
-use compare_variables::{Comparison, compare_variables};
 use planar_geo::prelude::*;
 use stem_core::prelude::*;
 
 use crate::{
     coils::{Coil, CoilExt},
     draw::{DrawableKind, end_winding_layouter::EndWindingLayouter, phase_color},
-    winding::Winding,
+    winding::{SquirrelCageWinding, Winding},
 };
 
 const BLACK: Color = Color {
@@ -60,6 +62,7 @@ pub struct CoilDrawables<'a> {
     drawables: [Option<(Drawable, DrawableKind)>; 8],
     index: usize,
     zone: Zone,
+    end_rings: [Option<Drawable>; 2],
 }
 
 impl<'a> CoilDrawables<'a> {
@@ -92,6 +95,15 @@ impl<'a> CoilDrawables<'a> {
             layer_winding_head_map = Some(map);
         }
 
+        let end_rings = if (winding.as_dyn() as &dyn std::any::Any)
+            .downcast_ref::<SquirrelCageWinding>()
+            .is_some()
+        {
+            config.cage_end_rings(winding.slots().get())
+        } else {
+            [None, None]
+        };
+
         Self {
             winding,
             config,
@@ -100,6 +112,7 @@ impl<'a> CoilDrawables<'a> {
             drawables: [None, None, None, None, None, None, None, None],
             index: 0,
             zone: Zone { slot: 0, layer: 0 },
+            end_rings,
         }
     }
 }
@@ -126,9 +139,18 @@ impl<'a> Iterator for CoilDrawables<'a> {
         self.index += 1;
 
         let layers = self.winding.layers().get();
+
+        // Exhausted all coils
         if corrected_index >= usize::from(self.winding.slots().get()) * usize::from(layers) {
+            // Do we need to draw some end winding rings?
+            if let Some(d) = self.end_rings[0].take() {
+                return Some((d, DrawableKind::Coil(Zone::new(slots.get(), 0))));
+            } else if let Some(d) = self.end_rings[1].take() {
+                return Some((d, DrawableKind::Coil(Zone::new(slots.get(), 0))));
+            }
             return None;
         }
+
         let layer = corrected_index.rem_euclid(usize::from(layers)) as u16;
         let slot = (corrected_index / usize::from(layers)) as u16;
         self.zone = Zone { slot, layer };
@@ -159,11 +181,10 @@ impl<'a> Iterator for CoilDrawables<'a> {
                         self.drawables[i] = d;
                     }
 
-                    if let Ok(arrowheads) = self.config.arrowhead_drawables(
-                        coil,
-                        self.winding.slots(),
-                        self.winding.layers(),
-                    ) {
+                    if let Ok(arrowheads) =
+                        self.config
+                            .arrowheads(coil, self.winding.slots(), self.winding.layers())
+                    {
                         // Cannot underflow, since phase is NonZeroU16, i.e. larger than 0.
                         let color_idx = usize::from(coil.phase().get()) - 1;
                         let style = self.config.coil_style(self.colors[color_idx]);
@@ -268,37 +289,57 @@ pub enum EndWindingStyle {
 /// [`axial_length`](CoreExt::axial_length) of 165 mm, the resulting
 /// [`CoilDrawablesConfig::axial_length`] value is `0.165`.
 ///
+/// This struct exposes a lot of methods to create individual [`Drawable`] of
+/// coils and annotations. This is useful if a drawing should be built
+/// incrementally. Otherwise, it is recommended to just use the
+/// [`CoilDrawables`] iterator (which uses the methods under the hood).
+///
 /// The [`Default`] implementation provides reasonable values for creating
 /// visually appealing coil drawings.
 #[derive(Debug, Clone)]
 pub struct CoilDrawablesConfig {
     /// Length of the arrow head indicating the coil side orientation (up or
     /// down). Is used as input for [`Contour::arrow_from_head_length_angle`] to
-    /// create the arrow [`Drawable`].
+    /// create the arrow [`Drawable`]. Clamped to the [0 ... inf] interval when
+    /// creating the coil drawables (see
+    /// [`CoilDrawablesConfig::arrowhead_length_clamped`]).
     pub arrowhead_length: f64,
     /// Height of the arrow head indicating the coil side orientation (up or
     /// down). Is used as input for [`Contour::arrow_from_head_length_angle`] to
-    /// create the arrow [`Drawable`].
+    /// create the arrow [`Drawable`]. Clamped to the [0 ... inf] interval when
+    /// creating the coil drawables (see
+    /// [`CoilDrawablesConfig::arrow_head_height_clamped`]).
     pub arrow_head_height: f64,
-    /// Width of the lines representing the coils.
+    /// Width of the lines representing the coils. Clamped to the [0 ... inf]
+    /// interval when creating the coil drawables (see
+    /// [`CoilDrawablesConfig::line_width_clamped`]).
     pub line_width: f64,
-    /// Width of a slot, i.e. the distance between two teeth.
+    /// Width of a slot, i.e. the distance between two teeth. Clamped to the [0
+    /// ... inf] interval when creating the coil drawables (see
+    /// [`CoilDrawablesConfig::slot_width_clamped`]).
     pub slot_width: f64,
-    /// Width of a tooth.
+    /// Width of a tooth. Clamped to the [0 ... inf] interval when creating the
+    /// coil drawables (see [`CoilDrawablesConfig::tooth_width_clamped`]).
     pub tooth_width: f64,
     /// Axial length of the core. In the drawing, this equals the height of the
-    /// grey boxes representing the teeth.
+    /// grey boxes representing the teeth. Clamped to the [0 ... inf] interval
+    /// when creating the coil drawables (see
+    /// [`CoilDrawablesConfig::axial_length_clamped`]).
     pub axial_length: f64,
     /// Axial overhang of the coil (both sides). This value determines by how
     /// much the vertical part of the coil line extends beyond the grey teeth
-    /// boxes (half this value on each side of the core).
+    /// boxes (half this value on each side of the core). Clamped to the [0 ...
+    /// inf] interval when creating the coil drawables (see
+    /// [`CoilDrawablesConfig::axial_coil_overhang_clamped`]).
     pub axial_coil_overhang: f64,
     /// Relative margin between the border of an empty zone and a neighboring
     /// tooth. The absolute margin is calculated as
     /// [`CoilDrawablesConfig::delta_empty_zone`] *
     /// [`CoilDrawablesConfig::slot_width`] / [`Winding::layers`] (where the
     /// winding layers are taken from the `winding` argument to
-    /// [`CoilDrawables::new`]).
+    /// [`CoilDrawables::new`]). Clamped to the [0 ... 1] interval when creating
+    /// the coil drawables (see
+    /// [`CoilDrawablesConfig::delta_empty_zone_clamped`]).
     pub delta_empty_zone: f64,
     /// Defines the text font size of the slot index annotations in points (pt).
     /// If set to a negative value, the text is not shown. A pt is roughly
@@ -322,12 +363,12 @@ impl Default for CoilDrawablesConfig {
     fn default() -> Self {
         Self {
             arrowhead_length: 0.5,
+            arrow_head_height: 1.0,
             line_width: 1.0,
             slot_width: 1.0,
             tooth_width: 1.0,
             axial_length: 4.0,
             axial_coil_overhang: 0.8,
-            arrow_head_height: 1.0,
             delta_empty_zone: 0.1,
             font_size: 14.0,
             end_winding_style: EndWindingStyle::Pointed {
@@ -375,9 +416,94 @@ where
     }
 }
 
-// TODO
-
 impl CoilDrawablesConfig {
+    /// Returns the [`CoilDrawablesConfig::arrowhead_length`] clamped to the [0
+    /// ... inf] interval.
+    ///
+    /// This value is used throughout [`CoilDrawables`] and the methods of
+    /// [`CoilDrawablesConfig`] to ensure sane behaviour even for negative
+    /// inputs.
+    pub fn arrowhead_length_clamped(&self) -> f64 {
+        self.arrowhead_length.clamp(0.0, INFINITY)
+    }
+
+    /// Returns the [`CoilDrawablesConfig::arrow_head_height`] clamped to the [0
+    /// ... inf] interval.
+    ///
+    /// This value is used throughout [`CoilDrawables`] and the methods of
+    /// [`CoilDrawablesConfig`] to ensure sane behaviour even for negative
+    /// inputs.
+    pub fn arrow_head_height_clamped(&self) -> f64 {
+        self.arrow_head_height.clamp(0.0, INFINITY)
+    }
+
+    /// Returns the [`CoilDrawablesConfig::line_width`] clamped to the [0 ...
+    /// inf] interval.
+    ///
+    /// This value is used throughout [`CoilDrawables`] and the methods of
+    /// [`CoilDrawablesConfig`] to ensure sane behaviour even for negative
+    /// inputs.
+    pub fn line_width_clamped(&self) -> f64 {
+        self.line_width.clamp(0.0, INFINITY)
+    }
+
+    /// Returns the [`CoilDrawablesConfig::slot_width`] clamped to the [0 ...
+    /// inf] interval.
+    ///
+    /// This value is used throughout [`CoilDrawables`] and the methods of
+    /// [`CoilDrawablesConfig`] to ensure sane behaviour even for negative
+    /// inputs.
+    pub fn slot_width_clamped(&self) -> f64 {
+        self.slot_width.clamp(0.0, INFINITY)
+    }
+
+    /// Returns the [`CoilDrawablesConfig::tooth_width`] clamped to the [0 ...
+    /// inf] interval.
+    ///
+    /// This value is used throughout [`CoilDrawables`] and the methods of
+    /// [`CoilDrawablesConfig`] to ensure sane behaviour even for negative
+    /// inputs.
+    pub fn tooth_width_clamped(&self) -> f64 {
+        self.tooth_width.clamp(0.0, INFINITY)
+    }
+
+    /// Returns the [`CoilDrawablesConfig::axial_length`] clamped to the [0 ...
+    /// inf] interval.
+    ///
+    /// This value is used throughout [`CoilDrawables`] and the methods of
+    /// [`CoilDrawablesConfig`] to ensure sane behaviour even for negative
+    /// inputs.
+    pub fn axial_length_clamped(&self) -> f64 {
+        self.axial_length.clamp(0.0, INFINITY)
+    }
+
+    /// Returns the [`CoilDrawablesConfig::axial_coil_overhang`] clamped to the
+    /// [0 ... inf] interval.
+    ///
+    /// This value is used throughout [`CoilDrawables`] and the methods of
+    /// [`CoilDrawablesConfig`] to ensure sane behaviour even for negative
+    /// inputs.
+    pub fn axial_coil_overhang_clamped(&self) -> f64 {
+        self.axial_coil_overhang.clamp(0.0, INFINITY)
+    }
+
+    /// Returns the [`CoilDrawablesConfig::delta_empty_zone`] clamped to the [0
+    /// ... 1] interval.
+    ///
+    /// This value is used throughout [`CoilDrawables`] and the methods of
+    /// [`CoilDrawablesConfig`] to ensure sane behaviour even for negative
+    /// inputs.
+    pub fn delta_empty_zone_clamped(&self) -> f64 {
+        self.delta_empty_zone.clamp(0.0, INFINITY)
+    }
+
+    /// Returns the maximum height of all coil drawables which would be produced
+    /// by the [`CoilDrawables`] iterator with `self` and `winding`.
+    ///
+    /// This value is determined from the middle of the core, i.e. from y = 0.
+    /// It can be used to e.g. determine the necessary canvas space without
+    /// needing to collect all coil drawables first. See also
+    /// [`CoilDrawablesConfig::bounding_box`].
     pub fn max_coil_height(&self, winding: &dyn Winding) -> f64 {
         let layers = winding.layers();
         match self.end_winding_style {
@@ -426,51 +552,51 @@ impl CoilDrawablesConfig {
         }
     }
 
+    /// Returns the [`BoundingBox`] of all coil drawables which would be
+    /// produced by the [`CoilDrawables`] iterator with `self` and
+    /// `winding`.
+    ///
+    /// This function can be used to e.g. determine the necessary canvas space
+    /// without needing to collect all coil drawables first.
     pub fn bounding_box(&self, winding: &dyn Winding) -> BoundingBox {
         let ymax = self.max_coil_height(winding);
         let ymin = if self.draw_both_sides { -ymax } else { 0.0 };
-        let xmin = 0.5 * self.tooth_width;
-        let xmax =
-            self.slot_and_tooth_width() * f64::from(winding.slots().get()) + 0.5 * self.tooth_width;
-
+        let xmin = 0.5 * self.tooth_width_clamped();
+        let xmax = self.slot_and_tooth_width() * f64::from(winding.slots().get())
+            + 0.5 * self.tooth_width_clamped();
         BoundingBox::try_new(xmin, xmax, ymin, ymax).unwrap_or(BoundingBox::new(0.0, 0.0, 0.0, 0.0))
-    }
-
-    pub fn validate(&self) -> Result<(), Comparison<f64>> {
-        compare_variables!(self.arrowhead_length >= 0.0)?;
-        compare_variables!(self.line_width >= 0.0)?;
-        compare_variables!(self.tooth_width >= 0.0)?;
-        compare_variables!(self.axial_length >= 0.0)?;
-        compare_variables!(self.delta_empty_zone >= 0.0)?;
-        return Ok(());
     }
 
     fn tooth_drawable(&self, slot: u16, slots: NonZeroU16) -> Drawable {
         let lower = if self.draw_both_sides {
-            -0.5 * self.axial_length
+            -0.5 * self.axial_length_clamped()
         } else {
             0.0
         };
 
         let (lower_left, upper_right) = if slot == 0 {
             (
-                [0.5 * self.tooth_width, lower],
-                [self.tooth_width, 0.5 * self.axial_length],
+                [0.5 * self.tooth_width_clamped(), lower],
+                [
+                    self.tooth_width_clamped(),
+                    0.5 * self.axial_length_clamped(),
+                ],
             )
         } else if slot == slots.get() {
             (
                 [self.slot_and_tooth_width() * f64::from(slot), lower],
                 [
-                    self.slot_and_tooth_width() * f64::from(slot) + 0.5 * self.tooth_width,
-                    0.5 * self.axial_length,
+                    self.slot_and_tooth_width() * f64::from(slot)
+                        + 0.5 * self.tooth_width_clamped(),
+                    0.5 * self.axial_length_clamped(),
                 ],
             )
         } else {
             (
                 [self.slot_and_tooth_width() * f64::from(slot), lower],
                 [
-                    self.slot_and_tooth_width() * f64::from(slot) + self.tooth_width,
-                    0.5 * self.axial_length,
+                    self.slot_and_tooth_width() * f64::from(slot) + self.tooth_width_clamped(),
+                    0.5 * self.axial_length_clamped(),
                 ],
             )
         };
@@ -518,28 +644,28 @@ impl CoilDrawablesConfig {
         }
     }
 
+    /// Returns the sum of [`CoilDrawablesConfig::tooth_width_clamped`] and
+    /// [`CoilDrawablesConfig::slot_width_clamped`].
     pub fn slot_and_tooth_width(&self) -> f64 {
-        return self.tooth_width + self.slot_width;
+        return self.tooth_width_clamped() + self.slot_width_clamped();
     }
 
-    /**
-    Create a drawable for the given empty zone. The total number of layers is also needed
-    in order to set the correct zone width.
-     */
+    /// Creates a contour for the given empty zone. The total number of layers
+    /// is also needed in order to set the correct zone width.
     fn empty_zone(&self, zone: Zone, layers: u16) -> Contour {
         // Calculate the width of a layer
-        let layer_width = self.slot_width / (layers as f64);
-        let zone_delta = self.delta_empty_zone * layer_width;
+        let layer_width = self.slot_width_clamped() / (layers as f64);
+        let zone_delta = self.delta_empty_zone_clamped() * layer_width;
 
         let lower = if self.draw_both_sides {
-            -0.5 * self.axial_length
+            -0.5 * self.axial_length_clamped()
         } else {
             0.0
         };
 
         let lower_left = [
             self.slot_and_tooth_width() * (zone.slot as f64)
-                + self.tooth_width
+                + self.tooth_width_clamped()
                 + zone_delta
                 + layer_width * (zone.layer as f64),
             lower,
@@ -547,16 +673,19 @@ impl CoilDrawablesConfig {
 
         let upper_right = [
             lower_left[0] + layer_width - 2.0 * zone_delta,
-            0.5 * self.axial_length,
+            0.5 * self.axial_length_clamped(),
         ];
 
         return Contour::rectangle(lower_left, upper_right);
     }
 
-    /**
-    Create the drawables (coil lines, numbers) for the given coil.
-    At maximum, two coil lines and four numbers can be created
-     */
+    /// Returns the [`Drawable`]s for the given [`Coil`].
+    ///
+    /// The number of returned drawables depend on the [`Coil`] variant and
+    /// whether it wraps around (see [`CoilDrawablesConfig::cyclic`]). If the
+    /// coil does wrap around, two individual [`Drawable`]s are returned for
+    /// both halves of the coil and either two or four annotations are created
+    /// as well (depending on [`CoilDrawablesConfig::draw_both_sides`]).
     pub fn coil(
         &self,
         coil: &Coil,
@@ -570,7 +699,7 @@ impl CoilDrawablesConfig {
         let phase_col = colors.get(color_idx).cloned().unwrap_or(BLACK);
 
         let mut coil_style = Style::default();
-        coil_style.line_width = self.line_width;
+        coil_style.line_width = self.line_width_clamped();
         coil_style.line_style = LineStyle::Solid;
         coil_style.line_color = phase_col.clone();
 
@@ -580,7 +709,7 @@ impl CoilDrawablesConfig {
                 // and the return conductor
                 let x_pos = self.horizontal_coil_position(coil_half.zone(), layers);
 
-                return self.coil_drawable_from_coordinates(
+                return self.coil_from_coords(
                     slots,
                     layers,
                     coil_half.zone,
@@ -598,15 +727,15 @@ impl CoilDrawablesConfig {
 
                 // Create the straight conductor sections inside the core slots for the outward
                 // and the return conductor
-                let x_outward = self.horizontal_coil_position(pos_zone, layers);
-                let x_return = self.horizontal_coil_position(neg_zone, layers);
+                let x_pos = self.horizontal_coil_position(pos_zone, layers);
+                let x_neg = self.horizontal_coil_position(neg_zone, layers);
 
-                return self.coil_drawable_from_coordinates(
+                return self.coil_from_coords(
                     slots,
                     layers,
                     pos_zone,
-                    x_outward,
-                    x_return,
+                    x_pos,
+                    x_neg,
                     coil_style,
                     coil_full.positive_slot_direction(),
                     winding_head_layer,
@@ -622,38 +751,52 @@ impl CoilDrawablesConfig {
         }
     }
 
-    pub fn coil_drawable_from_coordinates(
+    /// Returns the [`Drawable`]s for the given [`Coil`].
+    ///
+    /// This method is the low-level variant of [`CoilDrawablesConfig::coil`]
+    /// where the coil properties are specified directly instead of providing a
+    /// [`Coil`]. It is only needed if a coil needs to be drawn "outside" the
+    /// winding zone positions defined by [`CoilDrawablesConfig`].
+    ///
+    /// - `zone` is [`CoilExt::any_zone`]
+    /// - `x_pos` is the x-position of the positive conductor of the coil.
+    /// - `x_neg` is the x-position of the negative conductor of the coil. If
+    ///   identical to `x_pos`, no coil head is drawn.
+    /// - `coil_style` determines the styling of the color and is derived in
+    ///   [`CoilDrawablesConfig::coil`] from the coil phase.
+    /// - `positive_slot_direction` is used to determine the direction of the
+    ///   coil head if `x_pos != x_neg`.
+    /// - `winding_head_layer` determines the layer of the coil head. If
+    ///   [`CoilDrawablesConfig::end_winding_style`] is not
+    ///   [`EndWindingStyle::Layered`], this value is ignored.
+    /// - If provided, `annotation_info` specifies the text on the annotations
+    ///   for a coil which wraps around.
+    pub fn coil_from_coords(
         &self,
         slots: NonZeroU16,
         layers: NonZeroU16,
         zone: Zone,
-        x_outward: f64,
-        x_return: f64,
+        x_pos: f64,
+        x_neg: f64,
         coil_style: Style,
         positive_slot_direction: bool,
         winding_head_layer: usize,
         annotation_info: Option<AnnotationInfo>,
     ) -> [Option<(Drawable, DrawableKind)>; 6] {
-        let separated_coil = (positive_slot_direction && x_return < x_outward)
-            || (!positive_slot_direction && x_return > x_outward);
+        let separated_coil = (positive_slot_direction && x_neg < x_pos)
+            || (!positive_slot_direction && x_neg > x_pos);
 
         let (pos_lines, center_annotations) = match self.end_winding_style {
             EndWindingStyle::Pointed { vertex_angle } => (
-                self.coil_head_pointed(
-                    slots,
-                    x_outward,
-                    x_return,
-                    vertex_angle,
-                    positive_slot_direction,
-                ),
+                self.coil_head_pointed(slots, x_pos, x_neg, vertex_angle, positive_slot_direction),
                 false,
             ),
             EndWindingStyle::Layered => (
                 self.coil_head_layered(
                     slots,
                     layers,
-                    x_outward,
-                    x_return,
+                    x_pos,
+                    x_neg,
                     separated_coil,
                     winding_head_layer,
                 ),
@@ -724,16 +867,16 @@ impl CoilDrawablesConfig {
     fn coil_head_pointed(
         &self,
         slots: NonZeroU16,
-        x_outward: f64,
-        x_return: f64,
+        x_pos: f64,
+        x_neg: f64,
         vertex_angle: f64,
         positive_slot_direction: bool,
     ) -> [Option<Polysegment>; 2] {
         let mut polysegments = [None, None];
 
         // Clamp the input values
-        let x_outward = self.clamp_x(x_outward, slots);
-        let x_return = self.clamp_x(x_return, slots);
+        let x_pos = self.clamp_x(x_pos, slots);
+        let x_neg = self.clamp_x(x_neg, slots);
         let coil_cutoff_left = self.coil_cutoff_left();
         let coil_cutoff_right = self.coil_cutoff_right(slots);
 
@@ -745,41 +888,41 @@ impl CoilDrawablesConfig {
         // tooth respectively), separate the connection in two halfes.
 
         // Case 1: End winding crosses the last tooth and continues at the first tooth
-        let last_to_first = positive_slot_direction && x_return < x_outward;
+        let last_to_first = positive_slot_direction && x_neg < x_pos;
 
         // Case 2: End winding crosses the first tooth and continues at the last tooth
-        let first_to_last = !positive_slot_direction && x_return > x_outward;
+        let first_to_last = !positive_slot_direction && x_neg > x_pos;
 
         if last_to_first || first_to_last {
             // End winding crossing
 
-            let x_return_extrap = if last_to_first {
-                x_return + (total_width - self.tooth_width)
+            let x_neg_extrap = if last_to_first {
+                x_neg + (total_width - self.tooth_width_clamped())
             } else {
-                x_return - (total_width - self.tooth_width)
+                x_neg - (total_width - self.tooth_width_clamped())
             };
-            let total_end_winding_width = (x_outward - x_return_extrap).abs();
-            let middle_vertex = get_middle_vertex(x_outward, x_return_extrap, ew_angle_sin);
+            let total_end_winding_width = (x_pos - x_neg_extrap).abs();
+            let middle_vertex = get_middle_vertex(x_pos, x_neg_extrap, ew_angle_sin);
 
             let (x1a, x1b, x2a, x2b, x2c) = if last_to_first {
                 // End winding is ascending
                 if middle_vertex[0] > coil_cutoff_right {
                     // End winding middle is behind the last tooth
                     (
-                        x_outward,
+                        x_pos,
                         coil_cutoff_right,
                         coil_cutoff_left,
-                        x_return - 0.5 * total_end_winding_width,
-                        x_return,
+                        x_neg - 0.5 * total_end_winding_width,
+                        x_neg,
                     )
                 } else {
                     // End winding middle is before the last tooth
                     (
-                        x_return,
+                        x_neg,
                         coil_cutoff_left,
                         coil_cutoff_right,
                         middle_vertex[0],
-                        x_outward,
+                        x_pos,
                     )
                 }
             } else {
@@ -787,20 +930,20 @@ impl CoilDrawablesConfig {
                 if middle_vertex[0] < coil_cutoff_left {
                     // End winding middle is before the first tooth
                     (
-                        x_outward,
+                        x_pos,
                         coil_cutoff_left,
                         coil_cutoff_right,
-                        x_return + 0.5 * total_end_winding_width,
-                        x_return,
+                        x_neg + 0.5 * total_end_winding_width,
+                        x_neg,
                     )
                 } else {
                     // End winding middle is behind the first tooth
                     (
-                        x_return,
+                        x_neg,
                         coil_cutoff_right,
                         coil_cutoff_left,
                         middle_vertex[0],
-                        x_outward,
+                        x_pos,
                     )
                 }
             };
@@ -822,15 +965,27 @@ impl CoilDrawablesConfig {
             ]));
         } else {
             // End winding is fully located between first and last tooth
-            if x_outward != x_return {
-                let middle_vertex = get_middle_vertex(x_outward, x_return, ew_angle_sin);
+            if x_pos != x_neg {
+                let middle_vertex = get_middle_vertex(x_pos, x_neg, ew_angle_sin);
                 polysegments[0] = Some(Polysegment::from_points(&[
-                    [x_outward, 0.0],
-                    [x_outward, half_axial_coil_length],
+                    [x_pos, 0.0],
+                    [x_pos, half_axial_coil_length],
                     [middle_vertex[0], middle_vertex[1] + half_axial_coil_length],
-                    [x_return, half_axial_coil_length],
-                    [x_return, 0.0],
+                    [x_neg, half_axial_coil_length],
+                    [x_neg, 0.0],
                 ]));
+            } else {
+                if self.draw_both_sides {
+                    polysegments[0] = Some(Polysegment::from_points(&[
+                        [x_pos, half_axial_coil_length],
+                        [x_neg, -half_axial_coil_length],
+                    ]));
+                } else {
+                    polysegments[0] = Some(Polysegment::from_points(&[
+                        [x_pos, half_axial_coil_length],
+                        [x_neg, 0.0],
+                    ]));
+                }
             }
         }
         return polysegments;
@@ -840,19 +995,35 @@ impl CoilDrawablesConfig {
         &self,
         slots: NonZeroU16,
         layers: NonZeroU16,
-        x_outward: f64,
-        x_return: f64,
+        x_pos: f64,
+        x_neg: f64,
         separated_coil: bool,
         winding_head_layer: usize,
     ) -> [Option<Polysegment>; 2] {
         let mut polysegments = [None, None];
-        let layer_dist = self.slot_width / (layers.get() + 1) as f64;
+        if x_pos == x_neg {
+            let half_axial_coil_length = 0.5 * self.axial_coil_length();
+            if self.draw_both_sides {
+                polysegments[0] = Some(Polysegment::from_points(&[
+                    [x_pos, half_axial_coil_length],
+                    [x_neg, -half_axial_coil_length],
+                ]));
+            } else {
+                polysegments[0] = Some(Polysegment::from_points(&[
+                    [x_pos, half_axial_coil_length],
+                    [x_neg, 0.0],
+                ]));
+            }
+            return polysegments;
+        }
+
+        let layer_dist = self.slot_width_clamped() / (layers.get() + 1) as f64;
         let layer_height = 0.5 * self.axial_coil_length() + layer_dist * winding_head_layer as f64;
 
-        let [x_left, x_right] = if x_outward < x_return {
-            [x_outward, x_return]
+        let [x_left, x_right] = if x_pos < x_neg {
+            [x_pos, x_neg]
         } else {
-            [x_return, x_outward]
+            [x_neg, x_pos]
         };
 
         if separated_coil {
@@ -928,7 +1099,8 @@ impl CoilDrawablesConfig {
         return polysegments;
     }
 
-    pub fn arrowhead_drawables(
+    /// Returns the arrowhead drawables for the given coil.
+    pub fn arrowheads(
         &self,
         coil: &Coil,
         slots: NonZeroU16,
@@ -940,14 +1112,14 @@ impl CoilDrawablesConfig {
         ];
 
         let arrow_head_size =
-            ArrowHeadSize::SideLength(0.9 * self.slot_width / f64::from(layers.get()));
+            ArrowHeadSize::SideLength(0.9 * self.slot_width_clamped() / f64::from(layers.get()));
 
         for (idx, zap) in coil.zones_and_polarities().enumerate() {
             let x = self.horizontal_coil_position(zap.zone, layers);
-            arrows[idx] = self.arrowhead_drawable_from_coordinates(
+            arrows[idx] = self.arrowhead_from_coords(
                 slots,
                 x,
-                self.arrow_head_height,
+                self.arrow_head_height_clamped(),
                 arrow_head_size,
                 zap.is_positive,
             )?;
@@ -955,7 +1127,15 @@ impl CoilDrawablesConfig {
         return Ok(arrows);
     }
 
-    pub fn arrowhead_drawable_from_coordinates(
+    /// Returns the arrowhead drawable at the given x/y coordinate. Its
+    /// direction is determined by `positive_arrow`.
+    ///
+    /// This is the low-level variant of
+    /// [`CoilDrawablesConfig::arrowheads`]. Similar to
+    /// [`CoilDrawablesConfig::coil_from_coords`], this function is exposed to
+    /// allow drawing a coil "outside" the winding zone positions defined by
+    /// [`CoilDrawablesConfig`].
+    pub fn arrowhead_from_coords(
         &self,
         slots: NonZeroU16,
         x: f64,
@@ -972,7 +1152,7 @@ impl CoilDrawablesConfig {
             if positive_arrow {
                 return Contour::arrow_from_head_length_angle(
                     [x, y],
-                    self.arrowhead_length,
+                    self.arrowhead_length_clamped(),
                     FRAC_PI_2,
                     0.0,
                     arrow_head_size,
@@ -980,7 +1160,7 @@ impl CoilDrawablesConfig {
             } else {
                 return Contour::arrow_from_head_length_angle(
                     [x, -y],
-                    self.arrowhead_length,
+                    self.arrowhead_length_clamped(),
                     -FRAC_PI_2,
                     0.0,
                     arrow_head_size,
@@ -990,7 +1170,7 @@ impl CoilDrawablesConfig {
             if positive_arrow {
                 return Contour::arrow_from_head_length_angle(
                     [x, y],
-                    self.arrowhead_length,
+                    self.arrowhead_length_clamped(),
                     FRAC_PI_2,
                     0.0,
                     arrow_head_size,
@@ -999,7 +1179,7 @@ impl CoilDrawablesConfig {
                 let height = arrow_head_size.height();
                 return Contour::arrow_from_head_length_angle(
                     [x, y - height],
-                    self.arrowhead_length,
+                    self.arrowhead_length_clamped(),
                     -FRAC_PI_2,
                     0.0,
                     arrow_head_size,
@@ -1008,55 +1188,103 @@ impl CoilDrawablesConfig {
         };
     }
 
-    pub fn cage_end_ring(&self, slots: u16) -> Result<[LineSegment; 2], planar_geo::error::Error> {
+    /// Returns the horizontal lines representing a squirrel cage end ring.
+    ///
+    /// If [`CoilDrawablesConfig::draw_both_sides`] is false, only the upper
+    /// line is returned (as the first item of the array).
+    pub fn cage_end_rings(&self, slots: u16) -> [Option<Drawable>; 2] {
         // Draw an connecting "beam" over the conductors
-        let x_start = 0.5 * self.tooth_width;
-        let x_stop = slots as f64 * self.slot_and_tooth_width() + 0.5 * self.tooth_width;
+        let x_start = 0.5 * self.tooth_width_clamped();
+        let x_stop = slots as f64 * self.slot_and_tooth_width() + 0.5 * self.tooth_width_clamped();
 
-        let y = 0.5 * (self.axial_length + self.slot_width);
+        let y = 0.5 * self.axial_coil_length();
 
-        let lower = LineSegment::new([x_start, y], [x_stop, y])?;
-        let upper = LineSegment::new([x_start, -y], [x_stop, -y])?;
+        let mut style = Style::default();
+        style.line_width = self.line_width_clamped();
+        style.line_style = LineStyle::Solid;
+        style.line_color = Color::new(0.0, 0.0, 0.0, 1.0);
 
-        return Ok([lower, upper]);
+        let pos = LineSegment::new([x_start, y], [x_stop, y])
+            .map(|ls| Some(Drawable::new(ls, style.clone())))
+            .unwrap_or(None);
+
+        let neg = if self.draw_both_sides {
+            LineSegment::new([x_start, -y], [x_stop, -y])
+                .map(|ls| Some(Drawable::new(ls, style)))
+                .unwrap_or(None)
+        } else {
+            None
+        };
+
+        return [pos, neg];
     }
 
-    /**
-    Return the horizontal position of a coil line in the given zone.
-     */
+    /// Returns the horizontal position of a coil line in the given zone.
     pub fn horizontal_coil_position(&self, zone: Zone, layers: NonZeroU16) -> f64 {
-        return self.tooth_width
+        return self.tooth_width_clamped()
             + self.slot_and_tooth_width() * zone.slot as f64
-            + self.slot_width * (1.0 / layers.get() as f64 * (zone.layer as f64 + 0.5));
+            + self.slot_width_clamped() * (1.0 / layers.get() as f64 * (zone.layer as f64 + 0.5));
     }
 
+    /// Returns the total width of the core.
+    ///
+    /// This is `slots` times [`CoilDrawablesConfig::slot_and_tooth_width`] plus
+    /// [`CoilDrawablesConfig::tooth_width_clamped`].
     pub fn total_width(&self, slots: NonZeroU16) -> f64 {
-        return self.slot_and_tooth_width() * slots.get() as f64 + self.tooth_width;
+        return self.slot_and_tooth_width() * slots.get() as f64 + self.tooth_width_clamped();
     }
 
+    /// Returns the x-value where the coils which wrap around the core are "cut
+    /// off" on the left side of the core.
     pub fn coil_cutoff_left(&self) -> f64 {
-        return 0.5 * self.tooth_width;
+        return 0.5 * self.tooth_width_clamped();
     }
-
+    /// Returns the x-value where the coils which wrap around the core are "cut
+    /// off" on the right side of the core.
     pub fn coil_cutoff_right(&self, slots: NonZeroU16) -> f64 {
-        return self.total_width(slots) - 0.5 * self.tooth_width;
+        return self.total_width(slots) - 0.5 * self.tooth_width_clamped();
     }
 
+    /// Returns the axial length of the the coil.
+    ///
+    /// This is [`CoilDrawablesConfig::axial_length_clamped`] plus
+    /// [`CoilDrawablesConfig::axial_coil_overhang_clamped`].
     pub fn axial_coil_length(&self) -> f64 {
-        return self.axial_length + self.axial_coil_overhang;
+        return self.axial_length_clamped() + self.axial_coil_overhang_clamped();
     }
 
+    /// Clamp the `x` value to [[`CoilDrawablesConfig::coil_cutoff_left`] ...
+    /// [`CoilDrawablesConfig::coil_cutoff_right`]].
     pub fn clamp_x(&self, x: f64, slots: NonZeroU16) -> f64 {
         return x.clamp(self.coil_cutoff_left(), self.coil_cutoff_right(slots));
     }
 }
 
+/// Data for creating the annotations for coils which wrap around.
+///
+/// If the [`CoilDrawablesConfig`] is [`cyclic`](CoilDrawablesConfig::cyclic)
+/// and a coil wraps around the ends, [`CoilDrawables`] adds annotations at the
+/// cutoff ends of the coil lines. These annotations are the numbers of the slot
+/// where the other side of the coil is. This struct is created within
+/// [`CoilDrawablesConfig::coil`] and is only exposed to allow using the
+/// low-level [`CoilDrawablesConfig::coil_from_coords`] API directly (where it
+/// can also simply be set to None).
 #[derive(Debug, Clone, Copy)]
 pub struct AnnotationInfo {
+    /// Total number of slots of the winding, corresponds to [`Winding::slots`].
     pub slots: NonZeroU16,
+    /// Total number of layers of the winding, corresponds to
+    /// [`Winding::layers`].
     pub layers: NonZeroU16,
+    /// Positive zone of the coil, corresponds to
+    /// [`FullCoil::positive_zone`](crate::coils::FullCoil::positive_zone).
     pub pos_zone: Zone,
+    /// Negative zone of the coil, corresponds to
+    /// [`FullCoil::negative_zone`](crate::coils::FullCoil::negative_zone).
     pub neg_zone: Zone,
+    /// Whether the coil head goes from the positive zone to the negative one in
+    /// ascending or descending order. See
+    /// [`FullCoil::positive_slot_direction`](crate::coils::FullCoil::positive_slot_direction).
     pub positive_slot_direction: bool,
 }
 

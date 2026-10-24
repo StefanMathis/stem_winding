@@ -1,3 +1,11 @@
+//! This module contains the types and functions needed to created the
+//! [`CoilDrawables`] and [`WindingZoneDrawables`] iterators which are returned
+//! from [`Winding::coil_drawables`](crate::winding::Winding::coil_drawables)
+//! and [`Winding::zone_drawables`](crate::winding::Winding::zone_drawables). In
+//! particular, it exposes the configuration structs [`CoilDrawablesConfig`] and
+//! [`ZoneDrawablesConfig`] which determine the visual appearance of the
+//! [`Drawable`]s created by the aforementioned iterators.
+
 use std::num::NonZeroU16;
 
 use colorgrad::Gradient;
@@ -55,7 +63,8 @@ pub enum DrawableKind {
     /// [`ZoneCenterConfig::AmpereTurns`]. The [`Style`] of the associated
     /// [`Drawable`] contains a [`Text`].
     Annotation(Zone),
-    /// The coil side in the given zone.
+    /// The coil side in the given zone. If [`Zone::slot`] is equal to the total
+    /// number of winding slots, the accompanying [`Drawable`] is an end ring.
     Coil(Zone),
     /// An arrow indicating the polarity or current direction of the coil side
     /// in the given zone.

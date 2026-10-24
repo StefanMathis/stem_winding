@@ -34,7 +34,7 @@ mod cairo_tests {
             let x_return = 3.5;
 
             let style = Style::default();
-            let drawables = params.coil_drawable_from_coordinates(
+            let drawables = params.coil_from_coords(
                 NonZeroU16::new(6).unwrap(),
                 NonZeroU16::new(1).unwrap(),
                 Zone::new(0, 0),
@@ -68,7 +68,7 @@ mod cairo_tests {
         {
             let x_outward = 2.5;
             let x_return = 1.0;
-            let drawables = params.coil_drawable_from_coordinates(
+            let drawables = params.coil_from_coords(
                 NonZeroU16::new(6).unwrap(),
                 NonZeroU16::new(1).unwrap(),
                 Zone::new(0, 0),
@@ -102,7 +102,7 @@ mod cairo_tests {
         {
             let x_outward = 2.5;
             let x_return = -0.5;
-            let drawables = params.coil_drawable_from_coordinates(
+            let drawables = params.coil_from_coords(
                 NonZeroU16::new(6).unwrap(),
                 NonZeroU16::new(1).unwrap(),
                 Zone::new(0, 0),
@@ -136,7 +136,7 @@ mod cairo_tests {
         {
             let x_outward = 2.5;
             let x_return = 0.0;
-            let drawables = params.coil_drawable_from_coordinates(
+            let drawables = params.coil_from_coords(
                 NonZeroU16::new(6).unwrap(),
                 NonZeroU16::new(1).unwrap(),
                 Zone::new(0, 0),
@@ -537,6 +537,65 @@ mod cairo_tests {
             )
             .unwrap();
             check(&winding, &params, "tests/img/end_winding_ca_12_1_a.png");
+        }
+    }
+
+    #[test]
+    fn test_squirrel_cage() {
+        let mut params = CoilDrawablesConfig {
+            arrowhead_length: 0.5,
+            line_width: 1.0,
+            slot_width: 1.0,
+            tooth_width: 1.0,
+            axial_length: 4.0,
+            axial_coil_overhang: 0.8,
+            arrow_head_height: 1.0,
+            delta_empty_zone: 0.1,
+            font_size: 14.0,
+            end_winding_style: EndWindingStyle::Layered,
+            draw_both_sides: true,
+            cyclic: true,
+        };
+
+        let winding: SquirrelCageWinding = SquirrelCageMinimalBuilder {
+            slots: 28.try_into().unwrap(),
+            pole_pairs: 2.try_into().unwrap(),
+        }
+        .try_into()
+        .unwrap();
+
+        let mut bb = params.bounding_box(&winding);
+        bb.try_set_ymin(bb.ymin() * 1.2);
+        bb.try_set_ymax(bb.ymax() * 1.2);
+
+        for style in [
+            EndWindingStyle::Pointed {
+                vertex_angle: 30.0 / 180.0 * PI,
+            },
+            EndWindingStyle::Layered,
+        ]
+        .into_iter()
+        {
+            params.end_winding_style = style;
+            let mut drawables: Vec<Drawable> = Vec::new();
+            for d in winding.coil_drawables(&params).map(|t| t.0) {
+                drawables.push(d);
+            }
+
+            let view = Viewport::from_bounding_box(&bb, SideLength::Long(2000));
+            let path = std::path::Path::new("tests/img/end_winding_squirrel_cage.png");
+            let callback = |path: &std::path::Path| {
+                return view.write_to_file(path, |cr| {
+                    cr.set_source_rgb(1.0, 1.0, 1.0);
+                    cr.paint()?;
+
+                    for drawable in drawables.iter() {
+                        drawable.draw(cr)?;
+                    }
+                    return Ok(());
+                });
+            };
+            assert!(compare_or_create(path, &callback, 0.99).is_ok());
         }
     }
 }
