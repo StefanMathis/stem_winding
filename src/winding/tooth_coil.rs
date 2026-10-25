@@ -63,6 +63,7 @@ The following image shows the coil layout for a double-layer 12 / 10 winding:
     `cargo doc --features 'doc-images'` and Rust version >= 1.54."
 )]
 /**
+
 _Image created with `/examples/winding_plots.rs`, function `tooth_coil_winding()`._
 
 # Properties
@@ -79,7 +80,8 @@ phases and is calculated in constant time.
 - All coils use the same [`wire`](ToothCoilWinding::wire).
 - It either has one or two [`layers`](Winding::layers); the coils in a slot are
 arranged as defined by [`CoilLayout::Single`] or
-[`CoilLayout::DoubleHorizontal`] respectively.
+[`CoilLayout::DoubleHorizontal`] respectively. The following image shows the
+coil arrangement for a double-layer winding.
 */
 #[doc = ""]
 #[cfg_attr(
@@ -506,7 +508,7 @@ pub struct ToothCoilBuilder {
     /// winding.
     pub phases: NonZeroU16,
     /// Number of layers. Corresponds to [`Winding::layers`] in the final
-    /// winding.
+    /// winding. Must be 1 or 2 (`1 <= layers <= 2`).
     pub layers: NonZeroU16,
     /// Winding table constructor used to determine the winding table of the
     /// final winding via [`WindingTable::from_constructor`]. The `span`
@@ -653,7 +655,7 @@ pub struct ToothCoilMinimalBuilder {
     /// winding.
     pub phases: NonZeroU16,
     /// Number of layers. Corresponds to [`Winding::layers`] in the final
-    /// winding.
+    /// winding. Must be 1 or 2 (`1 <= layers <= 2`).
     pub layers: NonZeroU16,
     /// Winding table constructor used to determine the winding table of the
     /// final winding via [`WindingTable::from_constructor`]. The `span`

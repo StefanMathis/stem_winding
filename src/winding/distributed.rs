@@ -1,3 +1,7 @@
+//! Provides the [`DistributedWinding`] as well as its builder structs.
+//!
+//! See the documentation of [`DistributedWinding`] for details.
+
 use std::num::{NonZeroU16, NonZeroUsize};
 
 use compare_variables::{Comparison, compare_variables};
@@ -55,8 +59,8 @@ pub struct DistributedWinding {
     pole_pairs: NonZeroU16,
     phases: NonZeroU16,
     layers: NonZeroU16,
-    coil_span_reduction: i32,
-    zone_span_variation: u16,
+    coil_throw_reduction: i32,
+    zone_shift: u16,
     turns_per_coil: NonZeroUsize,
     parallel_paths: NonZeroU16,
     connection: Connection,
@@ -70,6 +74,12 @@ pub struct DistributedWinding {
 }
 
 impl DistributedWinding {
+    /// Creates a new winding.
+    ///
+    /// This is a wrapper around `T::try_into`. The builder structs provided by
+    /// the module implement [`TryInto<DistributedWinding>`], see their
+    /// respective documentation for details on the failure modes. The
+    /// struct documentation has an usage example.
     pub fn new<W>(builder: W) -> Result<Self, Error>
     where
         W: TryInto<DistributedWinding>,
@@ -77,10 +87,90 @@ impl DistributedWinding {
     {
         builder.try_into().map_err(Into::into)
     }
-    /**
-    Return the distribution and the pitch factor as `[distribution, pitch]`.
-    The product of those two values equals the winding factor calculated from `self.winding_factor()`
-     */
+
+    /// Returns a decomposition of the
+    /// [`winding_factor`](Winding::winding_factor) into the "distribution
+    /// factor" and the "pitch factor".
+    ///
+    /// If a double-layer winding is not full-pitched
+    /// ([`coil_throw_reduction`](DistributedWinding::coil_throw_reduction)
+    /// unequal zero), the winding factor `k_w,v` can be decomposed into a
+    /// component stemming from the distribution of a phase over multiple slots
+    /// ("distribution factor" `k_d,v`) and the influence of the pitching
+    /// ("pitch factor" `k_p,v`):
+    ///
+    /// `k_w,v = k_d,v * k_p,v`.
+    ///
+    /// See e.g. [\[1\]](#distribution_and_pitch_factor_1), eq. 3.2-15 and
+    /// 3.2-17 for details.
+    ///
+    /// This function returns the two-value array `[distribution_factor,
+    /// pitch_factor]`.
+    ///
+    /// # Literature
+    /// <a id="distribution_and_pitch_factor_1">\[1\]</a>
+    /// Binder, A.: Elektrische Maschinen und Antriebe, 1st edition, Springer
+    /// Heidelberg, 2012
+    ///
+    /// # Examples
+    ///
+    /// ## Full-pitched winding
+    ///
+    /// The pitch factor is one and subsequently, `k_d == k_w`.
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let full_pitched = DistributedWinding::new(DistributedMinimalBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 1.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 2.try_into().expect("not zero"),
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    ///     coil_throw_reduction: 0,
+    ///     zone_shift: 0,
+    /// }).expect("valid winding topology");
+    /// let ph = NonZeroU16::new(1).expect("not zero");
+    ///
+    /// let [k_d, k_p] = full_pitched.distribution_and_pitch_factor(ph, SpatialOrder::Electrical(1));
+    ///
+    /// assert_abs_diff_eq!(k_d, 0.9659, epsilon = 1e-3);
+    /// assert_abs_diff_eq!(k_p, 1.0, epsilon = 1e-3);
+    ///
+    /// let k_w = full_pitched.winding_factor(ph, SpatialOrder::Electrical(1));
+    /// assert_abs_diff_eq!(k_w, k_d * k_p, epsilon = 1e-3);
+    /// ```
+    ///
+    /// ## Short-pitched winding
+    ///
+    /// The pitch factor is smaller than one and subsequently, `k_d > k_w`.
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let short_pitched = DistributedWinding::new(DistributedMinimalBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 1.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 2.try_into().expect("not zero"),
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    ///     coil_throw_reduction: 1,
+    ///     zone_shift: 0,
+    /// }).expect("valid winding topology");
+    /// let ph = NonZeroU16::new(1).expect("not zero");
+    ///
+    /// let [k_d, k_p] = short_pitched.distribution_and_pitch_factor(ph, SpatialOrder::Electrical(1));
+    ///
+    /// assert_abs_diff_eq!(k_d, 0.9659, epsilon = 1e-3);
+    /// assert_abs_diff_eq!(k_p, 0.9659, epsilon = 1e-3);
+    ///
+    /// let k_w = short_pitched.winding_factor(ph, SpatialOrder::Electrical(1));
+    /// assert_abs_diff_eq!(k_w, k_d * k_p, epsilon = 1e-3);
+    /// ```
     pub fn distribution_and_pitch_factor(
         &self,
         phase: NonZeroU16,
@@ -90,28 +180,28 @@ impl DistributedWinding {
         // meaning that the pitch factor is 1 by default. If layers == 2,
         // distribution and pitch factor are calculated by temporarily changing the
         // pitch to zero.
-        let coil_span_reduction = self.coil_span_reduction();
-        if self.layers().get() == 1 || coil_span_reduction == 0 {
+        let coil_throw_reduction = self.coil_throw_reduction();
+        if self.layers().get() == 1 || coil_throw_reduction == 0 {
             return [self.winding_factor(phase, spatial_order), 1.0];
         } else {
             // Create a copy of this winding, but without the short pitch. We use
             // the DistributionTable here, since it can deal with all slot / pole
             // combinations as long as there are one or two layers (which is
             // always the case for a DistributedWinding).
-            let temp_winding: DistributedWinding = DistributedMinimalBuilder {
+            let non_reduced: DistributedWinding = DistributedMinimalBuilder {
                 slots: self.slots(),
                 pole_pairs: self.pole_pairs(),
                 phases: self.phases(),
                 layers: self.layers(),
-                coil_span_reduction: 0,
-                zone_span_variation: self.zone_span_variation,
+                coil_throw_reduction: 0,
+                zone_shift: self.zone_shift,
                 winding_table_constructor: self.winding_table_constructor,
             }
             .try_into()
             .expect("all input parameters result in a valid winding, since self is valid as well");
 
             // Calculate winding factor with and without chording
-            let k_d = temp_winding.winding_factor(phase, spatial_order); // The factor without chording equals the distribution factor
+            let k_d = non_reduced.winding_factor(phase, spatial_order);
             let k_w_chorded = self.winding_factor(phase, spatial_order);
 
             // The pitch factor is calculated as the quotient of factor_w_chording and
@@ -121,34 +211,371 @@ impl DistributedWinding {
         }
     }
 
-    /// Return the short pitch of the winding, which describes the "shift"
-    /// between the zones of the upper and lower layer. A positive value
-    /// indicates a short-pitching, while a negative value results in
-    /// lengthening the pitch between upper and lower layer.
-    pub fn coil_span_reduction(&self) -> i32 {
-        self.coil_span_reduction
+    /// Returns the coil-throw reduction for a double-layer winding in slots.
+    /// For a single-layer winding, this value is meaningless.
+    ///
+    /// A positive value indicates short-pitched coils; a negative value
+    /// indicates long-pitched coils. The coil-throw reduction is defined as
+    ///
+    /// `coil-throw reduction = full-pitch throw - actual coil throw`
+    ///
+    /// where the full-pitch throw is `slots / (2 * pole pairs)`.
+    ///
+    /// Short-pitching is mainly done for the following two reasons:
+    /// 1) It reduces the end winding length and therefore resistance, copper
+    ///    usage etc.
+    /// 2) Due to the zone shift, the winding factor is influenced. This effect
+    ///    can be used to suppress unwanted harmonics, as demonstrated in the
+    ///    example section. For example, a 12-slot, 2-pole full-pitched winding
+    ///    has a fundamental winding factor of 0.9659 and that of its fifth
+    ///    electrical spatial order is 0.2588. Reducing the coil-throw by one
+    ///    slot results in a fundamental winding factor of 0.9330, whereas that
+    ///    of the fifth electrical spatial order drops to 0.0669 - a fourfold
+    ///    reduction at the price of a 3.4 % reduction of the fundamental
+    ///    winding factor.
+    ///
+    /// # Examples
+    ///
+    /// The following examples compare a full-pitched with a short-pitched
+    /// winding for the aforementioned 12-slot, 2-pole topology.
+    ///
+    /// ## Full-pitched
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![Full-pitched 12/2 distributed winding][table_distributed_winding_red_0]"
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image(
+            "table_distributed_winding_red_0",
+            "docs/img/table_distributed_winding_red_0.svg"
+        )
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    /// ```
+    /// use std::num::NonZeroU16;
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let full_pitched = DistributedWinding::new(DistributedMinimalBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 1.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 2.try_into().expect("not zero"),
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    ///     coil_throw_reduction: 0,
+    ///     zone_shift: 0,
+    /// }).expect("valid winding topology");
+    ///
+    /// // Coil span is 6 (slots / (2 * pole_pairs))
+    /// assert_eq!(
+    ///     full_pitched.coil_at([0, 0].into()).expect("exists").throw(Some(full_pitched.slots())),
+    ///     6
+    /// );
+    ///
+    /// // Winding factor for the fundamental and the first non-zero superharmonic
+    /// let ph = NonZeroU16::new(1).expect("not zero");
+    /// assert_abs_diff_eq!(
+    ///     full_pitched.winding_factor(ph, SpatialOrder::Electrical(1)),
+    ///     0.9659,
+    ///     epsilon = 1e-3
+    /// );
+    /// assert_abs_diff_eq!(
+    ///     full_pitched.winding_factor(ph, SpatialOrder::Electrical(5)),
+    ///     0.2588,
+    ///     epsilon = 1e-3
+    /// );
+    /// ```
+    /// ## Short-pitched
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![Short-pitched 12/2 distributed winding][table_distributed_winding_red_1]"
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image(
+            "table_distributed_winding_red_1",
+            "docs/img/table_distributed_winding_red_1.svg"
+        )
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    /// ```
+    /// use std::num::NonZeroU16;
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let short_pitched = DistributedWinding::new(DistributedMinimalBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 1.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 2.try_into().expect("not zero"),
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    ///     coil_throw_reduction: 1,
+    ///     zone_shift: 0,
+    /// }).expect("valid winding topology");
+    ///
+    /// // Coil span is 5
+    /// assert_eq!(
+    ///     short_pitched.coil_at([0, 0].into()).expect("exists").throw(Some(short_pitched.slots())),
+    ///     5
+    /// );
+    ///
+    /// // Winding factor for the fundamental and the first non-zero superharmonic
+    /// let ph = NonZeroU16::new(1).expect("not zero");
+    /// assert_abs_diff_eq!(
+    ///     short_pitched.winding_factor(ph, SpatialOrder::Electrical(1)),
+    ///     0.9330,
+    ///     epsilon = 1e-3
+    /// );
+    /// assert_abs_diff_eq!(
+    ///     short_pitched.winding_factor(ph, SpatialOrder::Electrical(5)),
+    ///     0.0669,
+    ///     epsilon = 1e-3
+    /// );
+    /// ```
+    pub fn coil_throw_reduction(&self) -> i32 {
+        self.coil_throw_reduction
     }
 
-    pub fn zone_span_variation(&self) -> u16 {
-        self.zone_span_variation
+    /// Returns the zone shift for a double-layer winding in slots. For a
+    /// single-layer winding, this value is meaningless.
+    ///
+    /// As discussed in the documentation of [`WindingTable::shift_zones`], it
+    /// is possible to manipulate the winding factor of a double-layer winding
+    /// by moving positive-polarity zones in one layer and negative-polarity
+    /// zones in the other layer. This shift can be either done completely or
+    /// partially depending on the `zone_shift` value: If it is equal to the
+    /// [`Winding::hole_number`], a full shift is performed, otherwise the shift
+    /// is only partial.
+    ///
+    /// In contrast to the
+    /// [`coil_throw_reduction`](DistributedWinding::coil_throw_reduction), this
+    /// value does not influence the coil span.
+    ///
+    /// # Examples
+    ///
+    /// The following examples show a 12-slot, 2-pole topology with different
+    /// `zone_shift` values.
+    ///
+    /// ## Shift of 0
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![12/2 distributed winding][table_distributed_winding_zone_shift_0]"
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image(
+            "table_distributed_winding_zone_shift_0",
+            "docs/img/table_distributed_winding_zone_shift_0.svg"
+        )
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    /// ```
+    /// use std::num::NonZeroU16;
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let winding = DistributedWinding::new(DistributedMinimalBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 1.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 2.try_into().expect("not zero"),
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    ///     coil_throw_reduction: 0,
+    ///     zone_shift: 0,
+    /// }).expect("valid winding topology");
+    ///
+    /// // Coil span is 6 (slots / (2 * pole_pairs))
+    /// assert_eq!(
+    ///     winding.coil_at([0, 0].into()).expect("exists").throw(Some(winding.slots())),
+    ///     6
+    /// );
+    ///
+    /// // Winding factor for the fundamental and the first non-zero superharmonic
+    /// let ph = NonZeroU16::new(1).expect("not zero");
+    /// assert_abs_diff_eq!(
+    ///     winding.winding_factor(ph, SpatialOrder::Electrical(1)),
+    ///     0.9659,
+    ///     epsilon = 1e-3
+    /// );
+    /// assert_abs_diff_eq!(
+    ///     winding.winding_factor(ph, SpatialOrder::Electrical(5)),
+    ///     0.2588,
+    ///     epsilon = 1e-3
+    /// );
+    /// ```
+    /// ## Shift of 1
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![Zone-shifted 12/2 distributed winding][table_distributed_winding_zone_shift_1]"
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image(
+            "table_distributed_winding_zone_shift_1",
+            "docs/img/table_distributed_winding_zone_shift_1.svg"
+        )
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    /// ```
+    /// use std::num::NonZeroU16;
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let winding = DistributedWinding::new(DistributedMinimalBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 1.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 2.try_into().expect("not zero"),
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    ///     coil_throw_reduction: 0,
+    ///     zone_shift: 1,
+    /// }).expect("valid winding topology");
+    ///
+    /// // Coil span is still 6
+    /// assert_eq!(
+    ///     winding.coil_at([0, 0].into()).expect("exists").throw(Some(winding.slots())),
+    ///     6
+    /// );
+    ///
+    /// // Winding factor for the fundamental and the first non-zero superharmonic
+    /// let ph = NonZeroU16::new(1).expect("not zero");
+    /// assert_abs_diff_eq!(
+    ///     winding.winding_factor(ph, SpatialOrder::Electrical(1)),
+    ///     0.9330,
+    ///     epsilon = 1e-3
+    /// );
+    /// assert_abs_diff_eq!(
+    ///     winding.winding_factor(ph, SpatialOrder::Electrical(5)),
+    ///     0.0669,
+    ///     epsilon = 1e-3
+    /// );
+    /// ```
+    /// ## Shift of 2
+    ///
+    /// This is now a 3-zone winding instead of the original 6-zone winding.
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![Zone-shifted 12/2 distributed winding][table_distributed_winding_zone_shift_2]"
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image(
+            "table_distributed_winding_zone_shift_2",
+            "docs/img/table_distributed_winding_zone_shift_2.svg"
+        )
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    /// ```
+    /// use std::num::NonZeroU16;
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let winding = DistributedWinding::new(DistributedMinimalBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 1.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 2.try_into().expect("not zero"),
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    ///     coil_throw_reduction: 0,
+    ///     zone_shift: 2,
+    /// }).expect("valid winding topology");
+    ///
+    /// // Coil span is still 6
+    /// assert_eq!(
+    ///     winding.coil_at([0, 0].into()).expect("exists").throw(Some(winding.slots())),
+    ///     6
+    /// );
+    ///
+    /// // Winding factor for the fundamental and the first non-zero superharmonic
+    /// let ph = NonZeroU16::new(1).expect("not zero");
+    /// assert_abs_diff_eq!(
+    ///     winding.winding_factor(ph, SpatialOrder::Electrical(1)),
+    ///     0.8365,
+    ///     epsilon = 1e-3
+    /// );
+    /// assert_abs_diff_eq!(
+    ///     winding.winding_factor(ph, SpatialOrder::Electrical(5)),
+    ///     0.2241,
+    ///     epsilon = 1e-3
+    /// );
+    /// ```
+    pub fn zone_shift(&self) -> u16 {
+        self.zone_shift
     }
 
+    /// Returns the [`Wire`] used by all coils of `self`.
+    ///
+    /// As stated in the struct documentation, all coils of a
+    /// [`DistributedWinding`] use the same wire by definition.
     pub fn wire(&self) -> &dyn Wire {
         &*self.wire
     }
 
+    /// Returns the [`WindingTableConstructor`] used to create the
+    /// [`WindingTable`] returned by the
+    /// [`winding_table`](Winding::winding_table) method.
     pub fn winding_table_constructor(&self) -> &WindingTableConstructor {
         &self.winding_table_constructor
     }
 
+    /// Returns the coefficient used for the
+    /// [`end_winding_leakage_inductance`](Winding::end_winding_leakage_inductance)
+    /// calculation.
+    ///
+    /// [`DistributedWinding`] uses the
+    /// [`end_winding_leakage_inductance_distributed`] function for implementing
+    /// [`Winding::end_winding_leakage_inductance`]. This is the value passed
+    /// into that function.
     pub fn end_winding_leakage_coefficient(&self) -> f64 {
         self.end_winding_leakage_coefficient
     }
 
+    /// Returns the mean end-winding half-turn length, if one was provided.
+    ///
+    /// If this value is `Some`, [`DistributedWinding`] uses it for calculations
+    /// such as [`Winding::resistance`] instead of calculating the length.
+    /// Otherwise, the length is calculated on demand using
+    /// [`end_winding_half_turn_length_straight`] for a linear core or
+    /// [`end_winding_half_turn_length_circular_arc`] for a rotary core.
+    /// Providing a value is useful when the length is known from
+    /// measurements or more precise models.
     pub fn mean_end_winding_half_turn_length(&self) -> Option<Length> {
         self.mean_end_winding_half_turn_length
     }
 
+    /// Sets the mean end-winding half-turn length.
+    ///
+    /// The value must be non-negative. If a negative length is provided, the
+    /// method returns an error and leaves the existing value unchanged. Passing
+    /// `None` clears the value, so the length is calculated on demand. See
+    /// [`DistributedWinding::mean_end_winding_half_turn_length`] for details on
+    /// how the value is used.
     pub fn set_mean_end_winding_half_turn_length(
         &mut self,
         mean_end_winding_half_turn_length: Option<Length>,
@@ -161,17 +588,62 @@ impl DistributedWinding {
         Ok(())
     }
 
-    /**
-    Returns `true`, if the winding is build with concentric coils.
-     */
+    /// Returns true if the winding is built from concentric coils.
+    ///
+    /// If the coils are not concentric, all coils of a coil group has the same
+    /// [`throw`](crate::coils::CoilExt::throw) as shown in the image below:
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![12/2 distributed winding w/o concentric coils][coils_distributed_winding_concentric_false]"
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image(
+            "coils_distributed_winding_concentric_false",
+            "docs/img/coils_distributed_winding_concentric_false.svg"
+        )
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    ///
+    /// Concentric coils are arranged in rings with increasing coil throw as
+    /// shown below. This can be advantageous for manufacturing.
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![12/2 distributed winding w/ concentric coils][coils_distributed_winding_concentric_true]"
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image(
+            "coils_distributed_winding_concentric_true",
+            "docs/img/coils_distributed_winding_concentric_true.svg"
+        )
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    ///
+    /// Because the winding table is not influenced, this parameter does not
+    /// influence the qualitative winding analysis, which is why this
+    /// parameter is missing from the [`DistributedMinimalBuilder`]. However, it
+    /// can (slightly) change the quantitative parameters such as the
+    /// resistance.
     pub fn concentric_coils(&self) -> bool {
         return self.concentric_coils;
     }
 
-    /**
-    If `concentric_coils` is `true`, the coil layout of `self` is changed to a concentric layout.
-    If `concentric_coils` is `false`, the coil layout of `self` is changed to an even span layout.
-     */
+    /// Sets the [`DistributedWinding::concentric_coils`] parameter.
+    ///
+    /// See the documentation of [`DistributedWinding::concentric_coils`] for
+    /// details. If this parameter is changed, the coils of `self` are rebuild
+    /// to adhere to the new topology.
     pub fn set_concentric_coils(&mut self, concentric_coils: bool) {
         // Do nothing if the layout already equals the desired layout.
         if concentric_coils == self.concentric_coils() {
@@ -456,8 +928,8 @@ impl Default for DistributedWinding {
             pole_pairs: NonZeroU16::MIN,
             phases: NonZeroU16::new(3).expect("not zero"),
             layers: NonZeroU16::MIN,
-            coil_span_reduction: 0,
-            zone_span_variation: 0,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
             turns_per_coil: NonZeroUsize::MIN,
             parallel_paths: NonZeroU16::MIN,
             connection: Connection::Star,
@@ -578,8 +1050,8 @@ pub struct DistributedBuilder {
     pub pole_pairs: NonZeroU16,
     pub phases: NonZeroU16,
     pub layers: NonZeroU16,
-    pub coil_span_reduction: i32,
-    pub zone_span_variation: u16,
+    pub coil_throw_reduction: i32,
+    pub zone_shift: u16,
     pub winding_table_constructor: WindingTableConstructor,
     pub turns_per_coil: NonZeroUsize,
     pub parallel_paths: NonZeroU16,
@@ -624,8 +1096,8 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
         let slots_basic = slots / t;
         let pole_pairs_basic = pole_pairs / t;
 
-        let span =
-            (slots as f64 / (2.0 * pole_pairs as f64)).floor() as i32 - builder.coil_span_reduction;
+        let span = (slots as f64 / (2.0 * pole_pairs as f64)).floor() as i32
+            - builder.coil_throw_reduction;
 
         // Create the zone plan by method
         let mut winding_table = WindingTable::from_constructor(
@@ -638,7 +1110,7 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
         )?;
 
         // Modify the zone span accordingly
-        winding_table.shift_zones(builder.zone_span_variation as i32);
+        winding_table.shift_zones(builder.zone_shift as i32);
 
         let num_zones = (builder.slots.get() * builder.layers.get()).into();
         let num_coils = num_zones / 2;
@@ -647,8 +1119,8 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
             pole_pairs: builder.pole_pairs,
             phases: builder.phases,
             layers: builder.layers,
-            coil_span_reduction: builder.coil_span_reduction,
-            zone_span_variation: builder.zone_span_variation,
+            coil_throw_reduction: builder.coil_throw_reduction,
+            zone_shift: builder.zone_shift,
             turns_per_coil: builder.turns_per_coil,
             parallel_paths: builder.parallel_paths,
             connection: builder.connection,
@@ -677,7 +1149,7 @@ pub struct DistributedDoubleZoneSpanBuilder {
     pub slots: NonZeroU16,
     pub pole_pairs: NonZeroU16,
     pub phases: NonZeroU16,
-    pub coil_span_reduction: i32,
+    pub coil_throw_reduction: i32,
     pub turns_per_coil: NonZeroUsize,
     pub parallel_paths: NonZeroU16,
     pub connection: Connection,
@@ -697,7 +1169,7 @@ impl TryFrom<DistributedDoubleZoneSpanBuilder> for DistributedWinding {
         let hn = hole_number(builder.slots, builder.pole_pairs, builder.phases);
         let g = hn.trunc().numer().clone();
         let n = hn.denom().clone();
-        let zone_span_variation = if n == 1 {
+        let zone_shift = if n == 1 {
             g
         } else {
             return Err(Error::NeedsIntegerSlot);
@@ -708,8 +1180,8 @@ impl TryFrom<DistributedDoubleZoneSpanBuilder> for DistributedWinding {
             pole_pairs: builder.pole_pairs,
             phases: builder.phases,
             layers: NonZeroU16::new(2).expect("not zero"),
-            coil_span_reduction: builder.coil_span_reduction,
-            zone_span_variation,
+            coil_throw_reduction: builder.coil_throw_reduction,
+            zone_shift,
             winding_table_constructor: builder.winding_table_constructor,
             turns_per_coil: builder.turns_per_coil,
             parallel_paths: builder.parallel_paths,
@@ -733,8 +1205,8 @@ pub struct DistributedMinimalBuilder {
     pub layers: NonZeroU16,
     /// Coil span reduction in slots ("Wickelschrittverkürzung aufgrund der
     /// Sehnung")
-    pub coil_span_reduction: i32,
-    pub zone_span_variation: u16,
+    pub coil_throw_reduction: i32,
+    pub zone_shift: u16,
     pub winding_table_constructor: WindingTableConstructor,
 }
 
@@ -747,8 +1219,8 @@ impl TryFrom<DistributedMinimalBuilder> for DistributedWinding {
             pole_pairs: builder.pole_pairs,
             phases: builder.phases,
             layers: builder.layers,
-            coil_span_reduction: builder.coil_span_reduction,
-            zone_span_variation: builder.zone_span_variation,
+            coil_throw_reduction: builder.coil_throw_reduction,
+            zone_shift: builder.zone_shift,
             winding_table_constructor: builder.winding_table_constructor,
             turns_per_coil: NonZeroUsize::MIN,
             parallel_paths: NonZeroU16::MIN,

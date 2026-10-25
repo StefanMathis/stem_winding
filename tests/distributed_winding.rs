@@ -9,14 +9,14 @@ use stem_winding::{
 const ONE: NonZeroU16 = NonZeroU16::MIN;
 
 #[test]
-fn test_winding_12_1_dl_coil_span_reduction() {
+fn test_winding_12_1_dl_coil_throw_reduction() {
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 12.try_into().expect("not zero"),
         pole_pairs: 1.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -30,8 +30,8 @@ fn test_winding_12_1_dl_coil_span_reduction() {
         pole_pairs: 1.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 1,
-        zone_span_variation: 0,
+        coil_throw_reduction: 1,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -45,8 +45,8 @@ fn test_winding_12_1_dl_coil_span_reduction() {
         pole_pairs: 1.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 2,
-        zone_span_variation: 0,
+        coil_throw_reduction: 2,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -60,8 +60,8 @@ fn test_winding_12_1_dl_coil_span_reduction() {
         pole_pairs: 1.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 3,
-        zone_span_variation: 0,
+        coil_throw_reduction: 3,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -72,14 +72,14 @@ fn test_winding_12_1_dl_coil_span_reduction() {
 }
 
 #[test]
-fn test_winding_6_1_dl_coil_span_reduction() {
+fn test_winding_6_1_dl_coil_throw_reduction() {
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 6.try_into().expect("not zero"),
         pole_pairs: 1.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -95,8 +95,8 @@ fn test_winding_6_1_dl_coil_span_reduction() {
         pole_pairs: 1.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 1,
-        zone_span_variation: 0,
+        coil_throw_reduction: 1,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -112,8 +112,8 @@ fn test_winding_6_1_dl_coil_span_reduction() {
         pole_pairs: 1.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 2,
-        zone_span_variation: 0,
+        coil_throw_reduction: 2,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -129,8 +129,8 @@ fn test_winding_6_1_dl_coil_span_reduction() {
         pole_pairs: 1.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 3,
-        zone_span_variation: 0,
+        coil_throw_reduction: 3,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -146,8 +146,8 @@ fn test_winding_6_1_dl_coil_span_reduction() {
         pole_pairs: 1.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 4,
-        zone_span_variation: 0,
+        coil_throw_reduction: 4,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -166,8 +166,8 @@ fn test_winding_18_4_sl() {
         pole_pairs: 4.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::CoilSide,
     }
     .try_into()
@@ -264,8 +264,8 @@ fn test_set_concentric() {
         pole_pairs: 1.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         turns_per_coil: 1.try_into().expect("not zero"),
         parallel_paths: 1.try_into().expect("not zero"),
         connection: Connection::Star,
@@ -283,8 +283,8 @@ fn test_set_concentric() {
         pole_pairs: 1.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         turns_per_coil: 1.try_into().expect("not zero"),
         parallel_paths: 1.try_into().expect("not zero"),
         connection: Connection::Star,
@@ -315,8 +315,8 @@ fn test_coil_span() {
             pole_pairs: 1.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_span_reduction: 0,
-            zone_span_variation: 0,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
             winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
@@ -334,8 +334,8 @@ fn test_coil_span() {
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_span_reduction: 0,
-            zone_span_variation: 0,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
             winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
@@ -355,8 +355,8 @@ fn test_coil_span() {
             pole_pairs: 5.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_span_reduction: 0,
-            zone_span_variation: 0,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
             winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
@@ -376,8 +376,8 @@ fn test_coil_span() {
             pole_pairs: 5.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_span_reduction: 0,
-            zone_span_variation: 0,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
             winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
@@ -398,8 +398,8 @@ fn test_coil_span() {
             pole_pairs: 5.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_span_reduction: 0,
-            zone_span_variation: 0,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
             winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
@@ -419,8 +419,8 @@ fn test_coil_span() {
             pole_pairs: 5.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_span_reduction: 0,
-            zone_span_variation: 0,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
             winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
@@ -442,8 +442,8 @@ fn test_coil_span() {
             pole_pairs: 1.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_span_reduction: 0,
-            zone_span_variation: 0,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
             turns_per_coil: 1.try_into().expect("not zero"),
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
@@ -476,8 +476,8 @@ fn test_coil_span() {
             pole_pairs: 1.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_span_reduction: 0,
-            zone_span_variation: 0,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
             turns_per_coil: 1.try_into().expect("not zero"),
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
@@ -512,8 +512,8 @@ fn test_winding_36_4() {
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_span_reduction: 0,
-            zone_span_variation: 0,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
             winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
@@ -589,8 +589,8 @@ fn test_winding_36_4() {
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_span_reduction: 1,
-            zone_span_variation: 0,
+            coil_throw_reduction: 1,
+            zone_shift: 0,
             winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
@@ -623,8 +623,8 @@ fn test_winding_36_4() {
             pole_pairs: 4.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_span_reduction: 0,
-            zone_span_variation: 0,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
             winding_table_constructor: WindingTableConstructor::Tingley,
         }
         .try_into()
@@ -645,8 +645,8 @@ fn test_failed_creation() {
             pole_pairs: 5.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_span_reduction: 0,
-            zone_span_variation: 0,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
             winding_table_constructor: WindingTableConstructor::CoilSide,
         })
         .is_err()
@@ -659,8 +659,8 @@ fn test_failed_creation() {
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_span_reduction: 0,
-            zone_span_variation: 0,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
             turns_per_coil: 1.try_into().expect("not zero"),
             parallel_paths: 3.try_into().expect("not zero"),
             connection: Connection::Star,
@@ -681,8 +681,8 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 2.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -698,8 +698,8 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 2.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -715,8 +715,8 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 2.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::CoilSide,
     }
     .try_into()
@@ -732,8 +732,8 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 2.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -749,8 +749,8 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 2.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 1,
-        zone_span_variation: 0,
+        coil_throw_reduction: 1,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -766,8 +766,8 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 2.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 2,
-        zone_span_variation: 0,
+        coil_throw_reduction: 2,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -783,8 +783,8 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 2.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 1,
+        coil_throw_reduction: 0,
+        zone_shift: 1,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -800,8 +800,8 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 5.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::CoilSide,
     }
     .try_into()
@@ -817,8 +817,8 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 5.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -834,8 +834,8 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 5.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -851,8 +851,8 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 5.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::CoilSide,
     }
     .try_into()
@@ -868,8 +868,8 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 5.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -885,8 +885,8 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 10.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -902,8 +902,8 @@ fn test_air_gap_leakage_factor() {
         pole_pairs: 5.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -922,8 +922,8 @@ fn test_series_turns_per_phase() {
         pole_pairs: 2.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         turns_per_coil: 31.try_into().expect("not zero"),
         parallel_paths: 1.try_into().expect("not zero"),
         connection: Connection::Star,
@@ -944,8 +944,8 @@ fn test_series_turns_per_phase() {
         pole_pairs: 2.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         turns_per_coil: 31.try_into().expect("not zero"),
         parallel_paths: 1.try_into().expect("not zero"),
         connection: Connection::Star,
@@ -970,7 +970,7 @@ fn test_doubled_zone_span() {
             slots: 18.try_into().expect("not zero"),
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
-            coil_span_reduction: 0,
+            coil_throw_reduction: 0,
             turns_per_coil: 1.try_into().expect("not zero"),
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
@@ -987,7 +987,7 @@ fn test_doubled_zone_span() {
         slots: 18.try_into().expect("not zero"),
         pole_pairs: 1.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
-        coil_span_reduction: 0,
+        coil_throw_reduction: 0,
         turns_per_coil: 1.try_into().expect("not zero"),
         parallel_paths: 1.try_into().expect("not zero"),
         connection: Connection::Star,
@@ -1064,8 +1064,8 @@ fn test_derive_coil_assembly() {
         pole_pairs: 4.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::CoilSide,
     }
     .try_into()
@@ -1147,8 +1147,8 @@ fn test_normalized_induction_amp() {
             pole_pairs: 1.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_span_reduction: 2,
-            zone_span_variation: 0,
+            coil_throw_reduction: 2,
+            zone_shift: 0,
             turns_per_coil: 1.try_into().expect("not zero"),
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
@@ -1208,8 +1208,8 @@ fn test_normalized_induction_amp() {
             pole_pairs: 4.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_span_reduction: 0,
-            zone_span_variation: 0,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
             winding_table_constructor: WindingTableConstructor::CoilSide,
         }
         .try_into()
@@ -1252,8 +1252,8 @@ fn test_field_excitation_curve() {
         pole_pairs: 1.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -1290,8 +1290,8 @@ mod serde_tests {
             pole_pairs: 4
             phases: 3
             layers: 1
-            coil_span_reduction: 0
-            zone_span_variation: 0
+            coil_throw_reduction: 0
+            zone_shift: 0
             winding_table_constructor: Zone
             "};
 
@@ -1307,8 +1307,8 @@ mod serde_tests {
             pole_pairs: 4
             phases: 3
             layers: 1
-            coil_span_reduction: 0
-            zone_span_variation: 0
+            coil_throw_reduction: 0
+            zone_shift: 0
             winding_table_constructor: CoilSide
             "};
 
@@ -1335,7 +1335,7 @@ mod serde_tests {
             slots: 18
             pole_pairs: 1
             phases: 3
-            coil_span_reduction: 0
+            coil_throw_reduction: 0
             turns_per_coil: 1
             parallel_paths: 1
             connection: Star
@@ -1376,8 +1376,8 @@ mod serde_tests {
             pole_pairs: 2
             phases: 3
             layers: 2
-            coil_span_reduction: 0
-            zone_span_variation: 0
+            coil_throw_reduction: 0
+            zone_shift: 0
             turns_per_coil: 31
             parallel_paths: 1
             connection: Star
@@ -1572,8 +1572,8 @@ mod stem_core_tests {
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_span_reduction: 0,
-            zone_span_variation: 0,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
             winding_table_constructor: WindingTableConstructor::Tingley,
             turns_per_coil: 31.try_into().expect("not zero"),
             parallel_paths: 1.try_into().expect("not zero"),
@@ -1805,8 +1805,8 @@ mod stem_core_tests {
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_span_reduction: 0,
-            zone_span_variation: 0,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
             winding_table_constructor: WindingTableConstructor::Tingley,
             turns_per_coil: 31.try_into().expect("not zero"),
             parallel_paths: 1.try_into().expect("not zero"),
@@ -1892,8 +1892,8 @@ mod stem_core_tests {
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_span_reduction: 0,
-            zone_span_variation: 0,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
             winding_table_constructor: WindingTableConstructor::Tingley,
             turns_per_coil: 31.try_into().expect("not zero"),
             parallel_paths: 1.try_into().expect("not zero"),
@@ -1954,8 +1954,8 @@ mod stem_core_tests {
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_span_reduction: 1,
-            zone_span_variation: 0,
+            coil_throw_reduction: 1,
+            zone_shift: 0,
             winding_table_constructor: WindingTableConstructor::Tingley,
             turns_per_coil: 31.try_into().expect("not zero"),
             parallel_paths: 1.try_into().expect("not zero"),
@@ -2001,7 +2001,7 @@ mod stem_core_tests {
 
     #[test]
     fn test_slot_leakage_inductance() {
-        fn create_winding(coil_span_reduction: i32) -> DistributedWinding {
+        fn create_winding(coil_throw_reduction: i32) -> DistributedWinding {
             let copper: Material = create_dbm().read("Copper").unwrap();
             let wire = RoundWire::new(
                 Arc::new(copper),
@@ -2015,8 +2015,8 @@ mod stem_core_tests {
                 pole_pairs: 2.try_into().expect("not zero"),
                 phases: 3.try_into().expect("not zero"),
                 layers: 2.try_into().expect("not zero"),
-                coil_span_reduction,
-                zone_span_variation: 0,
+                coil_throw_reduction,
+                zone_shift: 0,
                 winding_table_constructor: WindingTableConstructor::Tingley,
                 turns_per_coil: 10.try_into().expect("not zero"),
                 parallel_paths: 1.try_into().expect("not zero"),
@@ -2036,7 +2036,7 @@ mod stem_core_tests {
             winding: &DistributedWinding,
         ) -> f64 {
             // [MVP08], eq. (3.7.15)
-            let span = winding.pole_pitch() - winding.coil_span_reduction() as f64;
+            let span = winding.pole_pitch() - winding.coil_throw_reduction() as f64;
             return (1.0 - 9.0 / 16.0 * (1.0 - span as f64 / winding.pole_pitch())) * lambda_l
                 + (1.0 - 3.0 / 4.0 * (1.0 - span as f64 / winding.pole_pitch())) * lambda_res;
         }

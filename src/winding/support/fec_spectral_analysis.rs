@@ -98,8 +98,8 @@ let winding: DistributedWinding = DistributedMinimalBuilder {
     pole_pairs: 1.try_into().expect("not zero"),
     phases: 3.try_into().expect("not zero"),
     layers: 2.try_into().expect("not zero"),
-    coil_span_reduction: 0,
-    zone_span_variation: 0,
+    coil_throw_reduction: 0,
+    zone_shift: 0,
     winding_table_constructor: WindingTableConstructor::Tingley,
 }
 .try_into()
@@ -243,8 +243,8 @@ impl FecSpectralAnalysis {
     ///     pole_pairs: 1.try_into().expect("not zero"),
     ///     phases: 3.try_into().expect("not zero"),
     ///     layers: 1.try_into().expect("not zero"),
-    ///     coil_span_reduction: 0,
-    ///     zone_span_variation: 0,
+    ///     coil_throw_reduction: 0,
+    ///     zone_shift: 0,
     ///     winding_table_constructor: WindingTableConstructor::CoilSide,
     /// }
     /// .try_into()

@@ -479,8 +479,8 @@ impl WindingTable {
 
     A double-layer winding can be obtained from a single-layer winding by
     splitting each slot into two layers. A zone shift increases the effective
-    zone span by shifting each positive-polarity zone in the lower layer and
-    each negative-polarity zone in the upper layer by `shift` slots.
+    phase zone span by shifting each positive-polarity zone in the lower layer
+    and each negative-polarity zone in the upper layer by `shift` slots.
 
     This transformation can be used to suppress selected winding harmonics. For
     some harmonic orders, the winding factor becomes zero after the zone shift.

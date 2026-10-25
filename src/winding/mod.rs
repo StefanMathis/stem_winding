@@ -704,8 +704,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
         pole_pairs: 2.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()
@@ -1215,8 +1215,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///     pole_pairs: 2.try_into().expect("not zero"),
     ///     phases: 3.try_into().expect("not zero"),
     ///     layers: 1.try_into().expect("not zero"),
-    ///     coil_span_reduction: 0,
-    ///     zone_span_variation: 0,
+    ///     coil_throw_reduction: 0,
+    ///     zone_shift: 0,
     ///     winding_table_constructor: WindingTableConstructor::Tingley,
     /// }
     /// .try_into()
@@ -1310,8 +1310,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///     pole_pairs: 1.try_into().expect("not zero"),
     ///     phases: 3.try_into().expect("not zero"),
     ///     layers: 1.try_into().expect("not zero"),
-    ///     coil_span_reduction: 0,
-    ///     zone_span_variation: 0,
+    ///     coil_throw_reduction: 0,
+    ///     zone_shift: 0,
     ///     winding_table_constructor: WindingTableConstructor::CoilSide,
     /// }
     /// .try_into()
@@ -1423,8 +1423,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
         pole_pairs: 4.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::CoilSide,
     }
     .try_into()
@@ -1537,8 +1537,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
         pole_pairs: 4.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::CoilSide,
     }
     .try_into()
@@ -1639,8 +1639,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
         pole_pairs: 4.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::CoilSide,
     }
     .try_into()
@@ -1716,7 +1716,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///
     /// # Examples
     ///
-    /// This example uses both [`FullCoil`]s and [`HalfCoil`]s.
+    /// This example uses both [`FullCoil`](crate::coils::FullCoil)s and
+    /// [`HalfCoil`](crate::coils::HalfCoil)s.
     ///
     /// ```
     /// use std::num::{NonZeroUsize, NonZeroU16};
@@ -1781,11 +1782,13 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// [`pole_pairs`](Winding::pole_pairs).
     ///
     /// This inductance is used when calculating the
-    /// [`air_gap_leakage_inductance`]. The assumptions above also make this
-    /// model suitable for a first approximation of induction machines. For
-    /// synchronous machines, the d-axis and q-axis inductances generally
-    /// differ, an effect that this model does not capture. This inaccuracy
-    /// can be accepted when calculating the [`air_gap_leakage_inductance`]
+    /// [`air_gap_leakage_inductance`](Winding::air_gap_leakage_inductance). The
+    /// assumptions above also make this model suitable for a first
+    /// approximation of induction machines. For synchronous machines, the
+    /// d-axis and q-axis inductances generally differ, an effect that this
+    /// model does not capture. This inaccuracy can be accepted when
+    /// calculating the
+    /// [`air_gap_leakage_inductance`](Winding::air_gap_leakage_inductance)
     /// of synchronous machines because their larger air gap generally
     /// results in a smaller leakage inductance than in induction machines.
     ///
@@ -1947,8 +1950,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///     pole_pairs: 2.try_into().expect("not zero"),
     ///     phases: 3.try_into().expect("not zero"),
     ///     layers: 2.try_into().expect("not zero"),
-    ///     coil_span_reduction: 1, // Short-pitching
-    ///     zone_span_variation: 0,
+    ///     coil_throw_reduction: 1, // Short-pitching
+    ///     zone_shift: 0,
     ///     winding_table_constructor: WindingTableConstructor::Tingley,
     ///     turns_per_coil: 10.try_into().expect("not zero"),
     ///     parallel_paths: 1.try_into().expect("not zero"),
@@ -1965,7 +1968,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// let air_gap = Length::new::<millimeter>(1.0);
     ///
     /// // Slot leakage coefficient from [1], eq. (3.7.15)
-    /// let span = winding.pole_pitch() - winding.coil_span_reduction() as f64;
+    /// let span = winding.pole_pitch() - winding.coil_throw_reduction() as f64;
     ///
     /// // Analytical slot leakage coefficient for the special case of a rectangular slot.
     /// let lambda_l = f64::from((height - opening_height) / (3.0 * width));
@@ -2343,8 +2346,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///     pole_pairs: 2.try_into().expect("not zero"),
     ///     phases: 3.try_into().expect("not zero"),
     ///     layers: 1.try_into().expect("not zero"),
-    ///     coil_span_reduction: 0,
-    ///     zone_span_variation: 0,
+    ///     coil_throw_reduction: 0,
+    ///     zone_shift: 0,
     ///     winding_table_constructor: WindingTableConstructor::Tingley,
     ///     turns_per_coil: 31.try_into().expect("not zero"),
     ///     parallel_paths: 1.try_into().expect("not zero"),
@@ -2727,8 +2730,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///     pole_pairs: 1.try_into().expect("not zero"),
     ///     phases: 3.try_into().expect("not zero"),
     ///     layers: 2.try_into().expect("not zero"),
-    ///     coil_span_reduction: 1,
-    ///     zone_span_variation: 0,
+    ///     coil_throw_reduction: 1,
+    ///     zone_shift: 0,
     ///     winding_table_constructor: WindingTableConstructor::Tingley,
     /// }.try_into().expect("valid winding");
     /// let core = LinCore::from_winding(&winding);
@@ -2842,8 +2845,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///     pole_pairs: 1.try_into().expect("not zero"),
     ///     phases: 3.try_into().expect("not zero"),
     ///     layers: 2.try_into().expect("not zero"),
-    ///     coil_span_reduction: 1,
-    ///     zone_span_variation: 0,
+    ///     coil_throw_reduction: 1,
+    ///     zone_shift: 0,
     ///     winding_table_constructor: WindingTableConstructor::Tingley,
     /// }.try_into().expect("valid winding");    ///
     /// let core = RotCore::from_winding(&winding);

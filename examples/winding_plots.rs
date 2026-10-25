@@ -28,6 +28,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         show_empty_zones: true,
     };
     tooth_coil_winding(&zone_config)?;
+    distributed_winding(&zone_config)?;
+    distributed_winding_concentric()?;
+    distributed_winding_coil_throw_reduction(&zone_config)?;
+    distributed_winding_zone_shift(&zone_config)?;
 
     return Ok(());
 }
@@ -38,8 +42,8 @@ fn winding_table_reference_img() -> Result<(), Box<dyn std::error::Error>> {
         pole_pairs: 1.try_into()?,
         phases: 3.try_into()?,
         layers: 2.try_into()?,
-        coil_span_reduction: 1,
-        zone_span_variation: 0,
+        coil_throw_reduction: 1,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()?;
@@ -175,8 +179,8 @@ fn phd_stator() -> Result<(), Box<dyn std::error::Error>> {
         pole_pairs: 2.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        coil_span_reduction: 0,
-        zone_span_variation: 0,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()?;
@@ -558,8 +562,8 @@ fn zone_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
         pole_pairs: 1.try_into()?,
         phases: 3.try_into()?,
         layers: 2.try_into()?,
-        coil_span_reduction: 1,
-        zone_span_variation: 0,
+        coil_throw_reduction: 1,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()?;
@@ -645,8 +649,8 @@ fn coil_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
         pole_pairs: 1.try_into()?,
         phases: 3.try_into()?,
         layers: 2.try_into()?,
-        coil_span_reduction: 1,
-        zone_span_variation: 0,
+        coil_throw_reduction: 1,
+        zone_shift: 0,
         winding_table_constructor: WindingTableConstructor::Tingley,
     }
     .try_into()?;
@@ -774,5 +778,422 @@ fn tooth_coil_winding(zone_config: &ZoneDrawablesConfig) -> Result<(), Box<dyn s
         })?;
     }
 
+    return Ok(());
+}
+
+fn distributed_winding(
+    zone_config: &ZoneDrawablesConfig,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 12.try_into()?,
+        pole_pairs: 1.try_into()?,
+        phases: 3.try_into()?,
+        layers: 2.try_into()?,
+        winding_table_constructor: WindingTableConstructor::Tingley,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
+    }
+    .try_into()
+    .unwrap();
+    let core = LinCore::from_winding(&winding);
+
+    {
+        let side_length = SideLength::Long(600);
+
+        let mut coil_config = CoilDrawablesConfig::from(&core);
+        coil_config.cyclic = true;
+
+        let drawables = winding.coil_drawables(&coil_config);
+        let bb = coil_config.bounding_box(&winding);
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.03 * w,
+            bb.xmax() + 0.03 * w,
+            -bb.ymax() - 0.08 * h,
+            -bb.ymin() + 0.08 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join(&format!("docs/img/coils_distributed_winding.svg"));
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+
+            for (mut d, k) in drawables {
+                if matches!(k, DrawableKind::Arrow(_)) {
+                    d.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                }
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
+    }
+    {
+        let side_length = SideLength::Long(600);
+
+        let drawables = winding
+            .zone_drawables(core.as_core_ref(), &zone_config)
+            .map(|z| z.0);
+        let bb = core.shape().bounding_box();
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.002 * w,
+            bb.xmax() + 0.002 * w,
+            -bb.ymax() - 0.01 * h,
+            -bb.ymin() + 0.01 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join(&format!("docs/img/table_distributed_winding.svg"));
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+            cr.scale(1.0, -1.0);
+
+            core.drawable().draw(cr)?;
+
+            for d in drawables {
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
+    }
+
+    return Ok(());
+}
+
+fn distributed_winding_concentric() -> Result<(), Box<dyn std::error::Error>> {
+    let mut winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 12.try_into()?,
+        pole_pairs: 1.try_into()?,
+        phases: 3.try_into()?,
+        layers: 2.try_into()?,
+        winding_table_constructor: WindingTableConstructor::Tingley,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
+    }
+    .try_into()
+    .unwrap();
+    let core = LinCore::from_winding(&winding);
+
+    {
+        let side_length = SideLength::Long(600);
+
+        let mut coil_config = CoilDrawablesConfig::from(&core);
+        coil_config.cyclic = true;
+
+        let drawables = winding.coil_drawables(&coil_config);
+        let bb = coil_config.bounding_box(&winding);
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.03 * w,
+            bb.xmax() + 0.03 * w,
+            -bb.ymax() - 0.08 * h,
+            -bb.ymin() + 0.08 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!(
+            "docs/img/coils_distributed_winding_concentric_false.svg"
+        ));
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+
+            for (mut d, k) in drawables {
+                if matches!(k, DrawableKind::Arrow(_)) {
+                    d.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                }
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
+    }
+    {
+        winding.set_concentric_coils(true);
+
+        let side_length = SideLength::Long(600);
+
+        let mut coil_config = CoilDrawablesConfig::from(&core);
+        coil_config.cyclic = true;
+
+        let drawables = winding.coil_drawables(&coil_config);
+        let bb = coil_config.bounding_box(&winding);
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.03 * w,
+            bb.xmax() + 0.03 * w,
+            -bb.ymax() - 0.08 * h,
+            -bb.ymin() + 0.08 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!(
+            "docs/img/coils_distributed_winding_concentric_true.svg"
+        ));
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+
+            for (mut d, k) in drawables {
+                if matches!(k, DrawableKind::Arrow(_)) {
+                    d.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                }
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
+    }
+    return Ok(());
+}
+
+fn distributed_winding_coil_throw_reduction(
+    zone_config: &ZoneDrawablesConfig,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 12.try_into()?,
+        pole_pairs: 1.try_into()?,
+        phases: 3.try_into()?,
+        layers: 2.try_into()?,
+        winding_table_constructor: WindingTableConstructor::Tingley,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
+    }
+    .try_into()
+    .unwrap();
+    let core = LinCore::from_winding(&winding);
+
+    {
+        let side_length = SideLength::Long(600);
+
+        let drawables = winding
+            .zone_drawables(core.as_core_ref(), &zone_config)
+            .map(|z| z.0);
+        let bb = core.shape().bounding_box();
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.002 * w,
+            bb.xmax() + 0.002 * w,
+            -bb.ymax() - 0.01 * h,
+            -bb.ymin() + 0.01 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join(&format!("docs/img/table_distributed_winding_red_0.svg"));
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+            cr.scale(1.0, -1.0);
+
+            core.drawable().draw(cr)?;
+
+            for d in drawables {
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
+    }
+
+    let winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 12.try_into()?,
+        pole_pairs: 1.try_into()?,
+        phases: 3.try_into()?,
+        layers: 2.try_into()?,
+        winding_table_constructor: WindingTableConstructor::Tingley,
+        coil_throw_reduction: 1,
+        zone_shift: 0,
+    }
+    .try_into()
+    .unwrap();
+    {
+        let side_length = SideLength::Long(600);
+
+        let drawables = winding
+            .zone_drawables(core.as_core_ref(), &zone_config)
+            .map(|z| z.0);
+        let bb = core.shape().bounding_box();
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.002 * w,
+            bb.xmax() + 0.002 * w,
+            -bb.ymax() - 0.01 * h,
+            -bb.ymin() + 0.01 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join(&format!("docs/img/table_distributed_winding_red_1.svg"));
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+            cr.scale(1.0, -1.0);
+
+            core.drawable().draw(cr)?;
+
+            for d in drawables {
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
+    }
+    return Ok(());
+}
+
+fn distributed_winding_zone_shift(
+    zone_config: &ZoneDrawablesConfig,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let winding: DistributedWinding = DistributedMinimalBuilder {
+        slots: 12.try_into()?,
+        pole_pairs: 1.try_into()?,
+        phases: 3.try_into()?,
+        layers: 2.try_into()?,
+        winding_table_constructor: WindingTableConstructor::Tingley,
+        coil_throw_reduction: 0,
+        zone_shift: 0,
+    }
+    .try_into()
+    .unwrap();
+    let core = LinCore::from_winding(&winding);
+
+    {
+        let side_length = SideLength::Long(600);
+
+        let drawables = winding
+            .zone_drawables(core.as_core_ref(), &zone_config)
+            .map(|z| z.0);
+        let bb = core.shape().bounding_box();
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.002 * w,
+            bb.xmax() + 0.002 * w,
+            -bb.ymax() - 0.01 * h,
+            -bb.ymin() + 0.01 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!(
+            "docs/img/table_distributed_winding_zone_shift_0.svg"
+        ));
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+            cr.scale(1.0, -1.0);
+
+            core.drawable().draw(cr)?;
+
+            for d in drawables {
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
+    }
+    {
+        let winding: DistributedWinding = DistributedMinimalBuilder {
+            slots: 12.try_into()?,
+            pole_pairs: 1.try_into()?,
+            phases: 3.try_into()?,
+            layers: 2.try_into()?,
+            winding_table_constructor: WindingTableConstructor::Tingley,
+            coil_throw_reduction: 0,
+            zone_shift: 1,
+        }
+        .try_into()
+        .unwrap();
+        let side_length = SideLength::Long(600);
+
+        let drawables = winding
+            .zone_drawables(core.as_core_ref(), &zone_config)
+            .map(|z| z.0);
+        let bb = core.shape().bounding_box();
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.002 * w,
+            bb.xmax() + 0.002 * w,
+            -bb.ymax() - 0.01 * h,
+            -bb.ymin() + 0.01 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!(
+            "docs/img/table_distributed_winding_zone_shift_1.svg"
+        ));
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+            cr.scale(1.0, -1.0);
+
+            core.drawable().draw(cr)?;
+
+            for d in drawables {
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
+    }
+    {
+        let winding: DistributedWinding = DistributedMinimalBuilder {
+            slots: 12.try_into()?,
+            pole_pairs: 1.try_into()?,
+            phases: 3.try_into()?,
+            layers: 2.try_into()?,
+            winding_table_constructor: WindingTableConstructor::Tingley,
+            coil_throw_reduction: 0,
+            zone_shift: 2,
+        }
+        .try_into()
+        .unwrap();
+
+        let side_length = SideLength::Long(600);
+
+        let drawables = winding
+            .zone_drawables(core.as_core_ref(), &zone_config)
+            .map(|z| z.0);
+        let bb = core.shape().bounding_box();
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.002 * w,
+            bb.xmax() + 0.002 * w,
+            -bb.ymax() - 0.01 * h,
+            -bb.ymin() + 0.01 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!(
+            "docs/img/table_distributed_winding_zone_shift_2.svg"
+        ));
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+            cr.scale(1.0, -1.0);
+
+            core.drawable().draw(cr)?;
+
+            for d in drawables {
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
+    }
     return Ok(());
 }
