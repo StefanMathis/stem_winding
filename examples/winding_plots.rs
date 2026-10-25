@@ -16,6 +16,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     zone_drawables_config()?;
     coil_drawables_method()?;
     zone_drawables_method()?;
+
+    // Winding-specific plots
+    let zone_config = ZoneDrawablesConfig {
+        background_color: ZoneBackgroundColor::Phase,
+        center_config: ZoneCenterConfig::Arrow(ZoneArrowConfig {
+            color_by_phase: false,
+            relative_diameter: 0.8,
+            normalized_current: None,
+        }),
+        show_empty_zones: true,
+    };
+    tooth_coil_winding(&zone_config)?;
+
     return Ok(());
 }
 
@@ -678,5 +691,88 @@ fn coil_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
 
         return Ok(());
     })?;
+    return Ok(());
+}
+
+fn tooth_coil_winding(zone_config: &ZoneDrawablesConfig) -> Result<(), Box<dyn std::error::Error>> {
+    let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
+        slots: 12.try_into()?,
+        pole_pairs: 5.try_into()?,
+        phases: 3.try_into()?,
+        layers: 2.try_into()?,
+        winding_table_constructor: WindingTableConstructor::Tingley,
+    }
+    .try_into()
+    .unwrap();
+    let core = LinCore::from_winding(&winding);
+
+    {
+        let side_length = SideLength::Long(600);
+
+        let mut coil_config = CoilDrawablesConfig::from(&core);
+        coil_config.cyclic = true;
+
+        let drawables = winding.coil_drawables(&coil_config);
+        let bb = coil_config.bounding_box(&winding);
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.03 * w,
+            bb.xmax() + 0.03 * w,
+            -bb.ymax() - 0.08 * h,
+            -bb.ymin() + 0.08 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join(&format!("docs/img/coils_tooth_coil_winding.svg"));
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+
+            for (mut d, k) in drawables {
+                if matches!(k, DrawableKind::Arrow(_)) {
+                    d.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                }
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
+    }
+    {
+        let side_length = SideLength::Long(600);
+
+        let drawables = winding
+            .zone_drawables(core.as_core_ref(), &zone_config)
+            .map(|z| z.0);
+        let bb = core.shape().bounding_box();
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.002 * w,
+            bb.xmax() + 0.002 * w,
+            -bb.ymax() - 0.01 * h,
+            -bb.ymin() + 0.01 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join(&format!("docs/img/table_tooth_coil_winding.svg"));
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+            cr.scale(1.0, -1.0);
+
+            core.drawable().draw(cr)?;
+
+            for d in drawables {
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
+    }
+
     return Ok(());
 }

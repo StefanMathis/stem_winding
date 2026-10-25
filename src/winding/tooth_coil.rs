@@ -80,6 +80,25 @@ phases and is calculated in constant time.
 - It either has one or two [`layers`](Winding::layers); the coils in a slot are
 arranged as defined by [`CoilLayout::Single`] or
 [`CoilLayout::DoubleHorizontal`] respectively.
+*/
+#[doc = ""]
+#[cfg_attr(
+    feature = "doc-images",
+    doc = "![Winding table of a 12 / 10 DL winding][table_tooth_coil_winding]"
+)]
+#[cfg_attr(
+    feature = "doc-images",
+    embed_doc_image::embed_doc_image(
+        "table_tooth_coil_winding",
+        "docs/img/table_tooth_coil_winding.svg"
+    )
+)]
+#[cfg_attr(
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+)]
+/**
 - Its end winding turn length is approximated as a semicircle via the
 [`end_winding_half_turn_length_semicircle`] function (only available if the
 `stem_core` feature is enabled). This approximation can be overriden by
@@ -183,6 +202,12 @@ pub struct ToothCoilWinding {
 }
 
 impl ToothCoilWinding {
+    /// Creates a new winding.
+    ///
+    /// This is a wrapper around `T::try_into`. The builder structs provided by
+    /// the module implement [`TryInto<ToothCoilWinding>`], see their respective
+    /// documentation for details on the failure modes. The struct documentation
+    /// has an usage example.
     pub fn new<W>(builder: W) -> Result<Self, Error>
     where
         W: TryInto<ToothCoilWinding>,
@@ -191,22 +216,52 @@ impl ToothCoilWinding {
         builder.try_into().map_err(Into::into)
     }
 
+    /// Returns the [`Wire`] used by all coils of `self`.
+    ///
+    /// As stated in the struct documentation, all coils of a
+    /// [`ToothCoilWinding`] use the same wire by definition.
     pub fn wire(&self) -> &dyn Wire {
         &*self.wire
     }
 
+    /// Returns the [`WindingTableConstructor`] used to create the
+    /// [`WindingTable`] returned by the
+    /// [`winding_table`](Winding::winding_table) method.
     pub fn winding_table_constructor(&self) -> &WindingTableConstructor {
         &self.winding_table_constructor
     }
 
+    /// Returns the coefficient used for the
+    /// [`end_winding_leakage_inductance`](Winding::end_winding_leakage_inductance)
+    /// calculation.
+    ///
+    /// [`ToothCoilWinding`] uses the
+    /// [`end_winding_leakage_inductance_tooth_coil`] function for implementing
+    /// [`Winding::end_winding_leakage_inductance`]. This is the value passed
+    /// into that function.
     pub fn end_winding_leakage_coefficient(&self) -> f64 {
         return self.end_winding_leakage_coefficient;
     }
 
+    /// Returns the mean end-winding half-turn length, if one was provided.
+    ///
+    /// If this value is `Some`, [`ToothCoilWinding`] uses it for calculations
+    /// such as [`Winding::resistance`] instead of calculating the length.
+    /// Otherwise, the length is calculated on demand using the
+    /// [`end_winding_half_turn_length_semicircle`] function. Providing a value
+    /// is useful when the length is known from measurements or more precise
+    /// models.
     pub fn mean_end_winding_half_turn_length(&self) -> Option<Length> {
         self.mean_end_winding_half_turn_length
     }
 
+    /// Sets the mean end-winding half-turn length.
+    ///
+    /// The value must be non-negative. If a negative length is provided, the
+    /// method returns an error and leaves the existing value unchanged. Passing
+    /// `None` clears the value, so the length is calculated on demand. See
+    /// [`ToothCoilWinding::mean_end_winding_half_turn_length`] for details on
+    /// how the value is used.
     pub fn set_mean_end_winding_half_turn_length(
         &mut self,
         mean_end_winding_half_turn_length: Option<Length>,
@@ -422,25 +477,70 @@ impl Winding for ToothCoilWinding {
 
     #[cfg(feature = "stem_core")]
     fn end_winding_half_turn_length(&self, core: CoreRef<'_>, zone: Zone) -> Length {
+        if let Some(l) = self.mean_end_winding_half_turn_length() {
+            return l;
+        }
         end_winding_half_turn_length_semicircle(self, core, zone)
     }
 }
 
+/**
+A builder struct for a [`ToothCoilWinding`].
+
+This builder can be used to create a [`ToothCoilWinding`] via its
+[`new`](ToothCoilWinding::new) method or via its [`TryFrom`] implementation.
+Creating the winding fails if the conditions stated on the documentation of the
+individual fields are not fulfilled (for example,
+[`ToothCoilBuilder::end_winding_leakage_coefficient`] must not be negative).
+ */
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct ToothCoilBuilder {
+    /// Number of slots. Corresponds to [`Winding::slots`] in the final winding.
     pub slots: NonZeroU16,
+    /// Number of pole pairs. Corresponds to [`Winding::pole_pairs`] in the
+    /// final winding.
     pub pole_pairs: NonZeroU16,
+    /// Number of phases. Corresponds to [`Winding::phases`] in the final
+    /// winding.
     pub phases: NonZeroU16,
+    /// Number of layers. Corresponds to [`Winding::layers`] in the final
+    /// winding.
     pub layers: NonZeroU16,
+    /// Winding table constructor used to determine the winding table of the
+    /// final winding via [`WindingTable::from_constructor`]. The `span`
+    /// argument to that function is always set to 1 (tooth-coil winding
+    /// property), all other arguments are taken from the fields of this struct.
+    /// If the construction of the winding table fails, the winding cannot
+    /// be created.
     pub winding_table_constructor: WindingTableConstructor,
+    /// Number of turns for each coil. Corresponds to
+    /// [`CoilExt::turns`](crate::coils::CoilExt::turns).
     pub turns_per_coil: NonZeroUsize,
+    /// Number of parallel paths. This value must be a divisor of the maximum
+    /// number of parallel paths returned by
+    /// [`max_parallel_paths_symmetric`](super::max_parallel_paths_symmetric).
     pub parallel_paths: NonZeroU16,
+    /// Electrical connection of the individual phases.
     pub connection: Connection,
+    /// Coefficient used to calculate
+    /// [`Winding::end_winding_leakage_inductance`], see
+    /// [`ToothCoilWinding::end_winding_leakage_coefficient`]. Must not be
+    /// negative (`end_winding_leakage_coefficient >= 0`).
     pub end_winding_leakage_coefficient: f64,
+    /// The wire used for all coils of the winding.
     pub wire: Box<dyn Wire>,
+    /// An override for the end winding half-turn length, see
+    /// [`ToothCoilWinding::mean_end_winding_half_turn_length`]. If provided,
+    /// this value must not be negative (`mean_end_winding_half_turn_length >= 0
+    /// m`).
     #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "deserialize_opt_quantity")
+    )]
+    #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_opt_quantity"))]
     pub mean_end_winding_half_turn_length: Option<Length>,
 }
 
@@ -530,14 +630,37 @@ impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
     }
 }
 
+/**
+A minimal builder struct for a [`ToothCoilWinding`].
+
+This struct is useful if one is interested in a qualitative analysis for the
+specified topology (e.g. determining the winding factor or the harmonics).
+Compared to the fully-featured [`ToothCoilBuilder`], values such as the
+[`ToothCoilBuilder::end_winding_leakage_coefficient`] are set to sensible
+defaults. For quantitative calculations (e.g. the [`Winding::resistance`]), use
+[`ToothCoilBuilder`] instead.
+ */
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct ToothCoilMinimalBuilder {
+    /// Number of slots. Corresponds to [`Winding::slots`] in the final winding.
     pub slots: NonZeroU16,
+    /// Number of pole pairs. Corresponds to [`Winding::pole_pairs`] in the
+    /// final winding.
     pub pole_pairs: NonZeroU16,
+    /// Number of phases. Corresponds to [`Winding::phases`] in the final
+    /// winding.
     pub phases: NonZeroU16,
+    /// Number of layers. Corresponds to [`Winding::layers`] in the final
+    /// winding.
     pub layers: NonZeroU16,
+    /// Winding table constructor used to determine the winding table of the
+    /// final winding via [`WindingTable::from_constructor`]. The `span`
+    /// argument to that function is always set to 1 (tooth-coil winding
+    /// property), all other arguments are taken from the fields of this struct.
+    /// If the construction of the winding table fails, the winding cannot
+    /// be created.
     pub winding_table_constructor: WindingTableConstructor,
 }
 
