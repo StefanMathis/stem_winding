@@ -610,8 +610,8 @@ impl DistributedWinding {
     `cargo doc --features 'doc-images'` and Rust version >= 1.54."
     )]
     ///
-    /// Concentric coils are arranged in rings with increasing coil throw as
-    /// shown below. This can be advantageous for manufacturing.
+    /// Concentric coils are arranged as concentric rings with increasing coil
+    /// throw as shown below. This can be advantageous for manufacturing.
     #[doc = ""]
     #[cfg_attr(
         feature = "doc-images",
