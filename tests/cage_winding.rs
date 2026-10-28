@@ -85,10 +85,12 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_and_deserialize() {
-        let winding = CoilAssembly::from(&DistributedWinding::default());
+        let winding =
+            SquirrelCageWinding::new_minimal(28.try_into().unwrap(), 2.try_into().unwrap());
 
         let string = yaml_serde::to_string(&winding).expect("can be serialized");
-        let winding_de: CoilAssembly = yaml_serde::from_str(&string).expect("can be deserialized");
+        let winding_de: SquirrelCageWinding =
+            yaml_serde::from_str(&string).expect("can be deserialized");
 
         assert_eq!(winding.slots(), winding_de.slots());
         assert_eq!(winding.layers(), winding_de.layers());

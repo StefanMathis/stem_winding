@@ -1401,7 +1401,18 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_and_deserialize() {
-        let winding = DistributedWinding::default();
+        let winding: DistributedWinding = DistributedMinimalBuilder {
+            slots: 12.try_into().expect("not zero"),
+            pole_pairs: 1.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            layers: 2.try_into().expect("not zero"),
+            coil_throw_reduction: 2,
+            zone_shift: 0,
+            winding_table_constructor: WindingTableConstructor::Tingley,
+        }
+        .try_into()
+        .unwrap();
+
         let string = yaml_serde::to_string(&winding).expect("can be serialized");
         let winding_de: DistributedWinding =
             yaml_serde::from_str(&string).expect("can be deserialized");

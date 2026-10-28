@@ -6,7 +6,18 @@ mod cairo_tests {
 
     #[test]
     fn test_from_winding() {
-        let winding = DistributedWinding::default();
+        let winding: DistributedWinding = DistributedMinimalBuilder {
+            slots: 6.try_into().expect("not zero"),
+            pole_pairs: 1.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            layers: 1.try_into().expect("not zero"),
+            coil_throw_reduction: 0,
+            zone_shift: 0,
+            winding_table_constructor: WindingTableConstructor::Tingley,
+        }
+        .try_into()
+        .unwrap();
+
         let core = RotCore::from_winding(&winding);
 
         // Compare the core area

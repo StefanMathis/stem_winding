@@ -197,7 +197,6 @@ pub struct ToothCoilWinding {
     connection: Connection,
     end_winding_leakage_coefficient: f64,
     wire: Box<dyn Wire>,
-    #[cfg_attr(feature = "serde", serde(skip))]
     coils: Coils,
     winding_table_constructor: WindingTableConstructor,
     mean_end_winding_half_turn_length: Option<Length>,
@@ -373,26 +372,6 @@ impl ToothCoilWinding {
             .ok()
             .map(|coil| Coil::Full(coil));
         }
-    }
-}
-
-impl Default for ToothCoilWinding {
-    fn default() -> Self {
-        ToothCoilBuilder {
-            slots: NonZeroU16::new(6).expect("not zero"),
-            pole_pairs: NonZeroU16::MIN,
-            phases: NonZeroU16::new(3).expect("not zero"),
-            layers: NonZeroU16::MIN,
-            turns_per_coil: NonZeroUsize::MIN,
-            parallel_paths: NonZeroU16::MIN,
-            connection: Connection::Star,
-            end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(SffWire::default()),
-            winding_table_constructor: WindingTableConstructor::Tingley,
-            mean_end_winding_half_turn_length: None,
-        }
-        .try_into()
-        .expect("valid inputs")
     }
 }
 

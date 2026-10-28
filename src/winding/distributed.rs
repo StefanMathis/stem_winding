@@ -29,31 +29,177 @@ use crate::{
 };
 
 /**
-Tries to create a new instange of an `DistributedWinding`. Fails if the combination of input parameters does not lead to a legal winding.
+A symmetric [`Winding`] where the coils are spread across multiple slots per
+pole, resulting in overlapping end windings.
 
-Arguments:
- - `concentric_coils`: If `true`, the coils of a coil group are constructed from concentric coils, otherwise each coil of a group has the same span.
+This winding type offers a high [`winding_factor`](Winding::winding_factor),
+a very sinusoidal back-EMF and a smooth torque when designed correctly and is
+therefore the standard choice for power generators, main drives of vehicles or
+high-precision / high-speed industrial drives. Due to the more complicated coil
+geometry, the manufacturing process is more complicated than it is for a
+[`ToothCoilWinding`](crate::winding::ToothCoilWinding), the second mainstream
+winding type for AC motors.
 
-Example concentric coils:
-```text
-┌─────────────────┐
-│ ┌────────────┐  │
-1 1 -3 -3 2 2 -1 -1
-│ └────────────┘  │
-└─────────────────┘
+Distributed windings are usually further classified into integer-slot windings,
+where the hole number `q = N / (2 * p * m)` is an integer and fractional-slot
+windings, where it is not ( with `N` being the number of
+[`slots`](Winding::slots), `p` being the number of
+[`pole_pairs`](Winding::pole_pairs) and `m` being the number of
+[`phases`](Winding::phases). Integer-slot windings offer a particularily smooth
+EMF and a high fundamental winding factor, whereas fractional-slot windings can
+be designed to suppress certain harmonics almost completely. Additionally, the
+extremely low cogging torque makes fractional-slot windings well-suited for
+servo or robotics applications.
+
+The following image shows the coil-layout of a double-layer integer slot winding
+with 12 slots and 2 poles:
+ */
+#[doc = ""]
+#[cfg_attr(
+    feature = "doc-images",
+    doc = "![Coils of a 12 / 2 DL winding][coils_distributed_winding]"
+)]
+#[cfg_attr(
+    feature = "doc-images",
+    embed_doc_image::embed_doc_image(
+        "coils_distributed_winding",
+        "docs/img/coils_distributed_winding.svg"
+    )
+)]
+#[cfg_attr(
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+)]
+/**
+
+_Image created with `/examples/winding_plots.rs`, function `distributed_winding()`._
+
+# Properties
+
+
+With regards to its [`Winding`] implementation, a [`DistributedWinding`] has the
+following properties:
+- It always fulfills the symmetric conditions of the [`Winding::is_symmetric`]
+method. This means that its [`base_winding_count`](Winding::base_winding_count)
+is calculated in constant time using the [`base_winding_count_symmetric`]
+function.
+- The number of turns for all coils is identical. This means that its
+[`series_turns_per_phase`](Winding::series_turns_per_phase) is identical for all
+phases and is calculated in constant time.
+- All coils use the same [`wire`](DistributedWinding::wire).
+- It either has one or two [`layers`](Winding::layers); the coils in a slot are
+arranged as defined by [`CoilLayout::Single`] or
+[`CoilLayout::DoubleVertical`] respectively. The following image shows the
+coil arrangement for a double-layer winding.
+*/
+#[doc = ""]
+#[cfg_attr(
+    feature = "doc-images",
+    doc = "![Winding table of a 12 / 2 DL winding][table_distributed_winding]"
+)]
+#[cfg_attr(
+    feature = "doc-images",
+    embed_doc_image::embed_doc_image(
+        "table_distributed_winding",
+        "docs/img/table_distributed_winding.svg"
+    )
+)]
+#[cfg_attr(
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+)]
+/**
+- When combined with a [`LinCore`], the
+[`end_winding_half_turn_length_straight`] function is used for approximating the
+end winding half turn length. For a [`RotCore`],
+[`end_winding_half_turn_length_circular_arc`] is employed instead (both only
+available if the `stem_core` feature is enabled). These approximations can be
+overriden by providing the value directly, see
+[`DistributedWinding::set_mean_end_winding_half_turn_length`]
+- Its end winding leakage inductance is calculated with the
+[`end_winding_leakage_inductance_distributed`] function (only available if the
+`stem_core` feature is enabled).
+
+# Constructors
+
+For [`DistributedWinding`], the builder structs [`DistributedBuilder`],
+[`DistributedMinimalBuilder`] and [`DistributedDoubleZoneSpanBuilder`] are
+available. The builder structs can be fallibly converted into a
+[`DistributedWinding`] with the [`new`](DistributedWinding::new) method or with
+the [`TryFrom`] implementations, provided that the invariants for the builder
+field values are upheld. This is checked during the building process,
+see the documentation of the builder fields for details.
+
+# Serialization and deserialization
+
+If the `serde` feature is enabled, a [`DistributedWinding`] can be deserialized
+from the serialized representations of its builder structs. When serializing it,
+it is converted into a [`DistributedBuilder`], which is then serialized with the
+standard [`Serialize`] macro.
+
+# Examples
+
+The following example creates the 12 / 2 double-layer winding shown in the
+image above and calculates some properties.
+
 ```
+use std::num::NonZeroU16;
 
-Example coils with same span:
-```text
-┌──────────────┐
-│ ┌────────────│──┐
-1 1 -3 -3 2 2 -1 -1
-│ └────────────│──┘
-└──────────────┘
+use approxim::assert_abs_diff_eq;
+
+use stem_winding::prelude::*;
+use stem_winding::winding::WindingHarmonic;
+
+let builder = DistributedMinimalBuilder {
+    slots: 12.try_into().expect("not zero"),
+    pole_pairs: 1.try_into().expect("not zero"),
+    phases: 3.try_into().expect("not zero"),
+    layers: 2.try_into().expect("not zero"),
+    coil_throw_reduction: 0,
+    zone_shift: 0,
+    winding_table_constructor: WindingTableConstructor::Tingley,
+};
+
+let winding = DistributedWinding::new(builder).expect("all invariants upheld");
+
+assert_eq!(winding.base_winding_count().get(), 1);
+
+let ph = NonZeroU16::new(1).expect("not zero");
+assert_abs_diff_eq!(
+    winding.winding_factor(ph, SpatialOrder::Mechanical(1)),
+    0.9659,
+    epsilon = 1e-3
+);
+assert_abs_diff_eq!(
+    winding.winding_factor(ph, SpatialOrder::Mechanical(5)),
+    0.2588,
+    epsilon = 1e-3
+);
+
+let mut iter = winding.harmonics();
+
+// Fundamental harmonic
+assert_eq!(iter.next(),
+    Some(
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(1),
+            is_positive: true
+        }));
+
+// First superharmonic
+assert_eq!(iter.next(),
+    Some(
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(5),
+            is_positive: false
+        }));
 ```
  */
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(into = "DistributedBuilder"))]
 pub struct DistributedWinding {
     slots: NonZeroU16,
     pole_pairs: NonZeroU16,
@@ -825,11 +971,11 @@ fn largest_span_slot(winding_table: &WindingTable, phase: i32) -> u16 {
     return positive_slot;
 }
 
-/**
-A coil group starts in slot `start` and extends for `len` slots.
-This extension is wrapping: If e.g. the total number of slots is 12, start is 11 and len is 2,
-the coil group is located in the slots 11 and 0.
-*/
+/// A helper struct for [`DistributedWinding::create_coils`].
+///
+/// A coil group starts in slot `start` and extends for `len` slots.
+/// This extension is wrapping: If e.g. the total number of slots is 12, start
+/// is 11 and len is 2, the coil group is located in the slots 11 and 0.
 #[derive(Clone, Debug, PartialEq)]
 struct AvailableSlotsForCoilGroup {
     start: u16,
@@ -918,29 +1064,6 @@ impl AvailableSlotsForCoilGroup {
             }
         }
         return None;
-    }
-}
-
-impl Default for DistributedWinding {
-    fn default() -> Self {
-        DistributedBuilder {
-            slots: NonZeroU16::new(6).expect("not zero"),
-            pole_pairs: NonZeroU16::MIN,
-            phases: NonZeroU16::new(3).expect("not zero"),
-            layers: NonZeroU16::MIN,
-            coil_throw_reduction: 0,
-            zone_shift: 0,
-            turns_per_coil: NonZeroUsize::MIN,
-            parallel_paths: NonZeroU16::MIN,
-            connection: Connection::Star,
-            end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(SffWire::default()),
-            winding_table_constructor: WindingTableConstructor::Tingley,
-            concentric_coils: false,
-            mean_end_winding_half_turn_length: None,
-        }
-        .try_into()
-        .expect("valid inputs")
     }
 }
 
@@ -1039,28 +1162,118 @@ impl Winding for DistributedWinding {
     }
 }
 
-// =============================================================================
-// Builders
+/**
+A builder struct for a [`DistributedWinding`].
 
+This builder can be used to create a [`DistributedWinding`] via its
+[`new`](DistributedWinding::new) method or via its [`TryFrom`] implementation.
+Creating the winding fails if the conditions stated on the documentation of the
+individual fields are not fulfilled (for example,
+[`DistributedWinding::end_winding_leakage_coefficient`] must not be negative).
+ */
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct DistributedBuilder {
+    /// Number of slots. Corresponds to [`Winding::slots`] in the final winding.
     pub slots: NonZeroU16,
+    /// Number of pole pairs. Corresponds to [`Winding::pole_pairs`] in the
+    /// final winding.
     pub pole_pairs: NonZeroU16,
+    /// Number of phases. Corresponds to [`Winding::phases`] in the final
+    /// winding.
     pub phases: NonZeroU16,
+    /// Number of layers. Corresponds to [`Winding::layers`] in the final
+    /// winding. Must be 1 or 2 (`1 <= layers <= 2`).
     pub layers: NonZeroU16,
+    /// The span reduction of a double-layer winding, see
+    /// [`DistributedWinding::coil_throw_reduction`] for details. Ignored for a
+    /// single-layer winding.
     pub coil_throw_reduction: i32,
+    /// The zone shift of a double-layer winding, see
+    /// [`DistributedWinding::zone_shift`] for details. If all zones of a phase
+    /// with the same polarity should be in one layer, consider using the
+    /// dedicated [`DistributedDoubleZoneSpanBuilder`]. Ignored for a
+    /// single-layer winding.
     pub zone_shift: u16,
+    /// Winding table constructor used to determine the winding table of the
+    /// final winding via [`WindingTable::from_constructor`]. The `span`
+    /// argument to that function is calculated as the integer division of slots
+    /// by poles (two times pole pairs), all other arguments are taken from the
+    /// fields of this struct. If the construction of the winding table
+    /// fails, the winding cannot be created.
     pub winding_table_constructor: WindingTableConstructor,
+    /// Number of turns for each coil. Corresponds to
+    /// [`CoilExt::turns`](crate::coils::CoilExt::turns).
     pub turns_per_coil: NonZeroUsize,
+    /// Number of parallel paths. This value must be a divisor of the maximum
+    /// number of parallel paths returned by
+    /// [`max_parallel_paths_symmetric`](super::max_parallel_paths_symmetric).
     pub parallel_paths: NonZeroU16,
+    /// Electrical connection of the individual phases.
     pub connection: Connection,
+    /// Coefficient used to calculate
+    /// [`Winding::end_winding_leakage_inductance`], see
+    /// [`DistributedWinding::end_winding_leakage_coefficient`]. Must not be
+    /// negative (`end_winding_leakage_coefficient >= 0`).
     pub end_winding_leakage_coefficient: f64,
+    /// The wire used for all coils of the winding.
     pub wire: Box<dyn Wire>,
+    /**
+    Whether the coils of a coil group should have the same span or be
+    concentric, see [`DistributedWinding::concentric_coils`].
+
+    **Example concentric coils**
+    ```text
+    ┌─────────────────┐
+    │ ┌────────────┐  │
+    1 1 -3 -3 2 2 -1 -1
+    │ └────────────┘  │
+    └─────────────────┘
+    ```
+
+    **Example coils with same span**
+    ```text
+    ┌──────────────┐
+    │ ┌────────────│──┐
+    1 1 -3 -3 2 2 -1 -1
+    │ └────────────│──┘
+    └──────────────┘
+    ```
+    */
     pub concentric_coils: bool,
     #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "deserialize_opt_quantity")
+    )]
+    /// An override for the end winding half-turn length, see
+    /// [`ToothCoilWinding::mean_end_winding_half_turn_length`]. If provided,
+    /// this value must not be negative (`mean_end_winding_half_turn_length >= 0
+    /// m`).
+    #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_opt_quantity"))]
     pub mean_end_winding_half_turn_length: Option<Length>,
+}
+
+impl From<DistributedWinding> for DistributedBuilder {
+    fn from(winding: DistributedWinding) -> Self {
+        DistributedBuilder {
+            slots: winding.slots,
+            pole_pairs: winding.pole_pairs,
+            phases: winding.phases,
+            layers: winding.layers,
+            coil_throw_reduction: winding.coil_throw_reduction,
+            zone_shift: winding.zone_shift,
+            concentric_coils: winding.concentric_coils,
+            winding_table_constructor: winding.winding_table_constructor,
+            turns_per_coil: winding.turns_per_coil,
+            parallel_paths: winding.parallel_paths,
+            connection: winding.connection,
+            end_winding_leakage_coefficient: winding.end_winding_leakage_coefficient,
+            wire: winding.wire,
+            mean_end_winding_half_turn_length: winding.mean_end_winding_half_turn_length,
+        }
+    }
 }
 
 impl TryFrom<DistributedBuilder> for DistributedWinding {
@@ -1142,22 +1355,153 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
     }
 }
 
+/**
+A builder struct for a double-layer [`DistributedWinding`] where all zones of
+a phase with the same polarity are in the same layer.
+
+This is a specialized version of [`DistributedBuilder`] for integer-slot
+windings where the [`zone_shift`](DistributedBuilder::zone_shift) is set to the
+[`hole_number`](Winding::hole_number). This results in a winding table where all
+the zones with the same polarity and phase are located in the same layer
+(doubled zone span). Therefore, this builder fails for slot / pole pair / phases
+combinations which result in fractional slot windings (i.e.
+`2 * pole_pairs * phases` is not a divisor of `slots`).
+
+The following image shows the 12 / 2 topology from the [`DistributedWinding`]
+documentation with a [`zone_shift`](DistributedWinding::zone_shift) of 2 created
+by this builder:
+*/
+#[doc = ""]
+#[cfg_attr(
+    feature = "doc-images",
+    doc = "![Winding table of a 12 / 2 DL with a doubled zone spanwinding][table_distributed_winding_zone_shift_2]"
+)]
+#[cfg_attr(
+    feature = "doc-images",
+    embed_doc_image::embed_doc_image(
+        "table_distributed_winding_zone_shift_2",
+        "docs/img/table_distributed_winding_zone_shift_2.svg"
+    )
+)]
+#[cfg_attr(
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+)]
+/**
+
+# Examples
+
+```
+use std::num::NonZeroU16;
+
+use approxim::assert_abs_diff_eq;
+
+use stem_winding::prelude::*;
+use stem_winding::winding::WindingHarmonic;
+
+let builder = DistributedDoubleZoneSpanBuilder {
+    slots: 12.try_into().expect("not zero"),
+    pole_pairs: 1.try_into().expect("not zero"),
+    phases: 3.try_into().expect("not zero"),
+    coil_throw_reduction: 0,
+    winding_table_constructor: WindingTableConstructor::Tingley,
+    turns_per_coil: 1.try_into().expect("not zero"),
+    parallel_paths: 1.try_into().expect("not zero"),
+    connection: Connection::Star,
+    end_winding_leakage_coefficient: 0.0,
+    wire: Box::new(SffWire::default()),
+    concentric_coils: false,
+    mean_end_winding_half_turn_length: None
+};
+
+let winding = DistributedWinding::new(builder).expect("all invariants upheld");
+
+let ph = NonZeroU16::new(1).expect("not zero");
+assert_abs_diff_eq!(
+    winding.winding_factor(ph, SpatialOrder::Mechanical(1)),
+    0.8365,
+    epsilon = 1e-3
+);
+assert_abs_diff_eq!(
+    winding.winding_factor(ph, SpatialOrder::Mechanical(5)),
+    0.2241,
+    epsilon = 1e-3
+);
+```
+ */
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Deserialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct DistributedDoubleZoneSpanBuilder {
+    /// Number of slots. Corresponds to [`Winding::slots`] in the final winding.
     pub slots: NonZeroU16,
+    /// Number of pole pairs. Corresponds to [`Winding::pole_pairs`] in the
+    /// final winding.
     pub pole_pairs: NonZeroU16,
+    /// Number of phases. Corresponds to [`Winding::phases`] in the final
+    /// winding.
     pub phases: NonZeroU16,
+    /// The span reduction of a double-layer winding, see
+    /// [`DistributedWinding::coil_throw_reduction`] for details. Ignored for a
+    /// single-layer winding.
     pub coil_throw_reduction: i32,
+    /// Number of turns for each coil. Corresponds to
+    /// [`CoilExt::turns`](crate::coils::CoilExt::turns).
     pub turns_per_coil: NonZeroUsize,
+    /// Number of parallel paths. This value must be a divisor of the maximum
+    /// number of parallel paths returned by
+    /// [`max_parallel_paths_symmetric`](super::max_parallel_paths_symmetric).
     pub parallel_paths: NonZeroU16,
+    /// Electrical connection of the individual phases.
     pub connection: Connection,
+    /// Coefficient used to calculate
+    /// [`Winding::end_winding_leakage_inductance`], see
+    /// [`DistributedWinding::end_winding_leakage_coefficient`]. Must not be
+    /// negative (`end_winding_leakage_coefficient >= 0`).
     pub end_winding_leakage_coefficient: f64,
+    /// The wire used for all coils of the winding.
     pub wire: Box<dyn Wire>,
+    /// Winding table constructor used to determine the winding table of the
+    /// final winding via [`WindingTable::from_constructor`]. The `span`
+    /// argument to that function is calculated as the integer division of slots
+    /// by poles (two times pole pairs), all other arguments are taken from the
+    /// fields of this struct. If the construction of the winding table
+    /// fails, the winding cannot be created.
     pub winding_table_constructor: WindingTableConstructor,
+    /**
+    Whether the coils of a coil group should have the same span or be
+    concentric, see [`DistributedWinding::concentric_coils`].
+
+    **Example concentric coils**
+    ```text
+    ┌─────────────────┐
+    │ ┌────────────┐  │
+    1 1 -3 -3 2 2 -1 -1
+    │ └────────────┘  │
+    └─────────────────┘
+    ```
+
+    **Example coils with same span**
+    ```text
+    ┌──────────────┐
+    │ ┌────────────│──┐
+    1 1 -3 -3 2 2 -1 -1
+    │ └────────────│──┘
+    └──────────────┘
+    ```
+    */
     pub concentric_coils: bool,
     #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "deserialize_opt_quantity")
+    )]
+    /// An override for the end winding half-turn length, see
+    /// [`ToothCoilWinding::mean_end_winding_half_turn_length`]. If provided,
+    /// this value must not be negative (`mean_end_winding_half_turn_length >= 0
+    /// m`).
+    #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_opt_quantity"))]
     pub mean_end_winding_half_turn_length: Option<Length>,
 }
 
@@ -1195,18 +1539,47 @@ impl TryFrom<DistributedDoubleZoneSpanBuilder> for DistributedWinding {
     }
 }
 
+/**
+A minimal builder struct for a [`DistributedWinding`].
+
+This struct is useful if one is interested in a qualitative analysis for the
+specified topology (e.g. determining the winding factor or the harmonics).
+Compared to the fully-featured [`DistributedBuilder`], values such as the
+[`DistributedBuilder::end_winding_leakage_coefficient`] are set to sensible
+defaults. For quantitative calculations (e.g. the [`Winding::resistance`]), use
+[`DistributedBuilder`] instead.
+ */
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Deserialize))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct DistributedMinimalBuilder {
+    /// Number of slots. Corresponds to [`Winding::slots`] in the final winding.
     pub slots: NonZeroU16,
+    /// Number of pole pairs. Corresponds to [`Winding::pole_pairs`] in the
+    /// final winding.
     pub pole_pairs: NonZeroU16,
+    /// Number of phases. Corresponds to [`Winding::phases`] in the final
+    /// winding.
     pub phases: NonZeroU16,
+    /// Number of layers. Corresponds to [`Winding::layers`] in the final
+    /// winding. Must be 1 or 2 (`1 <= layers <= 2`).
     pub layers: NonZeroU16,
-    /// Coil span reduction in slots ("Wickelschrittverkürzung aufgrund der
-    /// Sehnung")
+    /// The span reduction of a double-layer winding, see
+    /// [`DistributedWinding::coil_throw_reduction`] for details. Ignored for a
+    /// single-layer winding.
     pub coil_throw_reduction: i32,
+    /// The zone shift of a double-layer winding, see
+    /// [`DistributedWinding::zone_shift`] for details. If all zones of a phase
+    /// with the same polarity should be in one layer, consider using the
+    /// dedicated [`DistributedDoubleZoneSpanBuilder`]. Ignored for a
+    /// single-layer winding.
     pub zone_shift: u16,
+    /// Winding table constructor used to determine the winding table of the
+    /// final winding via [`WindingTable::from_constructor`]. The `span`
+    /// argument to that function is always set to 1 (tooth-coil winding
+    /// property), all other arguments are taken from the fields of this struct.
+    /// If the construction of the winding table fails, the winding cannot
+    /// be created.
     pub winding_table_constructor: WindingTableConstructor,
 }
 

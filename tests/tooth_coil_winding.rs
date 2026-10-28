@@ -538,21 +538,6 @@ fn test_winding_12_10_sl() {
 }
 
 #[test]
-fn test_default_tooth_coil_assembly() {
-    let winding = ToothCoilWinding::default();
-
-    // Compare the zone plan
-    let winding_table = winding.winding_table(true);
-    let expected_result = WindingTable::from_layer_major(
-        [-3, 1, -1, 2, -2, 3].into_iter(),
-        winding.slots(),
-        winding.layers(),
-    );
-    assert_eq!(winding_table, expected_result);
-    assert_eq!(1, winding.base_winding_count().get());
-}
-
-#[test]
 fn test_derive_coil_assembly_12_10_dl() {
     let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
         slots: 12.try_into().expect("not zero"),
@@ -766,7 +751,16 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_and_deserialize() {
-        let winding = ToothCoilWinding::default();
+        let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
+            slots: 12.try_into().expect("not zero"),
+            pole_pairs: 5.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            layers: 2.try_into().expect("not zero"),
+            winding_table_constructor: WindingTableConstructor::Tingley,
+        }
+        .try_into()
+        .unwrap();
+
         let string = yaml_serde::to_string(&winding).expect("can be serialized");
         let winding_de: ToothCoilWinding =
             yaml_serde::from_str(&string).expect("can be deserialized");
