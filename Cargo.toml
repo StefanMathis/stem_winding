@@ -45,7 +45,7 @@ doc-images = ["dep:embed-doc-image"]
 cairo_viewport = { version = "0.3", features = ["image-compare"]}
 serde_mosaic = { version = "0.3", features = ["serde_yaml"] }
 indoc = "1.0"
-yaml_serde = "0.10.6"
+serde_yaml = "0.8"
 stem_winding = { path = ".", features = ["cairo", "serde", "stem_core"] }
 
 [package.metadata.docs.rs]

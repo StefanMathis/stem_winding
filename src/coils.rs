@@ -57,10 +57,10 @@ format:
 ```
 use indoc::indoc;
 use stem_winding::prelude::*;
-use yaml_serde;
+use serde_yaml;
 
  let yaml = indoc! {"
-- !Full
+- Full:
     positive_zone:
       slot: 0
       layer: 0
@@ -78,7 +78,7 @@ use yaml_serde;
         conductor_material:
           name: Copper
           relative_permeability: 1
-- !Full
+- Full:
     positive_zone:
       slot: 3
       layer: 0
@@ -98,7 +98,7 @@ use yaml_serde;
           relative_permeability: 1
 "};
 
-let coils: Coils = yaml_serde::from_str(yaml).unwrap();
+let coils: Coils = serde_yaml::from_str(yaml).unwrap();
 assert_eq!(coils.num_coils(), 2);
 assert_eq!(coils.num_zones(), 4);
 ```
@@ -814,11 +814,9 @@ pub trait CoilExt: private::Sealed {
         &self,
         zone_area: Area,
         turn_length: Length,
-        conditions: &[DynQuantity<f64>],
-    ) -> ElectricalResistance {
-        self.wire()
-            .resistance(turn_length, zone_area, self.turns(), conditions)
-            * self.turns().get() as f64
+    ) -> VarQuantity<ElectricalResistance> {
+        self.wire().resistance(turn_length, zone_area, self.turns())
+            * VarQuantity::from(self.turns().get() as f64)
     }
 }
 

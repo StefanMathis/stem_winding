@@ -692,7 +692,7 @@ mod serde_tests {
         winding_table_constructor: Tingley
         "};
 
-        let maybe_winding: Result<ToothCoilWinding, _> = yaml_serde::from_str(yaml);
+        let maybe_winding: Result<ToothCoilWinding, _> = serde_yaml::from_str(yaml);
         assert!(maybe_winding.is_err());
     }
 
@@ -708,7 +708,7 @@ mod serde_tests {
             winding_table_constructor: Tingley
             "};
 
-        let winding: ToothCoilWinding = yaml_serde::from_str(yaml).unwrap();
+        let winding: ToothCoilWinding = serde_yaml::from_str(yaml).unwrap();
 
         // Compare the winding factor
         assert_abs_diff_eq!(
@@ -742,7 +742,7 @@ mod serde_tests {
             winding_table_constructor: Tingley
             "};
 
-        let winding: ToothCoilWinding = yaml_serde::from_str(yaml).unwrap();
+        let winding: ToothCoilWinding = serde_yaml::from_str(yaml).unwrap();
 
         assert_eq!(winding.turns_in_slot(0), 20);
         assert_eq!(winding.series_turns_per_phase(ONE).numer().clone(), 20);
@@ -761,9 +761,9 @@ mod serde_tests {
         .try_into()
         .unwrap();
 
-        let string = yaml_serde::to_string(&winding).expect("can be serialized");
+        let string = serde_yaml::to_string(&winding).expect("can be serialized");
         let winding_de: ToothCoilWinding =
-            yaml_serde::from_str(&string).expect("can be deserialized");
+            serde_yaml::from_str(&string).expect("can be deserialized");
 
         assert_eq!(winding.slots(), winding_de.slots());
         assert_eq!(winding.layers(), winding_de.layers());
@@ -926,8 +926,8 @@ mod stem_core_tests {
                         phase,
                         SpatialOrder::Electrical(1),
                         effective_air_gap,
-                        &[],
                     )
+                    .eval(&[])
                     .get::<henry>(),
                 0.0013656440,
                 epsilon = 1e-6
@@ -938,9 +938,9 @@ mod stem_core_tests {
                     .slot_leakage_inductance(
                         CoreRef::Rot(&core),
                         phase,
-                        Length::new::<millimeter>(1.0),
-                        &[],
+                        Length::new::<millimeter>(1.0)
                     )
+                    .eval(&[])
                     .get::<henry>(),
                 0.0018424,
                 epsilon = 1e-6
@@ -974,8 +974,8 @@ mod stem_core_tests {
                         CoreRef::Rot(&core),
                         phase,
                         Length::new::<millimeter>(1.0),
-                        &[],
                     )
+                    .eval(&[])
                     .get::<henry>(),
                 0.0044860,
                 epsilon = 1e-6
@@ -988,8 +988,8 @@ mod stem_core_tests {
                         phase,
                         SpatialOrder::Electrical(1),
                         effective_air_gap,
-                        &[],
                     )
+                    .eval(&[])
                     .get::<henry>(),
                 0.0117851,
                 epsilon = 1e-6
@@ -1002,8 +1002,8 @@ mod stem_core_tests {
                         phase,
                         SpatialOrder::Electrical(1),
                         effective_air_gap,
-                        &[],
                     )
+                    .eval(&[])
                     .get::<henry>(),
                 4.40897e-3,
                 epsilon = 1e-6

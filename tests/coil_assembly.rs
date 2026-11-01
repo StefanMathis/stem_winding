@@ -325,8 +325,8 @@ mod serde_tests {
 
         let winding = CoilAssembly::from(&winding);
 
-        let string = yaml_serde::to_string(&winding).expect("can be serialized");
-        let winding_de: CoilAssembly = yaml_serde::from_str(&string).expect("can be deserialized");
+        let string = serde_yaml::to_string(&winding).expect("can be serialized");
+        let winding_de: CoilAssembly = serde_yaml::from_str(&string).expect("can be deserialized");
 
         assert_eq!(winding.slots(), winding_de.slots());
         assert_eq!(winding.layers(), winding_de.layers());
@@ -455,7 +455,8 @@ mod stem_core_tests {
         // Check the phase resistance
         approxim::assert_abs_diff_eq!(
             coil_assembly
-                .resistance(CoreRef::Rot(&core), NonZeroU16::MIN, &[],)
+                .resistance(CoreRef::Rot(&core), NonZeroU16::MIN)
+                .eval(&[])
                 .get::<ohm>(),
             1.04848,
             epsilon = 0.0001
@@ -468,8 +469,8 @@ mod stem_core_tests {
                     CoreRef::Rot(&core),
                     NonZeroU16::MIN,
                     Length::new::<millimeter>(1.0),
-                    &[],
                 )
+                .eval(&[])
                 .get::<henry>(),
             0.0044122,
             epsilon = 1e-6
@@ -481,8 +482,8 @@ mod stem_core_tests {
                     CoreRef::Rot(&core),
                     NonZeroU16::MIN,
                     SpatialOrder::Electrical(1),
-                    &[]
                 )
+                .eval(&[])
                 .get::<henry>(),
             0.0,
             epsilon = 1e-6

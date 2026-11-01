@@ -88,9 +88,9 @@ mod serde_tests {
         let winding =
             SquirrelCageWinding::new_minimal(28.try_into().unwrap(), 2.try_into().unwrap());
 
-        let string = yaml_serde::to_string(&winding).expect("can be serialized");
+        let string = serde_yaml::to_string(&winding).expect("can be serialized");
         let winding_de: SquirrelCageWinding =
-            yaml_serde::from_str(&string).expect("can be deserialized");
+            serde_yaml::from_str(&string).expect("can be deserialized");
 
         assert_eq!(winding.slots(), winding_de.slots());
         assert_eq!(winding.layers(), winding_de.layers());
@@ -107,7 +107,7 @@ mod serde_tests {
             pole_pairs: 1
             "};
 
-        assert!(yaml_serde::from_str::<SquirrelCageWinding>(yaml).is_err());
+        assert!(serde_yaml::from_str::<SquirrelCageWinding>(yaml).is_err());
     }
 
     #[test]
@@ -116,7 +116,7 @@ mod serde_tests {
             slots: 14.try_into().expect("not zero"),
             pole_pairs: 1.try_into().expect("not zero"),
         });
-        let _ = yaml_serde::to_string(&winding).unwrap();
+        let _ = serde_yaml::to_string(&winding).unwrap();
     }
 
     #[test]
@@ -128,7 +128,7 @@ mod serde_tests {
             pole_pairs: 2
             "};
 
-        let winding: SquirrelCageWinding = yaml_serde::from_str(yaml).unwrap();
+        let winding: SquirrelCageWinding = serde_yaml::from_str(yaml).unwrap();
         approxim::assert_abs_diff_eq!(
             1.0,
             winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
@@ -157,7 +157,7 @@ mod serde_tests {
             consider_current_displacement: true
             "};
 
-            let winding: SquirrelCageWinding = yaml_serde::from_str(yaml).unwrap();
+            let winding: SquirrelCageWinding = serde_yaml::from_str(yaml).unwrap();
 
             approxim::assert_abs_diff_eq!(
                 1.0,
@@ -186,7 +186,7 @@ mod serde_tests {
             consider_current_displacement: true
             "};
 
-            let winding: SquirrelCageWinding = yaml_serde::from_str(yaml).unwrap();
+            let winding: SquirrelCageWinding = serde_yaml::from_str(yaml).unwrap();
 
             approxim::assert_abs_diff_eq!(
                 1.0,
@@ -285,56 +285,44 @@ mod stem_core_tests {
 
         approxim::assert_abs_diff_eq!(
             winding
-                .resistance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    &[
-                        ThermodynamicTemperature::new::<degree_celsius>(20.0).into(),
-                        Frequency::new::<hertz>(0.0).into(),
-                    ],
-                )
+                .resistance(CoreRef::Rot(&core), NonZeroU16::MIN)
+                .eval(&[
+                    ThermodynamicTemperature::new::<degree_celsius>(20.0).into(),
+                    Frequency::new::<hertz>(0.0).into(),
+                ])
                 .get::<ohm>(),
             8.51814834e-5,
             epsilon = 1e-10
         );
         approxim::assert_abs_diff_eq!(
             winding
-                .resistance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    &[
-                        ThermodynamicTemperature::new::<degree_celsius>(20.0).into(),
-                        Frequency::new::<hertz>(50.0).into(),
-                    ],
-                )
+                .resistance(CoreRef::Rot(&core), NonZeroU16::MIN)
+                .eval(&[
+                    ThermodynamicTemperature::new::<degree_celsius>(20.0).into(),
+                    Frequency::new::<hertz>(50.0).into(),
+                ])
                 .get::<ohm>(),
             8.6414995e-5,
             epsilon = 1e-10
         );
         approxim::assert_abs_diff_eq!(
             winding
-                .resistance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    &[
-                        ThermodynamicTemperature::new::<degree_celsius>(20.0).into(),
-                        Frequency::new::<hertz>(200.0).into(),
-                    ],
-                )
+                .resistance(CoreRef::Rot(&core), NonZeroU16::MIN)
+                .eval(&[
+                    ThermodynamicTemperature::new::<degree_celsius>(20.0).into(),
+                    Frequency::new::<hertz>(200.0).into(),
+                ])
                 .get::<ohm>(),
             10.38810492e-5,
             epsilon = 1e-10
         );
         approxim::assert_abs_diff_eq!(
             winding
-                .resistance(
-                    CoreRef::Rot(&core),
-                    NonZeroU16::MIN,
-                    &[
-                        ThermodynamicTemperature::new::<degree_celsius>(120.0).into(),
-                        Frequency::new::<hertz>(0.0).into(),
-                    ],
-                )
+                .resistance(CoreRef::Rot(&core), NonZeroU16::MIN)
+                .eval(&[
+                    ThermodynamicTemperature::new::<degree_celsius>(120.0).into(),
+                    Frequency::new::<hertz>(0.0).into(),
+                ])
                 .get::<ohm>(),
             11.8657806e-5,
             epsilon = 1e-10
@@ -371,7 +359,7 @@ mod stem_core_tests {
         approxim::assert_abs_diff_eq!(
             winding
                 .coil_properties_iter(CoreRef::Rot(&core))
-                .map(|cp| cp.volume() * cp.material().mass_density().get(&[]))
+                .map(|cp| cp.volume() * cp.material().mass_density().eval(&[]))
                 .sum::<Mass>()
                 .get::<kilogram>(),
             3.13060,

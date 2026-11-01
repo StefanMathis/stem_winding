@@ -1010,9 +1010,9 @@ mod serde_tests {
             double_zone_span: false,
         })
         .unwrap();
-        let string = yaml_serde::to_string(&winding).expect("can be serialized");
+        let string = serde_yaml::to_string(&winding).expect("can be serialized");
         let winding_de: DistributedToothCoilWinding =
-            yaml_serde::from_str(&string).expect("can be deserialized");
+            serde_yaml::from_str(&string).expect("can be deserialized");
 
         assert_eq!(winding.slots(), winding_de.slots());
         assert_eq!(winding.layers(), winding_de.layers());
@@ -1034,7 +1034,7 @@ mod serde_tests {
             double_zone_span: true
             "};
 
-        let winding: DistributedToothCoilWinding = yaml_serde::from_str(yaml).unwrap();
+        let winding: DistributedToothCoilWinding = serde_yaml::from_str(yaml).unwrap();
 
         // Check the winding factor
         approxim::assert_abs_diff_eq!(
@@ -1079,7 +1079,7 @@ mod serde_tests {
                 double_zone_span: false
                 "};
 
-        let winding: DistributedToothCoilWinding = yaml_serde::from_str(yaml).unwrap();
+        let winding: DistributedToothCoilWinding = serde_yaml::from_str(yaml).unwrap();
 
         // Check the winding factor
         approxim::assert_abs_diff_eq!(

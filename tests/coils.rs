@@ -170,7 +170,8 @@ fn test_coil_resistance() {
 
     let resistance = 1273239.5;
     approxim::assert_abs_diff_eq!(
-        wire.resistance(length, zone_area, NonZeroUsize::MIN, conditions)
+        wire.resistance(length, zone_area, NonZeroUsize::MIN)
+            .eval(conditions)
             .get::<ohm>(),
         resistance,
         epsilon = 1.0
@@ -187,7 +188,9 @@ fn test_coil_resistance() {
         )
         .unwrap();
         approxim::assert_abs_diff_eq!(
-            coil.resistance(zone_area, length, conditions).get::<ohm>(),
+            coil.resistance(zone_area, length)
+                .eval(conditions)
+                .get::<ohm>(),
             usize::from(coil.turns()) as f64 * resistance,
             epsilon = 1.0
         );
@@ -203,7 +206,9 @@ fn test_coil_resistance() {
         )
         .unwrap();
         approxim::assert_abs_diff_eq!(
-            coil.resistance(zone_area, length, conditions).get::<ohm>(),
+            coil.resistance(zone_area, length)
+                .eval(conditions)
+                .get::<ohm>(),
             usize::from(coil.turns()) as f64 * resistance,
             epsilon = 1.0
         );
@@ -234,7 +239,8 @@ fn test_coil_resistance() {
         .unwrap();
         approxim::assert_abs_diff_eq!(
             coil_sff
-                .resistance(zone_area, length, conditions)
+                .resistance(zone_area, length)
+                .eval(conditions)
                 .get::<ohm>(),
             usize::from(coil_sff.turns()) as f64 * resistance,
             epsilon = 1.0
@@ -599,50 +605,50 @@ mod serde_tests {
     #[test]
     fn test_serde_coils() {
         let yaml = indoc! {"
-            - !Full
-              positive_zone:
-                slot: 0
-                layer: 0
-              negative_zone:
-                slot: 1
-                layer: 0
-              positive_slot_direction: true
-              turns: 1
-              phase: 1
-              wire:
-                RoundWire:
-                  outer_diameter: 1 mm
-                  inner_diameter: 0 mm
-                  insulation_thickness: 0 mm
-                  conductor_material:
-                    name: Copper
-                    relative_permeability: 1
-            - !Full
-              positive_zone:
-                slot: 3
-                layer: 0
-              negative_zone:
-                slot: 2
-                layer: 0
-              positive_slot_direction: false
-              turns: 1
-              phase: 2
-              wire:
-                RoundWire:
-                  outer_diameter: 1 mm
-                  inner_diameter: 0 mm
-                  insulation_thickness: 0 mm
-                  conductor_material:
-                    name: Copper
-                    relative_permeability: 1
+            - Full:
+                positive_zone:
+                    slot: 0
+                    layer: 0
+                negative_zone:
+                    slot: 1
+                    layer: 0
+                positive_slot_direction: true
+                turns: 1
+                phase: 1
+                wire:
+                    RoundWire:
+                        outer_diameter: 1 mm
+                        inner_diameter: 0 mm
+                        insulation_thickness: 0 mm
+                        conductor_material:
+                            name: Copper
+                            relative_permeability: 1
+            - Full:
+                positive_zone:
+                    slot: 3
+                    layer: 0
+                negative_zone:
+                    slot: 2
+                    layer: 0
+                positive_slot_direction: false
+                turns: 1
+                phase: 2
+                wire:
+                    RoundWire:
+                        outer_diameter: 1 mm
+                        inner_diameter: 0 mm
+                        insulation_thickness: 0 mm
+                        conductor_material:
+                            name: Copper
+                            relative_permeability: 1
             "};
 
-        let coils: Coils = yaml_serde::from_str(yaml).unwrap();
+        let coils: Coils = serde_yaml::from_str(yaml).unwrap();
         assert_eq!(coils.num_coils(), 2);
         assert_eq!(coils.num_zones(), 4);
 
-        let string = yaml_serde::to_string(&coils).unwrap();
-        let de_coils: Coils = yaml_serde::from_str(&string).unwrap();
+        let string = serde_yaml::to_string(&coils).unwrap();
+        let de_coils: Coils = serde_yaml::from_str(&string).unwrap();
         assert_eq!(de_coils.num_coils(), 2);
         assert_eq!(de_coils.num_zones(), 4);
     }

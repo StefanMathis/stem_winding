@@ -127,11 +127,6 @@ as [`DistributedWinding`].
   the [`Winding::resistance`] or the [`Winding::main_inductance`]. If the
   implementor of [`Winding`] is known to be symmetric, this function should be
   overriden for performance reasons.
-- [`Winding::make_cache`] (only available with the `stem_core` feature enabled)
-  creates a [`SimulationCache`] for the given winding–core combination.
-  The default implementation populates cache entries for symmetric windings
-  using the default winding and core models. Implementations may override
-  this method to customize which entries are populated.
  */
 #[cfg_attr(feature = "serde", typetag::serde)]
 pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 'static {
@@ -404,17 +399,14 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
         core: CoreRef<'_>,
         phase: NonZeroU16,
         spatial_order: SpatialOrder,
-        conditions: &[DynQuantity<f64>],
-    ) -> Inductance {
+    ) -> VarQuantity<Inductance> {
         let _ = core;
         let _ = phase;
         let _ = spatial_order;
-        let _ = conditions;
         return Default::default();
     }
 
-    /// Checks whether the winding exhibits phase symmetry under a set of
-    /// specified evaluation conditions.
+    /// Checks whether the winding exhibits phase symmetry.
     ///
     /// The following properties are compared across all phases:
     ///
@@ -424,105 +416,74 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///   inductance and slot leakage inductance.
     /// - The number of series turns per phase.
     ///
-    /// The winding factor is evaluated at the fundamental electrical spatial
-    /// order. The inductances are evaluated with an effective air gap of 1 mm.
-    /// All properties are evaluated without environmental conditions, such as
-    /// temperature or excitation frequency.
+    /// The winding factor is considered at the fundamental electrical spatial
+    /// order. The inductances are calculated with an effective air gap of 1 mm.
     ///
-    /// If all these properties are equal across phases, the winding is
+    /// Variable quantities are compared by their underlying expressions rather
+    /// than by evaluating them for particular environmental conditions, such as
+    /// temperature or excitation frequency. Consequently, mathematically
+    /// equivalent expressions are not necessarily considered equal if their
+    /// representations differ (`a + b != b + a`).
+    ///
+    /// If all listed properties are equal across phases, the winding is
     /// considered symmetric.
     ///
-    /// This check is only an indication of symmetry under the stated evaluation
-    /// conditions. In particular, it cannot guarantee symmetry for other
-    /// spatial orders, effective air gaps or environmental conditions, nor
-    /// can it account for arbitrary behavior introduced by overridden
-    /// methods.
+    /// This check cannot account for arbitrary behavior introduced by
+    /// overridden methods. Implementations requiring a different symmetry
+    /// criterion can override this method.
     ///
-    /// This method can be relatively expensive because it evaluates the listed
-    /// properties for every phase. Implementations known to be symmetric should
-    /// override this method to avoid these calculations. An example from this
-    /// crate would be [`DistributedWinding::is_symmetric`].
+    /// Implementations known to be symmetric should override this method to
+    /// avoid the property comparisons. An example from this crate is
+    /// [`DistributedWinding::is_symmetric`].
     #[cfg(feature = "stem_core")]
     fn is_symmetric(&self, core: CoreRef<'_>) -> bool {
-        use uom::si::electrical_resistance::ohm;
-
         // Condition 1: Comparison of winding factors
         if !self.equal_winding_factors() {
             return false;
         }
 
         // All other conditions
-        let conditions = &[];
         let air_gap = Length::new::<millimeter>(1.0);
         let fundamental = SpatialOrder::Electrical(1);
 
         // Condition 2: Calculate the phase resistance for some assumed conditions
-        let resistance_ref = self
-            .resistance(core, NonZeroU16::MIN, conditions)
-            .get::<ohm>();
-        let main_inductance_ref = self
-            .main_inductance(core, NonZeroU16::MIN, fundamental, air_gap, conditions)
-            .get::<henry>();
-        let air_gap_leakage_inductance_ref = self
-            .air_gap_leakage_inductance(core, NonZeroU16::MIN, fundamental, air_gap, conditions)
-            .get::<henry>();
-        let end_winding_leakage_inductance_ref = self
-            .end_winding_leakage_inductance(core, NonZeroU16::MIN, fundamental, conditions)
-            .get::<henry>();
-        let slot_leakage_inductance_ref = self
-            .slot_leakage_inductance(core, NonZeroU16::MIN, air_gap, conditions)
-            .get::<henry>();
+        let resistance_ref = self.resistance(core, NonZeroU16::MIN);
+        let main_inductance_ref = self.main_inductance(core, NonZeroU16::MIN, fundamental, air_gap);
+        let air_gap_leakage_inductance_ref =
+            self.air_gap_leakage_inductance(core, NonZeroU16::MIN, fundamental, air_gap);
+        let end_winding_leakage_inductance_ref =
+            self.end_winding_leakage_inductance(core, NonZeroU16::MIN, fundamental);
+        let slot_leakage_inductance_ref =
+            self.slot_leakage_inductance(core, NonZeroU16::MIN, air_gap);
         let turns_phase_ref = self.series_turns_per_phase(NonZeroU16::MIN);
 
         for ph in 2..(self.phases().get() + 1) {
             let phase = NonZeroU16::new(ph).expect("not zero");
 
-            let resistance = self.resistance(core, phase, conditions).get::<ohm>();
-            if approxim::abs_diff_ne!(resistance, resistance_ref, epsilon = ZERO_THRESHOLD) {
+            let resistance = self.resistance(core, phase);
+            if resistance != resistance_ref {
                 return false;
             }
 
-            let main_inductance = self
-                .main_inductance(core, phase, fundamental, air_gap, conditions)
-                .get::<henry>();
-            if approxim::abs_diff_ne!(
-                main_inductance,
-                main_inductance_ref,
-                epsilon = ZERO_THRESHOLD
-            ) {
+            let main_inductance = self.main_inductance(core, phase, fundamental, air_gap);
+            if main_inductance != main_inductance_ref {
                 return false;
             }
 
-            let air_gap_leakage_inductance = self
-                .air_gap_leakage_inductance(core, phase, fundamental, air_gap, conditions)
-                .get::<henry>();
-            if approxim::abs_diff_ne!(
-                air_gap_leakage_inductance,
-                air_gap_leakage_inductance_ref,
-                epsilon = ZERO_THRESHOLD
-            ) {
+            let air_gap_leakage_inductance =
+                self.air_gap_leakage_inductance(core, phase, fundamental, air_gap);
+            if air_gap_leakage_inductance != air_gap_leakage_inductance_ref {
                 return false;
             }
 
-            let end_winding_leakage_inductance = self
-                .end_winding_leakage_inductance(core, phase, fundamental, conditions)
-                .get::<henry>();
-            if approxim::abs_diff_ne!(
-                end_winding_leakage_inductance,
-                end_winding_leakage_inductance_ref,
-                epsilon = ZERO_THRESHOLD
-            ) {
+            let end_winding_leakage_inductance =
+                self.end_winding_leakage_inductance(core, phase, fundamental);
+            if end_winding_leakage_inductance != end_winding_leakage_inductance_ref {
                 return false;
             }
 
-            let slot_leakage_inductance = self
-                .slot_leakage_inductance(core, phase, air_gap, conditions)
-                .get::<henry>();
-            if approxim::abs_diff_ne!(
-                slot_leakage_inductance,
-                slot_leakage_inductance_ref,
-                epsilon = ZERO_THRESHOLD
-            ) {
+            let slot_leakage_inductance = self.slot_leakage_inductance(core, phase, air_gap);
+            if slot_leakage_inductance != slot_leakage_inductance_ref {
                 return false;
             }
 
@@ -531,76 +492,6 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
             }
         }
         true
-    }
-
-    /// Creates a [`SimulationCache`] for this winding and the given core.
-    ///
-    /// The default implementation populates cache entries that can be
-    /// determined for [symmetric](Winding::is_symmetric) windings and
-    /// returns an empty cache for other windings. Implementations may
-    /// override this method to customize which entries are populated.
-    ///
-    /// The default implementation assumes that the inductances calculated by
-    /// the default implementations of the corresponding [`Winding`] methods
-    /// are independent of environmental conditions, as described in the
-    /// [`SimulationCache`] documentation. Implementations for which this
-    /// assumption does not hold must override this method to ensure that the
-    /// cache contains only valid values.
-    ///
-    /// A populated entry is authoritative: downstream code uses its value
-    /// instead of recalculating the corresponding quantity. Entries left as
-    /// `None` are calculated on demand, as described in the documentation of
-    /// each field.
-    ///
-    /// Implementations are responsible for ensuring that populated entries are
-    /// valid for the winding–core combination and the simulation conditions in
-    /// which they will be used.
-    #[cfg(feature = "stem_core")]
-    fn make_cache(&self, core: CoreRef<'_>, effective_air_gap: Length) -> SimulationCache {
-        if self.is_symmetric(core) {
-            let phase = NonZeroU16::MIN;
-            let fundamental = SpatialOrder::Electrical(1);
-
-            SimulationCache {
-                resistance_decomposition: self.resistance_decomposition(core),
-                fundamental_winding_factor: Some(self.winding_factor(phase, fundamental)),
-                fundamental_effective_winding_factor: Some(self.effective_winding_factor(
-                    core,
-                    phase,
-                    fundamental,
-                    effective_air_gap,
-                )),
-                main_inductance: Some(self.main_inductance(
-                    core,
-                    phase,
-                    fundamental,
-                    effective_air_gap,
-                    &[],
-                )),
-                air_gap_leakage_inductance: Some(self.air_gap_leakage_inductance(
-                    core,
-                    phase,
-                    fundamental,
-                    effective_air_gap,
-                    &[],
-                )),
-                slot_leakage_inductance: Some(self.slot_leakage_inductance(
-                    core,
-                    phase,
-                    effective_air_gap,
-                    &[],
-                )),
-                end_winding_leakage_inductance: Some(self.end_winding_leakage_inductance(
-                    core,
-                    phase,
-                    fundamental,
-                    &[],
-                )),
-                fundamental_slot_opening_factor: Some(core.slot_opening_factor(fundamental)),
-            }
-        } else {
-            SimulationCache::default()
-        }
     }
 
     // =========================================================================
@@ -1803,11 +1694,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
         phase: NonZeroU16,
         spatial_order: SpatialOrder,
         effective_air_gap: Length,
-        conditions: &[DynQuantity<f64>],
-    ) -> Inductance {
-        // Conditions are here to allow their usage when overriding this method.
-        let _ = conditions;
-
+    ) -> VarQuantity<Inductance> {
         let k_w = self.effective_winding_factor(core, phase, spatial_order, effective_air_gap);
 
         let p = f64::from(self.pole_pairs().get());
@@ -1817,13 +1704,14 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
             SpatialOrder::Electrical(el_o) => el_o.into(),
         };
 
-        f64::from(self.phases().get())
+        (f64::from(self.phases().get())
             * *VACUUM_PERMEABILITY
             * core.air_gap_length()
             * core.axial_length()
             * k_w.powi(2)
             * self.series_turns_per_phase_float(phase).powi(2)
-            / (effective_air_gap * (PI * p * electrical_spatial_order).powi(2))
+            / (effective_air_gap * (PI * p * electrical_spatial_order).powi(2)))
+        .into()
     }
 
     /// Returns the air-gap leakage inductance.
@@ -1845,12 +1733,10 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
         phase: NonZeroU16,
         spatial_order: SpatialOrder,
         effective_air_gap: Length,
-        conditions: &[DynQuantity<f64>],
-    ) -> Inductance {
-        let main_inductance =
-            self.main_inductance(core, phase, spatial_order, effective_air_gap, conditions);
+    ) -> VarQuantity<Inductance> {
+        let main_inductance = self.main_inductance(core, phase, spatial_order, effective_air_gap);
         let leakage_factor = self.air_gap_leakage_factor(phase);
-        return main_inductance * leakage_factor;
+        return main_inductance * VarQuantity::from(leakage_factor);
     }
 
     /// Calculates the slot leakage inductance of the specified `phase` for a
@@ -1893,8 +1779,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// The contributions from all layer combinations and slots are summed
     /// to obtain the slot leakage inductance of the specified phase.
     ///
-    /// The `conditions` parameter may affect the inductance. The
-    /// `effective_air_gap` parameter is used by
+    /// The `effective_air_gap` parameter is used by
     /// [`Slot::leakage_coefficient_tooth_tip`]; see its documentation for
     /// details.
     ///
@@ -1991,8 +1876,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///         CoreRef::Rot(&core),
     ///         phase,
     ///         air_gap,
-    ///         &[],
-    ///     );
+    ///     ).eval(&[]);
     ///
     ///     assert_abs_diff_eq!(
     ///         analytical_inductance.get::<henry>(),
@@ -2007,15 +1891,10 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
         core: CoreRef<'_>,
         phase: NonZeroU16,
         effective_air_gap: Length,
-        conditions: &[DynQuantity<f64>],
-    ) -> Inductance {
-        // Argument for usage in overrides, for the default implementation it isn't
-        // needed.
-        let _ = conditions;
-
+    ) -> VarQuantity<Inductance> {
         let slot = match core.slot() {
             Some(s) => s,
-            None => return Inductance::new::<si::inductance::henry>(0.0),
+            None => return Inductance::new::<si::inductance::henry>(0.0).into(),
         };
 
         // Opening and tooth tip inductance are independent of the layer configuration
@@ -2046,7 +1925,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
                 // 3.5.2.1 (p. 311)
                 return (0..number_layers_squared)
                     .into_iter()
-                    .map(|lin_idx| {
+                    .filter_map(|lin_idx| {
                         let [linked_layer, excitation_layer] = cart_lin::lin_to_cart_unchecked(
                             lin_idx.into(),
                             &[number_layers.into(), number_layers.into()],
@@ -2059,7 +1938,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
                         if let Some(linked_coil) = self.coil_at(Zone::new(slot_idx, linked_layer)) {
                             // Only consider the selected phase
                             if linked_coil.phase() != phase {
-                                return Inductance::default();
+                                return None;
                             }
 
                             if let Some(excitation_coil) =
@@ -2084,19 +1963,21 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
                                 );
 
                                 // Calculate the inductance
-                                return single_turn_inductance
-                                    * linked_coil.turns().get() as f64
-                                    * excitation_coil.turns().get() as f64
-                                    * excitation_current
-                                    * f64::from(coupling)
-                                    * (lambda_slot
-                                        [(linked_layer as usize, excitation_layer as usize)]
-                                        + lambda_opening_and_tooth_tip);
+                                return Some(
+                                    single_turn_inductance
+                                        * linked_coil.turns().get() as f64
+                                        * excitation_coil.turns().get() as f64
+                                        * excitation_current
+                                        * f64::from(coupling)
+                                        * (lambda_slot
+                                            [(linked_layer as usize, excitation_layer as usize)]
+                                            + lambda_opening_and_tooth_tip),
+                                );
                             } else {
-                                return Inductance::default();
+                                return None;
                             }
                         } else {
-                            return Inductance::default();
+                            return None;
                         }
                     })
                     .sum::<Inductance>();
@@ -2104,8 +1985,10 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
             .sum();
 
         // Scale with the winding base_winding_count and the number of parallel paths
-        return basic_winding_slot_inductance * self.base_winding_count().get() as f64
-            / self.parallel_paths(phase).get() as f64;
+        return VarQuantity::from(
+            basic_winding_slot_inductance * self.base_winding_count().get() as f64
+                / f64::from(self.parallel_paths(phase).get()),
+        );
     }
 
     /// Returns the total air-gap inductance.
@@ -2118,16 +2001,9 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
         phase: NonZeroU16,
         spatial_order: SpatialOrder,
         effective_air_gap: Length,
-        conditions: &[DynQuantity<f64>],
-    ) -> Inductance {
-        self.main_inductance(core, phase, spatial_order, effective_air_gap, conditions)
-            + self.air_gap_leakage_inductance(
-                core,
-                phase,
-                spatial_order,
-                effective_air_gap,
-                conditions,
-            )
+    ) -> VarQuantity<Inductance> {
+        self.main_inductance(core, phase, spatial_order, effective_air_gap)
+            + self.air_gap_leakage_inductance(core, phase, spatial_order, effective_air_gap)
     }
 
     /// Returns the total phase leakage inductance for the given spatial order.
@@ -2142,11 +2018,10 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
         phase: NonZeroU16,
         spatial_order: SpatialOrder,
         effective_air_gap: Length,
-        conditions: &[DynQuantity<f64>],
-    ) -> Inductance {
-        self.air_gap_leakage_inductance(core, phase, spatial_order, effective_air_gap, conditions)
-            + self.end_winding_leakage_inductance(core, phase, spatial_order, conditions)
-            + self.slot_leakage_inductance(core, phase, effective_air_gap, conditions)
+    ) -> VarQuantity<Inductance> {
+        self.air_gap_leakage_inductance(core, phase, spatial_order, effective_air_gap)
+            + self.end_winding_leakage_inductance(core, phase, spatial_order)
+            + self.slot_leakage_inductance(core, phase, effective_air_gap)
     }
 
     /// Returns the total phase inductance for the given spatial order.
@@ -2161,11 +2036,10 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
         phase: NonZeroU16,
         spatial_order: SpatialOrder,
         effective_air_gap: Length,
-        conditions: &[DynQuantity<f64>],
-    ) -> Inductance {
-        self.air_gap_inductance(core, phase, spatial_order, effective_air_gap, conditions)
-            + self.end_winding_leakage_inductance(core, phase, spatial_order, conditions)
-            + self.slot_leakage_inductance(core, phase, effective_air_gap, conditions)
+    ) -> VarQuantity<Inductance> {
+        self.air_gap_inductance(core, phase, spatial_order, effective_air_gap)
+            + self.end_winding_leakage_inductance(core, phase, spatial_order)
+            + self.slot_leakage_inductance(core, phase, effective_air_gap)
     }
 
     /// Returns an iterator over all coils of the winding and their physical
@@ -2200,7 +2074,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// // Calculate the total mass of all coils
     /// let mass: Mass = winding
     ///     .coil_properties_iter(core.as_core_ref())
-    ///     .map(|cp| cp.volume() * cp.material().mass_density().get(&[])).sum();
+    ///     .map(|cp| cp.volume() * cp.material().mass_density().eval(&[])).sum();
     ///
     /// assert_abs_diff_eq!(mass.get::<kilogram>(), 0.02142, epsilon = 0.0001);
     /// ```
@@ -2266,9 +2140,6 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// [`CoreExt::axial_coil_overhang`], respectively. The
     /// `end_winding_half_turn_length` value comes from
     /// [`Winding::end_winding_half_turn_length`].
-    ///
-    /// The specified environmental conditions are forwarded to
-    /// [`CoilExt::resistance`].
     ///
     /// # Examples
     ///
@@ -2405,21 +2276,22 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///         .resistance(
     ///             CoreRef::Rot(&core),
     ///             1.try_into().unwrap(), // First phase
-    ///             &conditions,
     ///         )
+    ///     .eval(&conditions)
     ///     .get::<ohm>(),
     ///     1.05673,
     ///     epsilon = 0.0001
     /// );
     ///
     /// // Calculate the phase resistance at 120 °C.
+    /// let conditions = [DynQuantity::from_str("120 °C").expect("parseable")];
     /// assert_abs_diff_eq!(
     ///     winding
     ///         .resistance(
     ///             CoreRef::Rot(&core),
     ///             1.try_into().unwrap(), // First phase
-    ///             &[DynQuantity::from_str("120 °C").expect("parseable")],
     ///         )
+    ///     .eval(&conditions)
     ///     .get::<ohm>(),
     ///     1.46055,
     ///     epsilon = 0.0001
@@ -2430,142 +2302,28 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
         &self,
         core: CoreRef<'_>,
         phase: NonZeroU16,
-        conditions: &[DynQuantity<f64>],
-    ) -> ElectricalResistance {
-        // Calculate the phase resistance by calculating the phase resistance of each
-        // individual coil and then summing them up
-        let mut resistance = ElectricalResistance::new::<ohm>(0.0);
+    ) -> VarQuantity<ElectricalResistance> {
+        let resistance: VarQuantity<ElectricalResistance> = self
+            .coils_iter()
+            .filter(|coil| coil.phase() == phase)
+            .flat_map(|coil| {
+                coil.zones().filter_map(|zone| {
+                    let zone_contour = core.winding_zone_at(&self.coil_layout(), zone)?;
+                    let zone_area = Area::new::<square_meter>(zone_contour.area());
 
-        for coil in self.coils_iter() {
-            if coil.phase() == phase {
-                for zone in coil.zones() {
-                    if let Some(zone_contour) = core.winding_zone_at(&self.coil_layout(), zone) {
-                        let zone_area = Area::new::<square_meter>(zone_contour.area());
+                    let end_winding_half_turn_length =
+                        self.end_winding_half_turn_length(core, zone);
 
-                        let end_winding_half_turn_length =
-                            self.end_winding_half_turn_length(core, zone);
-                        let length = core.axial_coil_length()
-                            + core.axial_coil_overhang()
-                            + end_winding_half_turn_length;
-                        resistance += coil.resistance(zone_area, length, conditions);
-                    }
-                }
-            }
-        }
+                    let length = core.axial_coil_length()
+                        + core.axial_coil_overhang()
+                        + end_winding_half_turn_length;
+
+                    Some(coil.resistance(zone_area, length))
+                })
+            })
+            .sum();
         let parallel_paths = f64::from(self.parallel_paths(phase).get());
-        return resistance / parallel_paths.powi(2);
-    }
-
-    /// Returns the [`ResistanceDecomposition`] of the phase
-    /// [`resistance`](Winding::resistance).
-    ///
-    /// The phase resistance is decomposed as
-    ///
-    /// `R = k_R * rho`,
-    ///
-    /// where `R` is the phase resistance, `k_R` is a resistance constant, and
-    /// `rho` is the electrical resistivity of the winding material.
-    ///
-    /// The resistance constant depends only on the winding and core geometry,
-    /// including the end-winding geometry specified by
-    /// `end_winding_half_turn_lengths`, and has the unit reciprocal length
-    /// (`1 / Length`). Separating it from the electrical resistivity allows it
-    /// to be calculated once and reused, for example when evaluating the
-    /// resistance of the same winding at different temperatures.
-    ///
-    /// This method returns `None` if the winding is not symmetric with respect
-    /// to the specified `core` and `end_winding_half_turn_lengths`, or if
-    /// it contains no coils. The returned material is that of the first
-    /// coil returned by [`Winding::coils_iter`], so all coils must have the
-    /// same electrical resistivity.
-    ///
-    /// # Examples
-    ///
-    /// This example just serves to demonstrate the workflow, hence we use a
-    /// fictional core and winding here to simplify the setup.
-    ///
-    /// ```
-    /// use std::str::FromStr;
-    /// use std::sync::Arc;
-    ///
-    /// use approxim::assert_abs_diff_eq;
-    /// use stem_winding::prelude::*;
-    /// use stem_winding::var_quantity::unary::FirstOrderTaylor;
-    ///
-    /// // Define a material with an electrical resistivity which changes linearly
-    /// // with the temperature.
-    /// let copper = {
-    ///     let mut material = Material::default();
-    ///     material.electrical_resistivity = VarQuantity::new(
-    ///         FirstOrderTaylor::new(
-    ///             DynQuantity::from_str("1 / 56 m/MS").expect("parseable"),
-    ///             DynQuantity::from_str("0.393 % / K").expect("parseable"),
-    ///             DynQuantity::from_str("20.0 °C").expect("parseable"),
-    ///         )
-    ///         .expect("units match")
-    ///     ).expect("units match");
-    ///     Arc::new(material)
-    /// };
-    ///
-    /// let winding: ToothCoilWinding = ToothCoilBuilder {
-    ///     slots: 12.try_into().expect("not zero"),
-    ///     pole_pairs: 5.try_into().expect("not zero"),
-    ///     phases: 3.try_into().expect("not zero"),
-    ///     layers: 1.try_into().expect("not zero"),
-    ///     winding_table_constructor: WindingTableConstructor::Tingley,
-    ///     turns_per_coil: 30.try_into().expect("not zero"),
-    ///     parallel_paths: 1.try_into().expect("not zero"),
-    ///     connection: Connection::Star,
-    ///     end_winding_leakage_coefficient: 0.0,
-    ///     wire: Box::new(SffWire::new(
-    ///         copper,
-    ///         0.5, // slot_fill_factor_conductor
-    ///         0.6, // slot_fill_factor_overall
-    ///     ).expect("valid inputs")),
-    ///     mean_end_winding_half_turn_length: None,
-    /// }
-    /// .try_into()
-    /// .unwrap();
-    /// let core = RotCore::from_winding(&winding);
-    ///
-    /// let decomposition = winding.resistance_decomposition(
-    ///     core.as_core_ref(),
-    /// ).expect("symmetric winding");
-    ///
-    /// // Phase resistance at 20 °C.
-    /// let conditions = [DynQuantity::from_str("20 °C").expect("parseable")];
-    /// let r20 = winding.resistance(
-    ///     CoreRef::Rot(&core),
-    ///     1.try_into().unwrap(),
-    ///     &conditions,
-    /// ).get::<ohm>();
-    /// assert_abs_diff_eq!(r20, 0.202179, epsilon = 0.0001);
-    /// assert_abs_diff_eq!(r20, decomposition.resistance(&conditions).get::<ohm>(), epsilon = 0.0001);
-    ///
-    /// // Phase resistance at 120 °C.
-    /// let conditions = [DynQuantity::from_str("120 °C").expect("parseable")];
-    /// let r120 = winding.resistance(
-    ///     CoreRef::Rot(&core),
-    ///     1.try_into().unwrap(),
-    ///     &conditions,
-    /// ).get::<ohm>();
-    /// assert_abs_diff_eq!(r120, 0.2816357, epsilon = 0.0001);
-    /// assert_abs_diff_eq!(r120, decomposition.resistance(&conditions).get::<ohm>(), epsilon = 0.0001);
-    /// ```
-    #[cfg(feature = "stem_core")]
-    fn resistance_decomposition(&self, core: CoreRef<'_>) -> Option<ResistanceDecomposition> {
-        if !self.is_symmetric(core) {
-            return None;
-        }
-
-        let material = self.coils_iter().next()?.wire().material_arc().clone();
-
-        let resistance = self.resistance(core, NonZeroU16::MIN, &[]);
-        let electrical_resistivity = material.electrical_resistivity().get(&[]);
-        return Some(ResistanceDecomposition {
-            resistance_constant: resistance / electrical_resistivity,
-            material,
-        });
+        resistance / VarQuantity::from(parallel_paths.powi(2))
     }
 
     /// Returns the effective winding factor.

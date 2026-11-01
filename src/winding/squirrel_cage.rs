@@ -20,6 +20,90 @@ use stem_core::prelude::*;
 #[cfg(feature = "stem_core")]
 use crate::core_support::*;
 
+/// Part of the expression returned by
+/// [`SquirrelCageWinding::slot_leakage_inductance`], not meant to be used on
+/// its own.
+#[derive(PartialEq, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct InductanceWithCurrentDisplacement {
+    calculator: CurrentDisplacementCalculator,
+    el_resistivity: VarQuantity<ElectricalResistivity>,
+    rel_permeability: VarQuantity<f64>,
+    inductance: Inductance,
+}
+
+#[cfg_attr(feature = "serde", typetag::serde)]
+impl QuantityFunction for InductanceWithCurrentDisplacement {
+    fn eval(&self, conditions: &[DynQuantity<f64>]) -> DynQuantity<f64> {
+        let el_conductivity = 1.0 / self.el_resistivity.eval(conditions);
+        let rel_permeability = self.rel_permeability.eval(conditions);
+
+        let frequency = conditions
+            .into_iter()
+            .find_map(|value| Frequency::try_from(*value).ok())
+            .unwrap_or(Frequency::new::<hertz>(0.0));
+
+        // Create a mutable clone of the calculator so we can call eval.
+        let mut calculator = self.calculator.clone();
+
+        DynQuantity::from(
+            self.inductance
+                * calculator
+                    .eval(frequency, el_conductivity, rel_permeability)
+                    .inductance,
+        )
+    }
+
+    fn dyn_eq(&self, other: &dyn QuantityFunction) -> bool {
+        (other as &dyn std::any::Any).downcast_ref::<Self>() == Some(self)
+    }
+}
+
+/// Part of the expression returned by
+/// [`SquirrelCageWinding::slot_leakage_inductance`], not meant to be used on
+/// its own.
+#[derive(PartialEq, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct ResistanceWithCurrentDisplacement {
+    calculator: CurrentDisplacementCalculator,
+    el_resistivity: VarQuantity<ElectricalResistivity>,
+    rel_permeability: VarQuantity<f64>,
+    end_ring_resistance: VarQuantity<ElectricalResistance>,
+    bar_overhang_resistance: VarQuantity<ElectricalResistance>,
+    bar_resistance: VarQuantity<ElectricalResistance>,
+}
+
+#[cfg_attr(feature = "serde", typetag::serde)]
+impl QuantityFunction for ResistanceWithCurrentDisplacement {
+    fn eval(&self, conditions: &[DynQuantity<f64>]) -> DynQuantity<f64> {
+        let el_conductivity = 1.0 / self.el_resistivity.eval(conditions);
+        let rel_permeability = self.rel_permeability.eval(conditions);
+
+        let frequency = conditions
+            .into_iter()
+            .find_map(|value| Frequency::try_from(*value).ok())
+            .unwrap_or(Frequency::new::<hertz>(0.0));
+
+        // Create a mutable clone of the calculator so we can call eval.
+        let mut calculator = self.calculator.clone();
+
+        // Current displacement factor, only applied for the bar resistance
+        let k_r = calculator
+            .eval(frequency, el_conductivity, rel_permeability)
+            .resistance;
+
+        DynQuantity::from(
+            self.end_ring_resistance.eval(conditions)
+                + self.bar_overhang_resistance.eval(conditions)
+                + self.bar_resistance.eval(conditions) * k_r,
+        )
+    }
+
+    fn dyn_eq(&self, other: &dyn QuantityFunction) -> bool {
+        (other as &dyn std::any::Any).downcast_ref::<Self>() == Some(self)
+    }
+}
+
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 pub struct SquirrelCageWinding {
@@ -163,38 +247,35 @@ impl Winding for SquirrelCageWinding {
         core: CoreRef<'_>,
         _phase: NonZeroU16,
         effective_air_gap: Length,
-        conditions: &[DynQuantity<f64>],
-    ) -> Inductance {
-        use uom::si::frequency::hertz;
+    ) -> VarQuantity<Inductance> {
+        /*
+        [Mat19]: Mathis, S.: Permanentmagneterregte Line-Start-Antriebe in
+        Ferrittechnik, PhD thesis, Shaker, 2019, URL:
+        https://kluedo.ub.rptu.de/frontdoor/index/index/docId/8192
+         */
 
         if let Some(slot) = core.slot() {
             let leakage_factor = slot.self_inductance_leakage_coefficient(0, &self.coil_layout())
                 + slot.leakage_coefficient_opening()
                 + slot.leakage_coefficient_tooth_tip(effective_air_gap);
 
-            // AC current displacement factor
-            let k_x = if self.consider_current_displacement() {
-                let wire_material = self.wire().material().clone();
-
-                let el_conductivity = 1.0 / wire_material.electrical_resistivity().get(conditions);
-
-                let rel_permeability = wire_material.relative_permeability().get(conditions);
-
-                let frequency = conditions
-                    .into_iter()
-                    .find_map(|value| Frequency::try_from(*value).ok())
-                    .unwrap_or(Frequency::new::<hertz>(0.0));
-                core.current_displacement_coefficients()
-                    .eval(frequency, el_conductivity, rel_permeability)
-                    .resistance
-            } else {
-                1.0
-            };
-
             // Formulae (3.66) from [Mat19]
-            return *VACUUM_PERMEABILITY * core.axial_coil_length() * leakage_factor * k_x;
+            let inductance = *VACUUM_PERMEABILITY * core.axial_coil_length() * leakage_factor;
+
+            // AC current displacement factor
+            if self.consider_current_displacement() {
+                VarQuantity::new(InductanceWithCurrentDisplacement {
+                    calculator: core.current_displacement_coefficients(),
+                    el_resistivity: self.wire().material().electrical_resistivity().clone(),
+                    rel_permeability: self.wire().material().relative_permeability().clone(),
+                    inductance,
+                })
+                .expect("returns an inductance")
+            } else {
+                VarQuantity::from(inductance)
+            }
         } else {
-            return Inductance::new::<uom::si::inductance::henry>(0.0);
+            Default::default()
         }
     }
 
@@ -237,19 +318,25 @@ impl Winding for SquirrelCageWinding {
         &self,
         core: CoreRef<'_>,
         phase: NonZeroU16,
-        conditions: &[DynQuantity<f64>],
-    ) -> ElectricalResistance {
+    ) -> VarQuantity<ElectricalResistance> {
+        /*
+        [Mat19]: Mathis, S.: Permanentmagneterregte Line-Start-Antriebe in
+        Ferrittechnik, PhD thesis, Shaker, 2019, URL:
+        https://kluedo.ub.rptu.de/frontdoor/index/index/docId/8192
+         */
+
         use std::f64::consts::PI;
-        use uom::si::frequency::hertz;
 
         let end_winding_area = self.end_ring_width() * self.end_ring_height();
-        let resistivity = self
-            .wire()
-            .material()
-            .electrical_resistivity()
-            .get(conditions);
+        let resistivity = self.wire().material().electrical_resistivity();
 
-        let resistance_ring_segment = match core {
+        // Conversion factor from segment to ring. See [Mat19], (3.54).
+        let segment_to_ring = 2.0
+            * (PI * f64::from(self.pole_pairs().get()) / f64::from(self.slots().get()))
+                .sin()
+                .powi(2);
+
+        let end_ring_resistance: VarQuantity<ElectricalResistance> = match core {
             CoreRef::Rot(core_rot) => {
                 let is_outer_part = core_rot.is_outer();
                 let outer_end_ring_rad =
@@ -261,37 +348,17 @@ impl Winding for SquirrelCageWinding {
 
                 // Ring segment resistance according to [Mat19], (3.54), substituting
                 // 1/conductivity with electrical resistivity
-                ring_coefficient * resistivity * (PI * (outer_end_ring_rad + inner_end_ring_rad))
-                    / end_winding_area
-                    / f64::from(self.slots().get())
+                VarQuantity::from(
+                    ring_coefficient * (PI * (outer_end_ring_rad + inner_end_ring_rad))
+                        / end_winding_area
+                        / f64::from(self.slots().get())
+                        / segment_to_ring,
+                ) * resistivity
             }
-            CoreRef::Lin(_) => resistivity * core.slot_pitch() / end_winding_area,
-        };
-
-        // Formula (3.55) in [Mat19]
-        let end_ring_resistance = resistance_ring_segment
-            / (2.0
-                * (PI * f64::from(self.pole_pairs().get()) / f64::from(self.slots().get()))
-                    .sin()
-                    .powi(2));
-
-        // AC current displacement factor
-        let k_r = if self.consider_current_displacement() {
-            let wire_material = self.wire().material_arc().clone();
-
-            let el_conductivity = 1.0 / wire_material.electrical_resistivity().get(conditions);
-
-            let rel_permeability = wire_material.relative_permeability().get(conditions);
-
-            let frequency = conditions
-                .into_iter()
-                .find_map(|value| Frequency::try_from(*value).ok())
-                .unwrap_or(Frequency::new::<hertz>(0.0));
-            core.current_displacement_coefficients()
-                .eval(frequency, el_conductivity, rel_permeability)
-                .resistance
-        } else {
-            1.0
+            CoreRef::Lin(_) => {
+                VarQuantity::from(core.slot_pitch() / end_winding_area / segment_to_ring)
+                    * resistivity
+            }
         };
 
         let zone_area = Area::new::<square_meter>(
@@ -306,35 +373,38 @@ impl Winding for SquirrelCageWinding {
             .unwrap_or(0.0),
         );
 
-        let bar_resistance = self.wire().resistance(
-            core.axial_coil_length(),
-            zone_area,
-            NonZeroUsize::MIN,
-            conditions,
-        );
-        let bar_overhang_resistance = self.wire().resistance(
-            core.axial_coil_overhang(),
-            zone_area,
-            NonZeroUsize::MIN,
-            conditions,
-        );
+        let bar_resistance =
+            self.wire()
+                .resistance(core.axial_coil_length(), zone_area, NonZeroUsize::MIN);
+        let bar_overhang_resistance =
+            self.wire()
+                .resistance(core.axial_coil_overhang(), zone_area, NonZeroUsize::MIN);
 
-        return end_ring_resistance + bar_overhang_resistance + bar_resistance * k_r;
+        // AC current displacement factor
+        if self.consider_current_displacement() {
+            VarQuantity::new(ResistanceWithCurrentDisplacement {
+                calculator: core.current_displacement_coefficients(),
+                el_resistivity: self.wire().material().electrical_resistivity().clone(),
+                rel_permeability: self.wire().material().relative_permeability().clone(),
+                end_ring_resistance,
+                bar_overhang_resistance,
+                bar_resistance,
+            })
+            .expect("returns a resistance")
+        } else {
+            end_ring_resistance + bar_overhang_resistance + bar_resistance
+        }
     }
 
-    // Calculate the end winding inductance according to [Mat19], eq. (3.70) and
-    // (3.71).
     #[cfg(feature = "stem_core")]
     fn end_winding_leakage_inductance(
         &self,
         core: CoreRef<'_>,
         _phase: NonZeroU16,
         spatial_order: SpatialOrder,
-        conditions: &[DynQuantity<f64>],
-    ) -> Inductance {
+    ) -> VarQuantity<Inductance> {
         let _ = spatial_order;
-        let _ = conditions;
-        end_winding_leakage_inductance_cage(self, core, self.end_winding_leakage_coefficient)
+        end_winding_leakage_inductance_cage(self, core, self.end_winding_leakage_coefficient).into()
     }
 
     #[cfg(feature = "stem_core")]
@@ -353,69 +423,6 @@ impl Winding for SquirrelCageWinding {
             CoreRef::Lin(core_lin) => {
                 return core_lin.width() / f64::from(self.slots().get());
             }
-        }
-    }
-
-    #[cfg(feature = "stem_core")]
-    fn resistance_decomposition(&self, core: CoreRef<'_>) -> Option<ResistanceDecomposition> {
-        if self.consider_current_displacement {
-            return None;
-        }
-
-        let material = self.wire().material_arc().clone();
-
-        let resistance = self.resistance(core, NonZeroU16::MIN, &[]);
-        let electrical_resistivity = material.electrical_resistivity().get(&[]);
-        return Some(ResistanceDecomposition {
-            resistance_constant: resistance / electrical_resistivity,
-            material,
-        });
-    }
-
-    #[cfg(feature = "stem_core")]
-    fn make_cache(&self, core: CoreRef<'_>, effective_air_gap: Length) -> SimulationCache {
-        let phase = NonZeroU16::MIN;
-        let fundamental = SpatialOrder::Electrical(1);
-
-        // If we need to consider current displacement, the slot leakage inductance
-        // cannot be cached.
-        let slot_leakage_inductance = if self.consider_current_displacement {
-            None
-        } else {
-            Some(self.slot_leakage_inductance(core, phase, effective_air_gap, &[]))
-        };
-
-        SimulationCache {
-            resistance_decomposition: self.resistance_decomposition(core),
-            fundamental_winding_factor: Some(self.winding_factor(phase, fundamental)),
-            fundamental_effective_winding_factor: Some(self.effective_winding_factor(
-                core,
-                phase,
-                fundamental,
-                effective_air_gap,
-            )),
-            main_inductance: Some(self.main_inductance(
-                core,
-                phase,
-                fundamental,
-                effective_air_gap,
-                &[],
-            )),
-            air_gap_leakage_inductance: Some(self.air_gap_leakage_inductance(
-                core,
-                phase,
-                fundamental,
-                effective_air_gap,
-                &[],
-            )),
-            slot_leakage_inductance,
-            end_winding_leakage_inductance: Some(self.end_winding_leakage_inductance(
-                core,
-                phase,
-                fundamental,
-                &[],
-            )),
-            fundamental_slot_opening_factor: Some(core.slot_opening_factor(fundamental)),
         }
     }
 }

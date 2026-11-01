@@ -615,9 +615,9 @@ mod serde_tests {
             winding_table_constructor: WindingTableConstructor::Tingley,
         })
         .unwrap();
-        let string = yaml_serde::to_string(&winding).expect("can be serialized");
+        let string = serde_yaml::to_string(&winding).expect("can be serialized");
         let winding_de: QuadrupleLayerToothCoilWinding =
-            yaml_serde::from_str(&string).expect("can be deserialized");
+            serde_yaml::from_str(&string).expect("can be deserialized");
 
         assert_eq!(winding.slots(), winding_de.slots());
         assert_eq!(winding.layers(), winding_de.layers());
@@ -638,7 +638,7 @@ mod serde_tests {
             winding_table_constructor: Tingley
             "};
 
-        let winding: QuadrupleLayerToothCoilWinding = yaml_serde::from_str(yaml).unwrap();
+        let winding: QuadrupleLayerToothCoilWinding = serde_yaml::from_str(yaml).unwrap();
 
         approxim::assert_abs_diff_eq!(
             0.061,
@@ -669,7 +669,7 @@ mod serde_tests {
             winding_table_constructor: Tingley
             "};
 
-        let winding: QuadrupleLayerToothCoilWinding = yaml_serde::from_str(yaml).unwrap();
+        let winding: QuadrupleLayerToothCoilWinding = serde_yaml::from_str(yaml).unwrap();
 
         approxim::assert_abs_diff_eq!(
             0.061,

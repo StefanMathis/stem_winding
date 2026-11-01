@@ -17,12 +17,6 @@ use std::{
 
 use stem_core::{planar_geo::composite::Composite, prelude::*};
 
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-
-#[cfg(feature = "serde")]
-use serde_mosaic::{deserialize_arc_link, serialize_arc_link};
-
 use crate::{
     coils::{Coil, CoilExt},
     winding::Winding,
@@ -173,235 +167,6 @@ impl<W: Winding> FromWinding<W> for LinCore {
         .expect("valid geometric data");
     }
 }
-
-/// A decomposition of the phase resistance of a [`Winding`] into a
-/// geometry-dependent resistance constant and the electrical resistivity of the
-/// winding material. It can be created using the
-/// [`Winding::resistance_decomposition`] trait method.
-///
-/// The phase resistance is calculated as
-///
-/// `R = k_R * rho`,
-///
-/// where R is the phase resistance, `k_R` is
-/// [`resistance_constant`](ResistanceDecomposition::resistance_constant), and
-/// `rho` is the electrical resistivity of
-/// [`material`](ResistanceDecomposition::material).
-///
-/// The resistance constant depends on the winding and core geometry but not on
-/// the electrical resistivity. This allows the decomposition to be calculated
-/// once and reused to efficiently evaluate the resistance under different
-/// environmental conditions.
-///
-/// # Examples
-///
-/// This example uses arbitrary values for the fields; in a real-world usage,
-/// it is recommended to use [`Winding::resistance_decomposition`].
-///
-/// ```
-/// use std::str::FromStr;
-/// use std::sync::Arc;
-///
-/// use approxim::assert_abs_diff_eq;
-/// use stem_winding::prelude::*;
-/// use stem_winding::var_quantity::unary::FirstOrderTaylor;
-///
-/// // Define a material with an electrical resistivity which changes linearly
-/// // with the temperature.
-/// let copper = {
-///     let mut material = Material::default();
-///     material.electrical_resistivity = VarQuantity::new(
-///         FirstOrderTaylor::new(
-///             DynQuantity::from_str("1 m/S").expect("parseable"),
-///             DynQuantity::from_str("0.4 % / K").expect("parseable"),
-///             DynQuantity::from_str("20.0 °C").expect("parseable"),
-///         ).expect("units match"),
-///     ).expect("units match");
-///     Arc::new(material)
-/// };
-///
-/// let decomposed = ResistanceDecomposition {
-///     resistance_constant: ReciprocalLength::new::<reciprocal_meter>(10.0),
-///     material: copper,
-/// };
-///
-/// // 20 °C
-/// let conditions = [DynQuantity::from(ThermodynamicTemperature::new::<degree_celsius>(20.0))];
-/// assert_abs_diff_eq!(
-///     decomposed.resistance(&conditions).get::<ohm>(),
-///     10.0,
-///     epsilon = 0.0001
-/// );
-///
-/// // 120 °C -> Resistance has increased by 40 %
-/// let conditions = [DynQuantity::from(ThermodynamicTemperature::new::<degree_celsius>(120.0))];
-/// assert_abs_diff_eq!(
-///     decomposed.resistance(&conditions).get::<ohm>(),
-///     14.0,
-///     epsilon = 0.0001
-/// );
-/// ```
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct ResistanceDecomposition {
-    /// The resistance constant `k_R` summarizing the phase winding coil
-    /// geometry influence on the resistance.
-    ///
-    /// Its unit is reciprocal length (1 / Length).
-    #[cfg_attr(feature = "serde", serde(default))]
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_quantity"))]
-    pub resistance_constant: ReciprocalLength,
-    #[cfg_attr(
-        feature = "serde",
-        serde(
-            serialize_with = "serialize_arc_link",
-            deserialize_with = "deserialize_arc_link"
-        )
-    )]
-    /// The material from which the electrical resistivity `rho` is obtained.
-    pub material: std::sync::Arc<Material>,
-}
-
-impl ResistanceDecomposition {
-    /// Returns a new [`ResistanceDecomposition`] for the given `winding` and
-    /// `core`.
-    ///
-    /// This function assumes that all phase resistances of the winding can be
-    /// modeled by the relationship
-    ///
-    /// `R_i = k_R * rho`,
-    ///
-    /// with `i = 1, ..., winding.phases()` (`k_R` and `rho` are the same for
-    /// all phases). In particular this means that the winding
-    /// [`is_symmetric`](Winding::is_symmetric) and that each coil consists of
-    /// the same material. This is not checked during construction!
-    pub fn new<W: Winding + ?Sized>(winding: &W, core: CoreRef<'_>) -> Self {
-        let material = winding
-            .coils_iter()
-            .next()
-            .map(|c| c.wire().material_arc().clone())
-            .unwrap_or(Arc::new(Material::default()));
-        let resistance = winding.resistance(core, NonZeroU16::MIN, &[]);
-        let electrical_resistivity = material.electrical_resistivity().get(&[]);
-        return ResistanceDecomposition {
-            resistance_constant: resistance / electrical_resistivity,
-            material,
-        };
-    }
-
-    /// Calculates the phase resistance for the specified environmental
-    /// conditions.
-    ///
-    /// The electrical resistivity is obtained from [`Material`] for the
-    /// specified conditions and multiplied by [`Self::resistance_constant`].
-    /// See the [struct documentation](ResistanceDecomposition) for an example.
-    pub fn resistance(&self, conditions: &[DynQuantity<f64>]) -> ElectricalResistance {
-        let electrical_resistivity = self.material.electrical_resistivity().get(conditions);
-        return self.resistance_constant * electrical_resistivity;
-    }
-}
-
-/**
-A cache for properties of a winding–core combination.
-
-The cache allows downstream simulation code to reuse precomputed values
-instead of repeatedly calculating them. Winding implementations can populate
-cache entries in [`Winding::make_cache`] using their knowledge of the winding
-and core.
-
-A populated entry is authoritative: downstream code should use its value
-instead of recalculating the corresponding quantity. If an entry is `None`,
-the downstream code calculates the quantity on demand using the method
-specified in the field's documentation. All fields can be overwritten
-manually, for example to use measured values in simulations.
-
-The set of cached quantities may evolve as additional quantities become useful
-for simulation. It is therefore recommended to use the struct update syntax:
-
-```rust,ignore
-let cache = SimulationCache {
-    fundamental_winding_factor: Some(0.95),
-    ..SimulationCache::default()
-};
-```
-
-# Design rationale
-
-Although this cache is primarily consumed by downstream crates such as
-[stem_motor](https://crates.io/crates/stem_motor), it is defined here because
-populating it can require winding-specific knowledge. Defining the cache
-alongside [`Winding::make_cache`] allows winding implementations to provide that
-knowledge directly, without requiring downstream crates to introduce extension
-traits or other mechanisms to customize cache creation.
-*/
-#[derive(Debug, Clone, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct SimulationCache {
-    /// The [`ResistanceDecomposition`] of the phases. If `None`, use
-    /// [`Winding::resistance`] to calculate the resistance.
-    pub resistance_decomposition: Option<ResistanceDecomposition>,
-    /// The (ideal) winding factor for the fundamental electrical spatial order
-    /// ([`SpatialOrder::Electrical(1)`](SpatialOrder::Electrical). If `None`,
-    /// use [`Winding::winding_factor`] to calculate it.
-    pub fundamental_winding_factor: Option<f64>,
-    /// The effective winding factor for the fundamental electrical spatial
-    /// order ([`SpatialOrder::Electrical(1)`](SpatialOrder::Electrical). If
-    /// `None`, use [`Winding::effective_winding_factor`] to calculate it.
-    pub fundamental_effective_winding_factor: Option<f64>,
-    #[cfg_attr(
-        feature = "serde",
-        serde(deserialize_with = "deserialize_opt_quantity")
-    )]
-    /// The main inductance for the fundamental electrical spatial order
-    /// ([`SpatialOrder::Electrical(1)`](SpatialOrder::Electrical) and the
-    /// `effective_air_gap` passed to [`Winding::make_cache`]. If
-    /// `None`, use [`Winding::main_inductance`] to calculate it.
-    pub main_inductance: Option<Inductance>,
-    #[cfg_attr(
-        feature = "serde",
-        serde(deserialize_with = "deserialize_opt_quantity")
-    )]
-    /// The air gap leakage inductance for the fundamental electrical spatial
-    /// order ([`SpatialOrder::Electrical(1)`](SpatialOrder::Electrical) and the
-    /// `effective_air_gap` passed to [`Winding::make_cache`]. If
-    /// `None`, use [`Winding::air_gap_leakage_inductance`] to calculate it.
-    pub air_gap_leakage_inductance: Option<Inductance>,
-    #[cfg_attr(
-        feature = "serde",
-        serde(deserialize_with = "deserialize_opt_quantity")
-    )]
-    /// The slot leakage inductance for the `effective_air_gap` passed to
-    /// [`Winding::make_cache`]. If `None`, use
-    /// [`Winding::slot_leakage_inductance`] to calculate it.
-    pub slot_leakage_inductance: Option<Inductance>,
-    /// The air gap leakage inductance for the fundamental electrical spatial
-    /// order ([`SpatialOrder::Electrical(1)`](SpatialOrder::Electrical). If
-    /// `None`, use [`Winding::end_winding_leakage_inductance`] to calculate
-    /// it.
-    #[cfg_attr(
-        feature = "serde",
-        serde(deserialize_with = "deserialize_opt_quantity")
-    )]
-    pub end_winding_leakage_inductance: Option<Inductance>,
-    /// The slot opening factor for the fundamental electrical spatial order
-    /// ([`SpatialOrder::Electrical(1)`](SpatialOrder::Electrical). If `None`,
-    /// use [`CoreExt::slot_opening_factor`] to calculate it.
-    pub fundamental_slot_opening_factor: Option<f64>,
-}
-
-impl SimulationCache {
-    /// Returns a new [`SimulationCache`] from [`Winding::make_cache`].
-    ///
-    /// This is a wrapper around `winding.make_cache(core)`.
-    pub fn new<W: Winding + ?Sized>(
-        winding: &W,
-        core: CoreRef<'_>,
-        effective_air_gap: Length,
-    ) -> Self {
-        winding.make_cache(core, effective_air_gap)
-    }
-}
-
 pub struct CoilPropertyIterator<'a> {
     pub coils: crate::winding::CoilsIterator<'a>,
     pub winding: &'a dyn Winding,
@@ -780,122 +545,30 @@ impl<'a> CoilProperties<'a> {
     /// ).expect("coil exists");
     ///
     /// assert_abs_diff_eq!(
-    ///     coil_properties.resistance(&[DynQuantity::from_str("20 °C").expect("parseable")]).get::<ohm>(),
+    ///     coil_properties.resistance().eval(&[DynQuantity::from_str("20 °C").expect("parseable")]).get::<ohm>(),
     ///     0.10108,
     ///     epsilon = 0.0001
     /// );
     /// assert_abs_diff_eq!(
-    ///     coil_properties.resistance(&[DynQuantity::from_str("120 °C").expect("parseable")]).get::<ohm>(),
+    ///     coil_properties.resistance().eval(&[DynQuantity::from_str("120 °C").expect("parseable")]).get::<ohm>(),
     ///     0.14081,
     ///     epsilon = 0.0001
     /// );
     /// ```
-    pub fn resistance(&self, conditions: &[DynQuantity<f64>]) -> ElectricalResistance {
-        let mut resistance = ElectricalResistance::new::<ohm>(0.0);
-        for zone in self.coil.zones() {
-            if let Some(zone_contour) = self.core.winding_zone_at(&self.winding.coil_layout(), zone)
-            {
+    pub fn resistance(&self) -> VarQuantity<ElectricalResistance> {
+        self.coil
+            .zones()
+            .filter_map(|zone| {
+                let zone_contour = self
+                    .core
+                    .winding_zone_at(&self.winding.coil_layout(), zone)?;
                 let zone_area = Area::new::<square_meter>(zone_contour.area());
                 let length = self.core.axial_coil_length()
                     + self.core.axial_coil_overhang()
                     + self.end_winding_half_turn_length(zone);
-                resistance += self.coil.resistance(zone_area, length, conditions);
-            }
-        }
-        resistance
-    }
-
-    /// Returns the [`ResistanceDecomposition`] required to calculate the coil
-    /// [`resistance`](CoilProperties::resistance) as the product
-    ///
-    /// `R = k_R * rho`,
-    ///
-    /// where `R` is the coil resistance, `k_R` is a resistance constant, and
-    /// `rho` is the electrical resistivity of the winding material.
-    ///
-    /// The resistance constant depends only on the coil and core geometry and
-    /// has the unit reciprocal length (`1 / Length`). Separating it from
-    /// the electrical resistivity allows it to be calculated once and
-    /// reused, for example when evaluating the resistance of the same coil
-    /// at different temperatures.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::str::FromStr;
-    /// use std::sync::Arc;
-    /// use std::collections::HashMap;
-    ///
-    /// use approxim::assert_abs_diff_eq;
-    /// use stem_winding::prelude::*;
-    /// use stem_winding::var_quantity::unary::FirstOrderTaylor;
-    ///
-    /// // Define a material with an electrical resistivity which changes linearly
-    /// // with the temperature.
-    /// let copper = {
-    ///     let mut material = Material::default();
-    ///     material.electrical_resistivity = VarQuantity::new(
-    ///         FirstOrderTaylor::new(
-    ///             DynQuantity::from_str("1 / 56 m/MS").expect("parseable"),
-    ///             DynQuantity::from_str("0.393 % / K").expect("parseable"),
-    ///             DynQuantity::from_str("20.0 °C").expect("parseable"),
-    ///         )
-    ///         .expect("units match")
-    ///     ).expect("units match");
-    ///     Arc::new(material)
-    /// };
-    ///
-    /// let winding: ToothCoilWinding = ToothCoilBuilder {
-    ///     slots: 12.try_into().expect("not zero"),
-    ///     pole_pairs: 5.try_into().expect("not zero"),
-    ///     phases: 3.try_into().expect("not zero"),
-    ///     layers: 1.try_into().expect("not zero"),
-    ///     winding_table_constructor: WindingTableConstructor::Tingley,
-    ///     turns_per_coil: 30.try_into().expect("not zero"),
-    ///     parallel_paths: 1.try_into().expect("not zero"),
-    ///     connection: Connection::Star,
-    ///     end_winding_leakage_coefficient: 0.0,
-    ///     wire: Box::new(SffWire::new(
-    ///         copper,
-    ///         0.5, // slot_fill_factor_conductor
-    ///         0.6, // slot_fill_factor_overall
-    ///     ).expect("valid inputs")),
-    ///     mean_end_winding_half_turn_length: None,
-    /// }
-    /// .try_into()
-    /// .unwrap();
-    ///
-    /// let core = RotCore::from_winding(&winding);
-    ///
-    /// let coil_properties = winding.coil_properties_at(
-    ///     core.as_core_ref(),
-    ///     Zone::new(0,0),
-    /// ).expect("coil exists");
-    ///
-    /// let decomposition = coil_properties.resistance_decomposition();
-    ///
-    /// let conditions = [DynQuantity::from_str("20 °C").expect("parseable")];
-    /// assert_abs_diff_eq!(
-    ///     coil_properties.resistance(&conditions).get::<ohm>(),
-    ///     decomposition.resistance(&conditions).get::<ohm>(),
-    ///     epsilon = 0.0001
-    /// );
-    ///
-    /// let conditions = [DynQuantity::from_str("20 °C").expect("parseable")];
-    /// assert_abs_diff_eq!(
-    ///     coil_properties.resistance(&conditions).get::<ohm>(),
-    ///     decomposition.resistance(&conditions).get::<ohm>(),
-    ///     epsilon = 0.0001
-    /// );
-    /// ```
-    pub fn resistance_decomposition(&self) -> ResistanceDecomposition {
-        let material = self.coil.wire().material_arc().clone();
-        let resistance = self.resistance(&[]);
-        let electrical_resistivity = material.electrical_resistivity().get(&[]);
-        return ResistanceDecomposition {
-            resistance_constant: resistance / electrical_resistivity,
-            material,
-        };
+                Some(self.coil.resistance(zone_area, length))
+            })
+            .sum()
     }
 }
 

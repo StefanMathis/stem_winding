@@ -1295,7 +1295,7 @@ mod serde_tests {
             winding_table_constructor: Zone
             "};
 
-        assert!(yaml_serde::from_str::<DistributedWinding>(yaml).is_err());
+        assert!(serde_yaml::from_str::<DistributedWinding>(yaml).is_err());
     }
 
     #[test]
@@ -1312,7 +1312,7 @@ mod serde_tests {
             winding_table_constructor: CoilSide
             "};
 
-        let winding: DistributedWinding = yaml_serde::from_str(yaml).unwrap();
+        let winding: DistributedWinding = serde_yaml::from_str(yaml).unwrap();
 
         // Compare the zone plan
         let winding_table = winding.winding_table(true);
@@ -1351,7 +1351,7 @@ mod serde_tests {
             winding_table_constructor: Tingley
             concentric_coils: false
             "};
-        let winding: DistributedWinding = yaml_serde::from_str(yaml).unwrap();
+        let winding: DistributedWinding = serde_yaml::from_str(yaml).unwrap();
 
         // Compare the zone plan
         let winding_table = winding.winding_table(false);
@@ -1393,7 +1393,7 @@ mod serde_tests {
             winding_table_constructor: Tingley
             concentric_coils: false
             "};
-        let winding: DistributedWinding = yaml_serde::from_str(yaml).unwrap();
+        let winding: DistributedWinding = serde_yaml::from_str(yaml).unwrap();
 
         assert_eq!(winding.turns_in_slot(0), 62);
         assert_eq!(winding.series_turns_per_phase(ONE).numer().clone(), 372);
@@ -1413,9 +1413,9 @@ mod serde_tests {
         .try_into()
         .unwrap();
 
-        let string = yaml_serde::to_string(&winding).expect("can be serialized");
+        let string = serde_yaml::to_string(&winding).expect("can be serialized");
         let winding_de: DistributedWinding =
-            yaml_serde::from_str(&string).expect("can be deserialized");
+            serde_yaml::from_str(&string).expect("can be deserialized");
 
         assert_eq!(winding.slots(), winding_de.slots());
         assert_eq!(winding.layers(), winding_de.layers());
@@ -1647,7 +1647,8 @@ mod stem_core_tests {
 
             assert_abs_diff_eq!(
                 winding
-                    .resistance(CoreRef::Rot(&core), phase, &[])
+                    .resistance(CoreRef::Rot(&core), phase)
+                    .eval(&[])
                     .get::<ohm>(),
                 1.04848,
                 epsilon = 0.0001
@@ -1661,8 +1662,8 @@ mod stem_core_tests {
                         phase,
                         SpatialOrder::Electrical(1),
                         Length::new::<millimeter>(1.0),
-                        &[],
                     )
+                    .eval(&[])
                     .get::<henry>(),
                 0.170459982,
                 epsilon = 1e-6
@@ -1674,8 +1675,8 @@ mod stem_core_tests {
                         phase,
                         SpatialOrder::Electrical(1),
                         Length::new::<millimeter>(1.0),
-                        &[],
                     )
+                    .eval(&[])
                     .get::<henry>(),
                 0.0023969,
                 epsilon = 1e-6
@@ -1686,8 +1687,8 @@ mod stem_core_tests {
                         CoreRef::Rot(&core),
                         phase,
                         Length::new::<millimeter>(1.0),
-                        &[],
                     )
+                    .eval(&[])
                     .get::<henry>(),
                 0.0044122,
                 epsilon = 1e-6
@@ -1698,8 +1699,8 @@ mod stem_core_tests {
                         CoreRef::Rot(&core),
                         phase,
                         SpatialOrder::Electrical(1),
-                        &[]
                     )
+                    .eval(&[])
                     .get::<henry>(),
                 0.0014538,
                 epsilon = 1e-6
@@ -1710,7 +1711,7 @@ mod stem_core_tests {
         assert_abs_diff_eq!(
             winding
                 .coil_properties_iter(CoreRef::Rot(&core))
-                .map(|cp| cp.volume() * cp.material().mass_density().get(&[]))
+                .map(|cp| cp.volume() * cp.material().mass_density().eval(&[]))
                 .sum::<Mass>()
                 .get::<kilogram>(),
             5.6297,
@@ -1753,7 +1754,7 @@ mod stem_core_tests {
         assert_abs_diff_eq!(
             winding
                 .coil_properties_iter(CoreRef::Rot(&core))
-                .map(|cp| cp.volume() * cp.material().mass_density().get(&[]))
+                .map(|cp| cp.volume() * cp.material().mass_density().eval(&[]))
                 .sum::<Mass>()
                 .get::<kilogram>(),
             6.0782,
@@ -1765,7 +1766,8 @@ mod stem_core_tests {
 
             assert_abs_diff_eq!(
                 winding
-                    .resistance(CoreRef::Rot(&core), phase, &[],)
+                    .resistance(CoreRef::Rot(&core), phase)
+                    .eval(&[])
                     .get::<ohm>(),
                 1.13201,
                 epsilon = 0.0001
@@ -1776,8 +1778,8 @@ mod stem_core_tests {
                         CoreRef::Rot(&core),
                         phase,
                         SpatialOrder::Electrical(1),
-                        &[]
                     )
+                    .eval(&[])
                     .get::<henry>(),
                 0.0017129,
                 epsilon = 1e-6
@@ -1852,7 +1854,8 @@ mod stem_core_tests {
             let phase = NonZeroU16::new(ph).expect("not zero");
             assert_abs_diff_eq!(
                 winding
-                    .resistance(CoreRef::Rot(&core), phase, &[])
+                    .resistance(CoreRef::Rot(&core), phase)
+                    .eval(&[])
                     .get::<ohm>(),
                 2.04493,
                 epsilon = 0.0001
@@ -1863,8 +1866,8 @@ mod stem_core_tests {
                         CoreRef::Rot(&core),
                         phase,
                         Length::new::<millimeter>(1.0),
-                        &[],
                     )
+                    .eval(&[])
                     .get::<henry>(),
                 0.0175133,
                 epsilon = 1e-6
@@ -1927,7 +1930,8 @@ mod stem_core_tests {
         // Check the phase resistance
         assert_abs_diff_eq!(
             winding
-                .resistance(CoreRef::Rot(&core), NonZeroU16::MIN, &[],)
+                .resistance(CoreRef::Rot(&core), NonZeroU16::MIN)
+                .eval(&[])
                 .get::<ohm>(),
             2.06280, // Expected value in Ohm
             epsilon = 0.0001
@@ -1993,8 +1997,8 @@ mod stem_core_tests {
                     CoreRef::Rot(&core),
                     NonZeroU16::MIN,
                     Length::new::<millimeter>(1.0),
-                    &[],
                 )
+                .eval(&[])
                 .get::<henry>(),
             0.0161825,
             epsilon = 1e-6
@@ -2003,7 +2007,8 @@ mod stem_core_tests {
         // Check the phase resistance
         assert_abs_diff_eq!(
             winding
-                .resistance(CoreRef::Rot(&core), NonZeroU16::MIN, &[],)
+                .resistance(CoreRef::Rot(&core), NonZeroU16::MIN)
+                .eval(&[])
                 .get::<ohm>(),
             1.96508,
             epsilon = 0.0001
@@ -2087,21 +2092,24 @@ mod stem_core_tests {
         assert_abs_diff_eq!(
             leakage_inductance.get::<henry>(),
             winding
-                .slot_leakage_inductance(CoreRef::Rot(&core), 1.try_into().unwrap(), air_gap, &[],)
+                .slot_leakage_inductance(CoreRef::Rot(&core), 1.try_into().unwrap(), air_gap)
+                .eval(&[])
                 .get::<henry>(),
             epsilon = 1e-7
         );
         assert_abs_diff_eq!(
             leakage_inductance.get::<henry>(),
             winding
-                .slot_leakage_inductance(CoreRef::Rot(&core), 2.try_into().unwrap(), air_gap, &[],)
+                .slot_leakage_inductance(CoreRef::Rot(&core), 2.try_into().unwrap(), air_gap)
+                .eval(&[])
                 .get::<henry>(),
             epsilon = 1e-7
         );
         assert_abs_diff_eq!(
             leakage_inductance.get::<henry>(),
             winding
-                .slot_leakage_inductance(CoreRef::Rot(&core), 3.try_into().unwrap(), air_gap, &[],)
+                .slot_leakage_inductance(CoreRef::Rot(&core), 3.try_into().unwrap(), air_gap)
+                .eval(&[])
                 .get::<henry>(),
             epsilon = 1e-7
         );
@@ -2127,12 +2135,8 @@ mod stem_core_tests {
             assert_abs_diff_eq!(
                 leakage_inductance.get::<henry>(),
                 winding
-                    .slot_leakage_inductance(
-                        CoreRef::Rot(&core),
-                        ph.try_into().unwrap(),
-                        air_gap,
-                        &[],
-                    )
+                    .slot_leakage_inductance(CoreRef::Rot(&core), ph.try_into().unwrap(), air_gap,)
+                    .eval(&[])
                     .get::<henry>(),
                 epsilon = 1e-7
             );
@@ -2159,12 +2163,8 @@ mod stem_core_tests {
             assert_abs_diff_eq!(
                 leakage_inductance.get::<henry>(),
                 winding
-                    .slot_leakage_inductance(
-                        CoreRef::Rot(&core),
-                        ph.try_into().unwrap(),
-                        air_gap,
-                        &[],
-                    )
+                    .slot_leakage_inductance(CoreRef::Rot(&core), ph.try_into().unwrap(), air_gap,)
+                    .eval(&[])
                     .get::<henry>(),
                 epsilon = 1e-7
             );
@@ -2194,12 +2194,8 @@ mod stem_core_tests {
             assert_abs_diff_eq!(
                 leakage_inductance.get::<henry>(),
                 winding
-                    .slot_leakage_inductance(
-                        CoreRef::Rot(&core),
-                        ph.try_into().unwrap(),
-                        air_gap,
-                        &[],
-                    )
+                    .slot_leakage_inductance(CoreRef::Rot(&core), ph.try_into().unwrap(), air_gap,)
+                    .eval(&[])
                     .get::<henry>(),
                 epsilon = 1e-7
             );

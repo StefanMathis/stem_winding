@@ -389,11 +389,10 @@ impl Winding for DistributedToothCoilWinding {
         core: CoreRef<'_>,
         _phase: NonZeroU16,
         spatial_order: SpatialOrder,
-        conditions: &[DynQuantity<f64>],
-    ) -> Inductance {
+    ) -> VarQuantity<Inductance> {
         let _ = spatial_order;
-        let _ = conditions;
         end_winding_leakage_inductance_tooth_coil(self, core, self.end_winding_leakage_coefficient)
+            .into()
     }
 
     #[cfg(feature = "stem_core")]
