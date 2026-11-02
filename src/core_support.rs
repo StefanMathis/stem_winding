@@ -678,62 +678,6 @@ pub fn end_winding_leakage_inductance_distributed<W: Winding>(
         / f64::from(winding.pole_pairs().get())
 }
 
-/// Returns the end winding leakage inductance for a squirrel-cage winding.
-///
-/// This function implements
-/// [\[1\]](#end_winding_leakage_inductance_cage_1), eq. (3.70) and eq.
-/// (3.71) in a generalized form:
-///
-/// `L_ew,seg = μ0 * λ_ew * l_ew / p`
-///
-/// and
-///
-/// `L_ew = L_ew,seg / (2 * sin²(π * p / N))`
-///
-/// where `μ0` is the [`VACUUM_PERMEABILITY`], `λ_ew` is the
-/// `end_winding_leakage_coefficient`, `l_ew` is the
-/// `end_winding_half_turn_length`, `p` is the number of
-/// [`Winding::pole_pairs`], `N` is the number of [`Winding::slots`] and
-/// `L_ew,seg` is the inductance of a ring segment.
-///
-/// In eq. (3.70), `l_ew` is written out as `π * (D_ri,a + D_ri,i) / (2 * N)`
-/// where `D_ri,a` and `D_ri,i` are the outer and inner diameters of the end
-/// winding ring. This expression is specific to a rotary core, which is why
-/// this implementation uses the general formula.
-///
-/// A value of 0.35 for the `end_winding_leakage_coefficient` is a reasonable
-/// default.
-///
-/// # Literature
-/// <a id="end_winding_leakage_inductance_cage_1">\[1\]</a>
-/// Mathis, S.: Permanentmagneterregte Line-Start-Antriebe in Ferrittechnik,
-/// PhD thesis, Shaker, 2019
-pub fn end_winding_leakage_inductance_cage<W: Winding>(
-    winding: &W,
-    core: CoreRef<'_>,
-    end_winding_leakage_coefficient: f64,
-) -> Inductance {
-    use std::f64::consts::PI;
-    let mut sum_end_winding_half_turn_length = Length::new::<meter>(0.0);
-    let mut counter = 0.0;
-    for coil in winding.coils_iter() {
-        for zone in coil.zones() {
-            sum_end_winding_half_turn_length += winding.end_winding_half_turn_length(core, zone);
-            counter += 1.0;
-        }
-    }
-
-    // Mean end winding half turn length
-    let end_winding_half_turn_length = sum_end_winding_half_turn_length / counter;
-
-    let ring_segment_inductance =
-        *VACUUM_PERMEABILITY * end_winding_leakage_coefficient * end_winding_half_turn_length
-            / f64::from(winding.pole_pairs().get());
-
-    let poles_per_slot = f64::from(winding.pole_pairs().get()) / f64::from(winding.slots().get());
-    return ring_segment_inductance / (2.0 * (PI * poles_per_slot).sin().powi(2));
-}
-
 /// Approximates the length of an end-winding half turn for a [`FullCoil`] at
 /// the specified `zone` with a semi-circle.
 #[doc = ""]

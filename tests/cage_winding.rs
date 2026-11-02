@@ -12,17 +12,17 @@ fn test_cage_winding_properties() {
         slots: 18.try_into().expect("not zero"),
         pole_pairs: ONE,
     });
-    assert_eq!(cage_winding.base_winding_count().get(), 1); // Holds true for all cage windings
-    assert_eq!(cage_winding.slots().get(), 18); // Holds true for all cage windings
-    assert_eq!(cage_winding.phases().get(), 18); // Holds true for all cage windings
+    assert_eq!(cage_winding.base_winding_count().get(), 1);
+    assert_eq!(cage_winding.slots().get(), 18);
+    assert_eq!(cage_winding.phases().get(), 18);
     assert_eq!(
         cage_winding.series_turns_per_phase(ONE),
         num::rational::Ratio::new_raw(1, 2)
-    ); // Holds true for all cage windings
-    assert_eq!(cage_winding.turns_at(Zone::new(2, 0)), 1); // Holds true for all cage windings
+    );
+    assert_eq!(cage_winding.turns_at(Zone::new(2, 0)), 1);
 
-    assert_eq!(cage_winding.phase_at(Zone::new(2, 0)), 3); // Holds true for all cage windings
-    assert_eq!(cage_winding.phase_at(Zone::new(3, 0)), 4); // Holds true for all cage windings
+    assert_eq!(cage_winding.phase_at(Zone::new(2, 0)), 3);
+    assert_eq!(cage_winding.phase_at(Zone::new(3, 0)), 4);
 }
 
 #[test]
@@ -37,7 +37,7 @@ fn test_air_gap_leakage_factor() {
     assert_eq!(
         winding.series_turns_per_phase(ONE),
         num::rational::Ratio::new(1, 2)
-    ); // Holds true for all cage windings
+    );
     approxim::assert_abs_diff_eq!(
         0.01696,
         winding.air_gap_leakage_factor(NonZeroU16::MIN),
@@ -53,7 +53,7 @@ fn test_air_gap_leakage_factor() {
     assert_eq!(
         winding.series_turns_per_phase(ONE),
         num::rational::Ratio::new(1, 2)
-    ); // Holds true for all cage windings
+    );
     approxim::assert_abs_diff_eq!(
         0.01696,
         winding.air_gap_leakage_factor(NonZeroU16::MIN),
@@ -69,7 +69,7 @@ fn test_air_gap_leakage_factor() {
     assert_eq!(
         winding.series_turns_per_phase(ONE),
         num::rational::Ratio::new(1, 2)
-    ); // Holds true for all cage windings
+    );
     approxim::assert_abs_diff_eq!(
         0.01696,
         winding.air_gap_leakage_factor(NonZeroU16::MIN),
@@ -208,7 +208,7 @@ mod stem_core_tests {
     use super::*;
 
     #[test]
-    fn test_resistance_and_properties() {
+    fn test_properties() {
         let copper = {
             let mut material = Material::default();
             material.electrical_resistivity = VarQuantity::new(
@@ -227,7 +227,7 @@ mod stem_core_tests {
         let winding: SquirrelCageWinding = SquirrelCageBuilder {
             slots: 28.try_into().expect("not zero"),
             pole_pairs: 2.try_into().expect("not zero"),
-            end_winding_leakage_coefficient: 0.0,
+            end_winding_leakage_coefficient: 0.35,
             wire: Box::new(SffWire::new(copper, 1.0, 1.0).unwrap()),
             end_ring_width: Length::new::<millimeter>(11.0),
             end_ring_height: Length::new::<millimeter>(11.2),
@@ -367,95 +367,96 @@ mod stem_core_tests {
         );
 
         // Inductances
-        // approxim::assert_abs_diff_eq!(
-        //     component.main_inductance(1).get::<henry>(),
-        //     1.829569e-5, // H
-        //     epsilon = 1e-9
-        // );
-        // approxim::assert_abs_diff_eq!(
-        //     component.air_gap_leakage_inductance(1).get::<henry>(),
-        //     3.1021167e-7, // H
-        //     epsilon = 1e-11
-        // );
-        // approxim::assert_abs_diff_eq!(
-        //     component.air_gap_inductance(1).get::<henry>(),
-        //     1.860590e-5, // H
-        //     epsilon = 1e-9
-        // );
-        // approxim::assert_abs_diff_eq!(
-        //     component.end_winding_leakage_inductance(1).get::<henry>(),
-        //     5.4111391e-9, // Expected resistance in Ohm
-        //     epsilon = 1e-14
-        // );
-        // approxim::assert_abs_diff_eq!(
-        //     component
-        //         .slot_leakage_inductance(
-        //             1,
-        //             &[
-        //
-        // InfluencingQuantity::Temperature(ThermodynamicTemperature::new::<
-        //                     degree_celsius,
-        //                 >(20.0)),
-        //
-        // InfluencingQuantity::Frequency(Frequency::new::<hertz>(0.0)),
-        //             ]
-        //         )
-        //         .get::<henry>(),
-        //     1.956108e-7, // Expected resistance in Ohm
-        //     epsilon = 1e-12
-        // );
-        // approxim::assert_abs_diff_eq!(
-        //     component.main_inductance(1).get::<henry>(),
-        //     1.8295696e-5, // Expected resistance in Ohm
-        //     epsilon = 1e-9
-        // );
-        // approxim::assert_abs_diff_eq!(
-        //     component
-        //         .inductance(
-        //             1,
-        //             &[
-        //
-        // InfluencingQuantity::Temperature(ThermodynamicTemperature::new::<
-        //                     degree_celsius,
-        //                 >(20.0)),
-        //
-        // InfluencingQuantity::Frequency(Frequency::new::<hertz>(0.0)),
-        //             ]
-        //         )
-        //         .get::<henry>(),
-        //     1.880693e-5, // Expected resistance in Ohm
-        //     epsilon = 1e-9
-        // );
-        // approxim::assert_abs_diff_eq!(
-        //     component
-        //         .slot_leakage_inductance(
-        //             1,
-        //             &[
-        //
-        // InfluencingQuantity::Temperature(ThermodynamicTemperature::new::<
-        //                     degree_celsius,
-        //                 >(20.0)),
-        //
-        // InfluencingQuantity::Frequency(Frequency::new::<hertz>(50.0)),
-        //             ]
-        //         )
-        //         .get::<henry>(),
-        //     1.8749222e-7, // Expected resistance in Ohm
-        //     epsilon = 1e-12
-        // );
+        let c = &[
+            ThermodynamicTemperature::new::<degree_celsius>(20.0).into(),
+            Frequency::new::<hertz>(0.0).into(),
+        ];
+        let ag = Length::new::<millimeter>(0.6);
 
-        // approxim::assert_abs_diff_eq!(
-        //     winding
-        //         .slot_leakage_inductance(
-        //             CoreRef::Rot(&core),
-        //             NonZeroU16::MIN,
-        //             Length::new::<millimeter>(1.0),
-        //             &[],
-        //             &Default::default(),
-        //         )
-        //         .get::<henry>(),
-        //     2.22086776e-7,
-        //     epsilon = 1e-12
-        // );
+        approxim::assert_abs_diff_eq!(
+            winding
+                .end_winding_leakage_inductance(
+                    CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
+                    SpatialOrder::Electrical(1)
+                )
+                .eval(c)
+                .get::<henry>(),
+            2.43174385e-8,
+            epsilon = 1e-14
+        );
+        approxim::assert_abs_diff_eq!(
+            winding
+                .air_gap_leakage_inductance(
+                    CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
+                    SpatialOrder::Electrical(1),
+                    ag
+                )
+                .eval(c)
+                .get::<henry>(),
+            3.59059334e-7,
+            epsilon = 1e-11
+        );
+        approxim::assert_abs_diff_eq!(
+            winding
+                .air_gap_inductance(
+                    CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
+                    SpatialOrder::Electrical(1),
+                    ag
+                )
+                .eval(c)
+                .get::<henry>(),
+            2.153569e-5,
+            epsilon = 1e-9
+        );
+        approxim::assert_abs_diff_eq!(
+            winding
+                .slot_leakage_inductance(CoreRef::Rot(&core), NonZeroU16::MIN, ag,)
+                .eval(c)
+                .get::<henry>(),
+            1.826912e-7, // Expected resistance in Ohm
+            epsilon = 1e-12
+        );
+        approxim::assert_abs_diff_eq!(
+            winding
+                .main_inductance(
+                    CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
+                    SpatialOrder::Electrical(1),
+                    ag
+                )
+                .eval(c)
+                .get::<henry>(),
+            2.117663e-5,
+            epsilon = 1e-9
+        );
+        approxim::assert_abs_diff_eq!(
+            winding
+                .inductance(
+                    CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
+                    SpatialOrder::Electrical(1),
+                    ag
+                )
+                .eval(c)
+                .get::<henry>(),
+            2.174271e-5,
+            epsilon = 1e-9
+        );
+
+        let c = &[
+            ThermodynamicTemperature::new::<degree_celsius>(20.0).into(),
+            Frequency::new::<hertz>(50.0).into(),
+        ];
+        approxim::assert_abs_diff_eq!(
+            winding
+                .slot_leakage_inductance(CoreRef::Rot(&core), NonZeroU16::MIN, ag)
+                .eval(c)
+                .get::<henry>(),
+            1.8247066e-7, // Expected resistance in Ohm
+            epsilon = 1e-12
+        );
     }
 }

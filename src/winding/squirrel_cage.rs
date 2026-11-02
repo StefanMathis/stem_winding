@@ -17,9 +17,6 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "stem_core")]
 use stem_core::prelude::*;
 
-#[cfg(feature = "stem_core")]
-use crate::core_support::*;
-
 /// Part of the expression returned by
 /// [`SquirrelCageWinding::slot_leakage_inductance`], not meant to be used on
 /// its own.
@@ -46,12 +43,12 @@ impl QuantityFunction for InductanceWithCurrentDisplacement {
         // Create a mutable clone of the calculator so we can call eval.
         let mut calculator = self.calculator.clone();
 
-        DynQuantity::from(
-            self.inductance
-                * calculator
-                    .eval(frequency, el_conductivity, rel_permeability)
-                    .inductance,
-        )
+        // Current displacement factor, only applied for the bar inductance
+        let k_x = calculator
+            .eval(frequency, el_conductivity, rel_permeability)
+            .inductance;
+
+        DynQuantity::from(self.inductance * k_x)
     }
 
     fn dyn_eq(&self, other: &dyn QuantityFunction) -> bool {
@@ -279,7 +276,6 @@ impl Winding for SquirrelCageWinding {
         }
     }
 
-    /// TODO: Mention difference to standard implementation?
     #[cfg(feature = "stem_core")]
     fn coil_properties_at<'a>(
         &'a self,
@@ -396,15 +392,54 @@ impl Winding for SquirrelCageWinding {
         }
     }
 
+    /// Returns the end winding leakage inductance for a squirrel-cage winding.
+    ///
+    /// This function implements
+    /// [\[1\]](#end_winding_leakage_inductance_cage_1), eq. (3.70) and eq.
+    /// (3.71) in a generalized form:
+    ///
+    /// `L_ew,seg = μ0 * λ_ew * l_ew / p`
+    ///
+    /// and
+    ///
+    /// `L_ew = L_ew,seg / (2 * sin²(π * p / N))`
+    ///
+    /// where `μ0` is the [`VACUUM_PERMEABILITY`], `λ_ew` is the
+    /// `end_winding_leakage_coefficient`, `l_ew` is the
+    /// `end_winding_half_turn_length`, `p` is the number of
+    /// [`Winding::pole_pairs`], `N` is the number of [`Winding::slots`] and
+    /// `L_ew,seg` is the inductance of a ring segment.
+    ///
+    /// In eq. (3.70), `l_ew` is written out as `π * (D_ri,a + D_ri,i) / (2 *
+    /// N)` where `D_ri,a` and `D_ri,i` are the outer and inner diameters of
+    /// the end winding ring. This expression is specific to a rotary core,
+    /// which is why this implementation uses the general formula.
+    ///
+    /// A value of 0.35 for the `end_winding_leakage_coefficient` is a
+    /// reasonable default.
+    ///
+    /// # Literature
+    /// <a id="end_winding_leakage_inductance_cage_1">\[1\]</a>
+    /// Mathis, S.: Permanentmagneterregte Line-Start-Antriebe in Ferrittechnik,
+    /// PhD thesis, Shaker, 2019
     #[cfg(feature = "stem_core")]
     fn end_winding_leakage_inductance(
         &self,
         core: CoreRef<'_>,
-        _phase: NonZeroU16,
+        phase: NonZeroU16,
         spatial_order: SpatialOrder,
     ) -> VarQuantity<Inductance> {
+        use std::f64::consts::PI;
+        let _ = phase;
         let _ = spatial_order;
-        end_winding_leakage_inductance_cage(self, core, self.end_winding_leakage_coefficient).into()
+
+        let ring_segment_inductance = *VACUUM_PERMEABILITY
+            * self.end_winding_leakage_coefficient()
+            * self.end_winding_half_turn_length(core, Zone::new(0, 0))
+            / f64::from(self.pole_pairs().get());
+
+        let poles_per_slot = f64::from(self.pole_pairs().get()) / f64::from(self.slots().get());
+        return (ring_segment_inductance / (2.0 * (PI * poles_per_slot).sin().powi(2))).into();
     }
 
     #[cfg(feature = "stem_core")]
