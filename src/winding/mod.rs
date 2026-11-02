@@ -56,7 +56,7 @@ pub use quadruple_layer_tooth_coil::{
     QuadrupleLayerToothCoilBuilder, QuadrupleLayerToothCoilMinimalBuilder,
     QuadrupleLayerToothCoilWinding,
 };
-pub use squirrel_cage::*;
+pub use squirrel_cage::{SquirrelCageBuilder, SquirrelCageMinimalBuilder, SquirrelCageWinding};
 pub use support::*;
 pub use tooth_coil::*;
 

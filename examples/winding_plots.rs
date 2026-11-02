@@ -32,6 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     distributed_winding_concentric()?;
     distributed_winding_coil_throw_reduction(&zone_config)?;
     distributed_winding_zone_shift(&zone_config)?;
+    squirrel_cage_winding()?;
 
     return Ok(());
 }
@@ -1195,5 +1196,52 @@ fn distributed_winding_zone_shift(
             return Ok(());
         })?;
     }
+    return Ok(());
+}
+
+fn squirrel_cage_winding() -> Result<(), Box<dyn std::error::Error>> {
+    let winding: SquirrelCageWinding = SquirrelCageMinimalBuilder {
+        slots: 12.try_into()?,
+        pole_pairs: 1.try_into()?,
+    }
+    .try_into()
+    .unwrap();
+    let core = LinCore::from_winding(&winding);
+
+    {
+        let side_length = SideLength::Long(600);
+
+        let mut coil_config = CoilDrawablesConfig::from(&core);
+        coil_config.cyclic = true;
+
+        let drawables = winding.coil_drawables(&coil_config);
+        let bb = coil_config.bounding_box(&winding);
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.03 * w,
+            bb.xmax() + 0.03 * w,
+            -bb.ymax() - 0.08 * h,
+            -bb.ymin() + 0.08 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join(&format!("docs/img/coils_squirrel_cage_winding.svg"));
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+
+            for (mut d, k) in drawables {
+                if matches!(k, DrawableKind::Arrow(_)) {
+                    d.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                }
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
+    }
+
     return Ok(());
 }

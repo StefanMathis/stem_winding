@@ -416,7 +416,7 @@ mod stem_core_tests {
                 .slot_leakage_inductance(CoreRef::Rot(&core), NonZeroU16::MIN, ag,)
                 .eval(c)
                 .get::<henry>(),
-            1.826912e-7, // Expected resistance in Ohm
+            1.826912e-7,
             epsilon = 1e-12
         );
         approxim::assert_abs_diff_eq!(
@@ -455,7 +455,7 @@ mod stem_core_tests {
                 .slot_leakage_inductance(CoreRef::Rot(&core), NonZeroU16::MIN, ag)
                 .eval(c)
                 .get::<henry>(),
-            1.8247066e-7, // Expected resistance in Ohm
+            1.8247066e-7,
             epsilon = 1e-12
         );
     }
