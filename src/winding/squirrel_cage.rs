@@ -1,6 +1,15 @@
 //! Provides the [`SquirrelCageWinding`] as well as its builder structs.
 //!
-//! See the documentation of [`SquirrelCageWinding`] for details.
+//! In addition to those structs, this module also holds the helper structs
+//! [`InductanceWithCurrentDisplacement`] and
+//! [`ResistanceWithCurrentDisplacement`], which are part of the [`VarQuantity`]
+//! returned from [`SquirrelCageWinding::slot_leakage_inductance`] and
+//! [`SquirrelCageWinding::resistance`] respectively. The helper functions
+//! [`end_ring_radii`] and [`end_ring_resistance_coefficient`] participate in
+//! the calculation of these physical quantities as well.
+//!
+//! Usually, a user only interacts with [`SquirrelCageWinding`] and the builder
+//! structs [`SquirrelCageBuilder`] and [`SquirrelCageMinimalBuilder`] directly.
 
 use std::num::{NonZeroU16, NonZeroUsize};
 
@@ -21,9 +30,17 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "stem_core")]
 use stem_core::prelude::*;
 
-/// Part of the expression returned by
-/// [`SquirrelCageWinding::slot_leakage_inductance`], not meant to be used on
-/// its own.
+/// Part of the [`VarQuantity`] expression returned by
+/// [`SquirrelCageWinding::slot_leakage_inductance`] if the current displacement
+/// is considered ([`SquirrelCageWinding::consider_current_displacement`] is
+/// true).
+///
+/// This struct is not meant to be created directly. It calculates the current
+/// displacement factor for a [`SquirrelCageWinding`] using the
+/// [`CurrentDisplacementCalculator`] returned by
+/// [`Slot::current_displacement_coefficients`] and multiplies it with the slot
+/// leakage inductance. The product is returned from
+/// [`InductanceWithCurrentDisplacement::eval`].
 #[derive(PartialEq, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct InductanceWithCurrentDisplacement {
@@ -60,9 +77,17 @@ impl QuantityFunction for InductanceWithCurrentDisplacement {
     }
 }
 
-/// Part of the expression returned by
-/// [`SquirrelCageWinding::slot_leakage_inductance`], not meant to be used on
-/// its own.
+/// Part of the [`VarQuantity`] expression returned by
+/// [`SquirrelCageWinding::resistance`] if the current displacement
+/// is considered ([`SquirrelCageWinding::consider_current_displacement`] is
+/// true).
+///
+/// This struct is not meant to be created directly. It calculates the current
+/// displacement factor for a [`SquirrelCageWinding`] using the
+/// [`CurrentDisplacementCalculator`] returned by
+/// [`Slot::current_displacement_coefficients`] and multiplies it with the bar
+/// resistance. The product is returned from
+/// [`ResistanceWithCurrentDisplacement::eval`].
 #[derive(PartialEq, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ResistanceWithCurrentDisplacement {
@@ -278,18 +303,51 @@ impl SquirrelCageWinding {
         SquirrelCageMinimalBuilder { slots, pole_pairs }.into()
     }
 
+    /// The end ring width in axial direction.
     pub fn end_ring_width(&self) -> Length {
         return self.end_ring_width;
     }
 
+    /// The end ring height in radial direction.
     pub fn end_ring_height(&self) -> Length {
         return self.end_ring_height;
     }
 
+    /// Whether the influence of current displacement is considered when
+    /// calculating the [`SquirrelCageWinding::resistance`]
+    /// and [`SquirrelCageWinding::slot_leakage_inductance`].
+    ///
+    /// As discussed in detail in [`Slot::current_displacement_coefficients`],
+    /// current displacement effects lead to an effective increase of the coil
+    /// resistance inside a slot and decrease of the slot leakage inductance. If
+    /// this value is set to true, these effects are considered when calculating
+    /// the [`SquirrelCageWinding::resistance`] and the
+    /// [`SquirrelCageWinding::slot_leakage_inductance`]. If the `core` argument
+    /// to these functions is not slotted, the current displacement coefficients
+    /// become one and `consider_current_displacement` has no effect.
+    ///
+    /// The analytical approximation employed by the
+    /// [`CurrentDisplacementCalculator`] assumes that the whole slot is filled
+    /// by a single wire and that the permeability of the core material is
+    /// magnitudes higher than that of the wire material. The first assumption
+    /// can be seen as true if the surface area of the wire matches that of
+    /// the slot or is not much smaller. This means that the winding can
+    /// e.g. have a [`RectangularWire`] while the slot is slightly
+    /// trapezoidal as long as the wire covers most of the slot. The more
+    /// the wire deviates from that assumption, the larger the error becomes
+    /// and the factor should eventually be set to false. Likewise, if the
+    /// core material has only a slightly higher permeability than the wire
+    /// material, the analytical model delivers inaccurate results and the
+    /// current displacement consideration should therefore be set to false.
     pub fn consider_current_displacement(&self) -> bool {
         return self.consider_current_displacement;
     }
 
+    /// Enables / disables the consideration of the current displacement
+    /// influence on [`SquirrelCageWinding::resistance`]
+    /// and [`SquirrelCageWinding::slot_leakage_inductance`].
+    ///
+    /// See [`SquirrelCageWinding::consider_current_displacement`] for details.
     pub fn set_consider_current_displacement(&mut self, consider: bool) -> () {
         self.consider_current_displacement = consider;
     }
@@ -310,6 +368,19 @@ impl SquirrelCageWinding {
     /// [`SquirrelCageWinding::end_winding_leakage_inductance`] for details.
     pub fn end_winding_leakage_coefficient(&self) -> f64 {
         self.end_winding_leakage_coefficient
+    }
+
+    /// Sets a new number of pole pairs for the winding and returns the old one.
+    ///
+    /// As discussed in the [`SquirrelCageWinding`] struct documentation, the
+    /// number of pole pairs of this winding type is determined by the magnetic
+    /// stator field inducing the voltages. Hence, its number of pole pairs can
+    /// change if that of the exciting magnetic field changes (for example, if
+    /// the stator winding is pole-switchable like in a Dahlander connection).
+    pub fn set_pole_pairs(&mut self, pole_pairs: NonZeroU16) -> NonZeroU16 {
+        let old = self.pole_pairs;
+        self.pole_pairs = pole_pairs;
+        return old;
     }
 }
 
@@ -373,8 +444,6 @@ impl Winding for SquirrelCageWinding {
             * f64::from(phase.get() - 1)
     }
 
-    /// According to the "Stabmodell" as presented in [Hut18], the number of
-    /// turns per phase is 0.5 for a cage winding
     fn series_turns_per_phase(&self, _phase: NonZeroU16) -> num::rational::Ratio<usize> {
         num::rational::Ratio::new(1, 2)
     }
@@ -637,20 +706,45 @@ impl Winding for SquirrelCageWinding {
     }
 }
 
+/**
+A builder struct for a [`SquirrelCageWinding`].
+
+This builder can be used to create a [`SquirrelCageWinding`] via its
+[`new`](SquirrelCageWinding::new) method or via its [`TryFrom`] implementation.
+Creating the winding fails if the conditions stated on the documentation of the
+individual fields are not fulfilled (for example,
+[`SquirrelCageWinding::end_winding_leakage_coefficient`] must not be negative).
+ */
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct SquirrelCageBuilder {
+    /// Number of slots. Corresponds to [`Winding::slots`] in the final winding.
     pub slots: NonZeroU16,
+    /// Number of pole pairs. Corresponds to [`Winding::pole_pairs`] in the
+    /// final winding.
     pub pole_pairs: NonZeroU16,
+    /// Coefficient used to calculate
+    /// [`Winding::end_winding_leakage_inductance`], see
+    /// [`SquirrelCageWinding::end_winding_leakage_coefficient`]. Must not be
+    /// negative (`end_winding_leakage_coefficient >= 0`).
     pub end_winding_leakage_coefficient: f64,
+    /// The wire used for all coils of the winding.
     pub wire: Box<dyn Wire>,
+    /// The axial width of the end ring. Must be positive (`end_ring_width >
+    /// 0`).
     #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_quantity"))]
     #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_quantity"))]
     pub end_ring_width: Length,
+    /// The (radial) height of the end ring. Must be positive (`end_ring_width >
+    /// 0`).
     #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_quantity"))]
     #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_quantity"))]
     pub end_ring_height: Length,
+    /// Whether to consider or to neglect the influence of current displacement
+    /// on the resistance and inductance of the winding. See
+    /// [`SquirrelCageWinding::consider_current_displacement`] for an in-depth
+    /// discussion.
     pub consider_current_displacement: bool,
 }
 
@@ -673,6 +767,10 @@ impl TryFrom<SquirrelCageBuilder> for SquirrelCageWinding {
 
     fn try_from(builder: SquirrelCageBuilder) -> Result<Self, Self::Error> {
         compare_variables!(0.0 <= builder.end_winding_leakage_coefficient)?;
+
+        let zero_length = Length::new::<meter>(0.0);
+        compare_variables!(zero_length < builder.end_ring_width)?;
+        compare_variables!(zero_length < builder.end_ring_height)?;
 
         let cap = u16::from(builder.slots).into();
         let mut coils = Coils::with_capacity(cap, cap);
@@ -702,12 +800,50 @@ impl TryFrom<SquirrelCageBuilder> for SquirrelCageWinding {
     }
 }
 
+/**
+A minimal builder struct for a [`SquirrelCageWinding`].
+
+This struct is useful if one is interested in a qualitative analysis for the
+specified topology (e.g. determining the winding factor or the harmonics).
+Compared to the fully-featured [`SquirrelCageBuilder`], values such as the
+[`SquirrelCageWinding::end_winding_leakage_coefficient`] are set to sensible
+defaults. For quantitative calculations (e.g. the [`Winding::resistance`]), use
+[`SquirrelCageBuilder`] instead.
+
+This builder is infallible, hence a [`From`] implementation exists for
+[`SquirrelCageWinding`].
+
+# Examples
+
+```
+use stem_winding::prelude::*;
+
+let builder = SquirrelCageMinimalBuilder {
+    slots: 28.try_into().expect("not zero"),
+    pole_pairs: 2.try_into().expect("not zero"),
+};
+let winding = SquirrelCageWinding::from(builder);
+assert_eq!(winding.consider_current_displacement(), false);
+```
+ */
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct SquirrelCageMinimalBuilder {
+    /// Number of slots. Corresponds to [`Winding::slots`] in the final winding.
     pub slots: NonZeroU16,
+    /// Number of pole pairs. Corresponds to [`Winding::pole_pairs`] in the
+    /// final winding.
     pub pole_pairs: NonZeroU16,
+}
+
+impl From<SquirrelCageWinding> for SquirrelCageMinimalBuilder {
+    fn from(value: SquirrelCageWinding) -> Self {
+        Self {
+            slots: value.slots,
+            pole_pairs: value.pole_pairs,
+        }
+    }
 }
 
 impl From<SquirrelCageMinimalBuilder> for SquirrelCageWinding {
@@ -734,9 +870,9 @@ impl From<SquirrelCageMinimalBuilder> for SquirrelCageWinding {
             pole_pairs: builder.pole_pairs,
             end_winding_leakage_coefficient: 0.0,
             wire: Box::new(SffWire::default()),
-            end_ring_width: Length::new::<meter>(0.0),
-            end_ring_height: Length::new::<meter>(0.0),
-            consider_current_displacement: true,
+            end_ring_width: Length::new::<meter>(1.0),
+            end_ring_height: Length::new::<meter>(1.0),
+            consider_current_displacement: false,
             coils,
         }
     }

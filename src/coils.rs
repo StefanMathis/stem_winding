@@ -282,6 +282,16 @@ impl Coils {
         self.0.values()
     }
 
+    /// Like [`Coils::iter_coils`], but returns mutable references instead.
+    pub fn iter_coils_mut(&mut self) -> impl Iterator<Item = &mut Coil> {
+        self.0.values_mut()
+    }
+
+    /// Consumes `self` and returns an iterator over all of its coils.
+    pub fn into_iter(self) -> impl Iterator<Item = Coil> {
+        self.0.into_values()
+    }
+
     /// Returns an iterator over all zones and the coils occupying them.
     ///
     /// Since multiple zones can point to the same coil, some cois can be

@@ -15,16 +15,175 @@ use crate::{
 };
 
 /**
-This winding type defines a winding as a collection of coils connected to each other,
-giving fine-grained control of all aspects (e.g. defining a specific number of
-turns for each coil) at the cost of increased complexity. All other winding types
-can be interpreted as simplified versions of this winding type.
+A winding represented as a collection of individually connected coils.
 
-TODO: end_winding_leakage_inductance and end_winding_half_turn_length cannot
-really be calculated for arbitrary coil assembly, so we use best guess approaches here.
-When the CoilAssembly was derived from a specialized winding, store the values
-from the specialized winding in an [`Overrides`] and use this when calculating
-data such as e.g. the total winding resistance!
+This winding type defines a winding as a collection of connected individual
+coils, giving fine-grained control of all aspects (e.g. defining a different
+number of turns for each coil) at the cost of increased complexity. All other
+winding types can be interpreted as simplified versions of this winding type,
+which is why a [`CoilAssembly`] can be derived from any other winding via its
+[`From`] implementation.
+
+Although `CoilAssembly` allows arbitrary coil configurations, each coil must
+still satisfy the invariants enforced by [`CoilAssembly::insert`] (for example,
+no two coils may occupy the same zone). This ensures that the resulting assembly
+remains valid.
+
+A concrete use case for this winding type is the evaluation of asymmetries:
+Given a [`ToothCoilWinding`](crate::winding::ToothCoilWinding), we want to
+evaluate the effect of a mistake made during the winding process, where one coil
+is missing one turn. This breaks the spatial symmetry of the winding, resulting
+in additional spatial harmonics of the created field:
+
+```
+use std::num::NonZeroUsize;
+
+use stem_winding::prelude::*;
+use stem_winding::winding::WindingHarmonic;
+
+// The ideal, symmetric tooth coil winding without defects.
+let mut sym_wdg = ToothCoilWinding::new(ToothCoilMinimalBuilder {
+    slots: 12.try_into().expect("not zero"),
+    pole_pairs: 5.try_into().expect("not zero"),
+    phases: 3.try_into().expect("not zero"),
+    layers: 2.try_into().expect("not zero"),
+    winding_table_constructor: WindingTableConstructor::Tingley,
+}).expect("valid winding topology");
+sym_wdg.set_turns_per_coil(30.try_into().expect("not zero"));
+
+// Create a CoilAssembly from it
+let mut asym_wdg = CoilAssembly::from(&sym_wdg);
+
+// Introduce the defect in one of the coils
+if let Some(coil) = asym_wdg.coil_at_mut(Zone::new(0, 0)) {
+   coil.set_turns(NonZeroUsize::new(coil.turns().get() - 1).expect("not zero"));
+}
+
+// Spatial orders produced by the symmetric winding
+let mut sym_iter = sym_wdg.harmonics();
+assert_eq!(sym_iter.next(),
+    Some(
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(1),
+            is_positive: true
+        }));
+assert_eq!(sym_iter.next(),
+    Some(
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(5),
+            is_positive: false
+        }));
+assert_eq!(sym_iter.next(),
+    Some(
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(7),
+            is_positive: true
+        }));
+
+// Spatial orders produced by the winding with the defect
+let mut asym_iter = asym_wdg.harmonics();
+assert_eq!(asym_iter.next(),
+    Some(
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(1),
+            is_positive: true
+        }));
+assert_eq!(asym_iter.next(),
+    Some(
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(2), // Didn't exist for the original winding!
+            is_positive: false
+        }));
+assert_eq!(asym_iter.next(),
+    Some(
+        WindingHarmonic {
+            spatial_order: SpatialOrder::Mechanical(3), // Didn't exist for the original winding!
+            is_positive: true
+        }));
+```
+
+Note that [`CoilAssembly`] is a low-level winding representation and does not
+provide specialized implementations of certain [`Winding`] methods, for example
+[`Winding::end_winding_leakage_inductance`] or
+[`Winding::end_winding_half_turn_length`]. These methods therefore use the
+default implementations, which may not account for winding-specific
+characteristics captured by other winding types. Consequently, the calculated
+values may differ from those obtained using the original winding, even if the
+coil configuration has not been modified.
+
+# Constructors
+
+A [`CoilAssembly`] can be derived directly from another [`Winding`], as shown
+above, created using a [`CoilAssemblyBuilder`], or assembled coil by coil using
+[`CoilAssembly::new`] and [`CoilAssembly::insert`]. When using the builder, each
+coil is inserted individually into the resulting assembly to ensure that it
+satisfies the invariants documented for [`CoilAssembly::insert`].
+
+# Serialization and deserialization
+
+If the `serde` feature is enabled, this winding can be deserialized from a
+serialized [`CoilAssemblyBuilder`]. The serialized representation of this
+winding corresponds to that of a [`CoilAssemblyBuilder`].
+
+# Examples
+
+This example shows how to build a [`CoilAssembly`] coil by coil and also how to
+remove existing coils using [`CoilAssembly::remove`].
+
+```
+use std::num::NonZeroU16;
+
+use stem_winding::prelude::*;
+
+// Build the coils
+let mut winding = CoilAssembly::new(
+    6.try_into().expect("not zero"),
+    1.try_into().expect("not zero"),
+    3.try_into().expect("not zero"),
+    CoilLayout::DoubleVertical,
+    Default::default(),
+    Vec::new(),
+    Connection::Star,
+).expect("valid");
+
+winding.insert(
+    FullCoil::new(
+        Zone { slot: 0, layer: 0 },
+        Zone { slot: 3, layer: 1 },
+        true,
+        10.try_into().expect("not zero"), // Number of turns
+        1.try_into().expect("not zero"), // Phase
+        Box::new(SffWire::default()),
+    )
+    .unwrap(),
+).expect("valid");
+winding.insert(
+    FullCoil::new(
+        Zone { slot: 2, layer: 0 },
+        Zone { slot: 5, layer: 1 },
+        true,
+        12.try_into().expect("not zero"), // Number of turns
+        2.try_into().expect("not zero"), // Phase
+        Box::new(SffWire::default()),
+    )
+    .unwrap(),
+).expect("valid");
+
+// The three phases of
+let ph1 = NonZeroU16::new(1).expect("not zero");
+let ph2 = NonZeroU16::new(2).expect("not zero");
+let ph3 = NonZeroU16::new(3).expect("not zero");
+
+assert_eq!(winding.series_turns_per_phase(ph1), num::rational::Ratio::new(10, 1));
+assert_eq!(winding.series_turns_per_phase(ph2), num::rational::Ratio::new(12, 1));
+
+// No coil is assigned to phase 3
+assert_eq!(winding.series_turns_per_phase(ph3), num::rational::Ratio::new(0, 1));
+
+// Remove the coil belonging to phase 1.
+winding.remove(Zone::new(0, 0));
+assert_eq!(winding.series_turns_per_phase(ph1), num::rational::Ratio::new(0, 1));
+```
 */
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -40,7 +199,7 @@ pub struct CoilAssembly {
 }
 
 #[cfg_attr(feature = "serde", derive(Deserialize))]
-struct CoilAssemblyBuilder {
+pub struct CoilAssemblyBuilder {
     pub slots: NonZeroU16,
     pub pole_pairs: NonZeroU16,
     pub phases: NonZeroU16,
@@ -62,19 +221,18 @@ impl TryFrom<CoilAssemblyBuilder> for CoilAssembly {
     type Error = Error;
 
     fn try_from(builder: CoilAssemblyBuilder) -> Result<Self, Self::Error> {
-        let winding = CoilAssembly {
+        let mut winding = CoilAssembly {
             slots: builder.slots,
             pole_pairs: builder.pole_pairs,
             phases: builder.phases,
-            coils: builder.coils,
+            coils: Default::default(),
             coil_layout: builder.coil_layout,
             parallel_paths: builder.parallel_paths,
             connection: builder.connection,
         };
 
-        // Check all coils of the winding
-        for coil in winding.coils.iter_coils() {
-            winding.coil_is_valid(coil)?;
+        for coil in builder.coils.into_iter() {
+            winding.insert(coil)?;
         }
 
         return Ok(winding);
@@ -91,21 +249,20 @@ impl CoilAssembly {
         parallel_paths: Vec<NonZeroU16>,
         connection: Connection,
     ) -> Result<Self, Error> {
-        let winding = CoilAssembly {
+        let mut winding = CoilAssembly {
             slots,
             pole_pairs,
             phases,
-            coils,
+            coils: Default::default(),
             coil_layout,
             parallel_paths,
             connection,
         };
 
-        // Check all coils of the winding
-        for coil in winding.coils.iter_coils() {
-            winding.coil_is_valid(coil)?;
+        // Insert the coils one after another and see if there are conflicts
+        for coil in coils.into_iter() {
+            winding.insert(coil)?;
         }
-
         return Ok(winding);
     }
 
@@ -130,7 +287,18 @@ impl CoilAssembly {
     // Try to insert a coil
     pub fn insert<C: Into<Coil>>(&mut self, coil: C) -> Result<(), Error> {
         let coil: Coil = coil.into();
-        self.coil_is_valid(&coil)?;
+
+        let coil_phase = coil.phase().get();
+        let winding_phases = self.phases().get();
+        let winding_slots = self.slots().get();
+        let winding_layers = self.layers().get();
+        compare_variables::compare_variables!(coil_phase <= winding_phases)?;
+
+        for zone in coil.zones() {
+            compare_variables::compare_variables!(zone.slot < winding_slots)?;
+            compare_variables::compare_variables!(zone.layer < winding_layers)?;
+        }
+
         return self.coils.insert(coil).map_err(Error::from);
     }
 
@@ -148,27 +316,9 @@ impl CoilAssembly {
         self.pole_pairs = pole_pairs;
     }
 
-    /**
-    Mutably access a coil
-     */
+    /// Like [`Winding::coil_at`], but returns a mutable reference to the coil.
     pub fn coil_at_mut(&mut self, zone: Zone) -> Option<&mut Coil> {
         self.coils.get_mut(zone)
-    }
-
-    /// Check if the given coil collection corresponds to the defined number of
-    /// phases, slots and layers
-    fn coil_is_valid(&self, coil: &Coil) -> Result<(), Error> {
-        let coil_phase = coil.phase().get();
-        let winding_phases = self.phases().get();
-        let winding_slots = self.slots().get();
-        let winding_layers = self.layers().get();
-        compare_variables::compare_variables!(coil_phase <= winding_phases)?;
-
-        for zone in coil.zones() {
-            compare_variables::compare_variables!(zone.slot < winding_slots)?;
-            compare_variables::compare_variables!(zone.layer < winding_layers)?;
-        }
-        return Ok(());
     }
 }
 

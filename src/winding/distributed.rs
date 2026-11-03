@@ -22,7 +22,7 @@ use crate::core_support::*;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    coils::{Coil, Coils, FullCoil},
+    coils::{Coil, CoilExt, Coils, FullCoil},
     error::{Error, WindingTableConstructionError},
     winding::{Connection, Winding, base_winding_count_symmetric, hole_number},
     winding_table::{WindingTable, WindingTableConstructor},
@@ -232,6 +232,54 @@ impl DistributedWinding {
         W::Error: Into<Error>,
     {
         builder.try_into().map_err(Into::into)
+    }
+
+    /// Returns the number of turns per coil.
+    ///
+    /// In a [`DistributedWinding`], the number of turns is identical for all
+    /// coils.
+    pub fn turns_per_coil(&self) -> NonZeroUsize {
+        self.turns_per_coil
+    }
+
+    /// Set a new number of turns for all coils of the winding and returns the
+    /// old number.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let mut winding = DistributedWinding::new(DistributedMinimalBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 1.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 2.try_into().expect("not zero"),
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    ///     coil_throw_reduction: 0,
+    ///     zone_shift: 0,
+    /// }).expect("valid winding topology");
+    ///
+    /// let phase = NonZeroU16::new(1).expect("not zero");
+    ///
+    /// assert_eq!(winding.turns_per_coil().get(), 1);
+    /// assert_eq!(winding.series_turns_per_phase(phase), num::rational::Ratio::new(4, 1));
+    ///
+    /// let old = winding.set_turns_per_coil(2.try_into().expect("not zero"));
+    /// assert_eq!(old.get(), 1);
+    ///
+    /// assert_eq!(winding.turns_per_coil().get(), 2);
+    /// assert_eq!(winding.series_turns_per_phase(phase), num::rational::Ratio::new(8, 1));
+    /// ```
+    pub fn set_turns_per_coil(&mut self, turns: NonZeroUsize) -> NonZeroUsize {
+        let old = self.turns_per_coil;
+        self.turns_per_coil = turns;
+        for coil in self.coils.iter_coils_mut() {
+            coil.set_turns(turns);
+        }
+        return old;
     }
 
     /// Returns a decomposition of the
