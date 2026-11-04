@@ -109,13 +109,15 @@ fn zone_polarity() -> Result<(), Box<dyn std::error::Error>> {
         .into(),
     )?;
 
-    let coil_assembly = CoilAssembly::new_minimal(
-        2.try_into()?,
-        NonZeroU16::MIN,
-        NonZeroU16::MIN,
-        CoilLayout::Single,
+    let coil_assembly = CoilAssembly::new(CoilAssemblyBuilder {
+        slots: 2.try_into().expect("not zero"),
+        pole_pairs: 1.try_into().expect("not zero"),
+        coil_layout: CoilLayout::Single,
         coils,
-    )?;
+        phase_data: vec![Default::default(); 1],
+        connection: Connection::Star,
+        end_winding_half_turn_length_overrides: Default::default(),
+    })?;
 
     let core = LinCore::from_winding(&coil_assembly);
 
@@ -259,15 +261,15 @@ fn phd_stator() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
-    let mut winding = CoilAssembly::new(
-        6.try_into().expect("not zero"),
-        1.try_into().expect("not zero"),
-        3.try_into().expect("not zero"),
-        CoilLayout::DoubleVertical,
-        Default::default(),
-        Vec::new(),
-        Connection::Star,
-    )?;
+    let mut winding = CoilAssembly::new(CoilAssemblyBuilder {
+        slots: 6.try_into().expect("not zero"),
+        pole_pairs: 1.try_into().expect("not zero"),
+        coil_layout: CoilLayout::DoubleVertical,
+        coils: Default::default(),
+        phase_data: vec![Default::default(); 3],
+        connection: Connection::Star,
+        end_winding_half_turn_length_overrides: Default::default(),
+    })?;
     winding.insert(
         FullCoil::new(
             Zone { slot: 0, layer: 0 },

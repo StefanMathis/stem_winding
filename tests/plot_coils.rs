@@ -381,13 +381,15 @@ mod cairo_tests {
                 )
                 .unwrap();
 
-            let winding = CoilAssembly::new_minimal(
-                2.try_into().unwrap(),
-                NonZeroU16::MIN,
-                NonZeroU16::MIN,
-                CoilLayout::Single,
+            let winding = CoilAssembly::new(CoilAssemblyBuilder {
+                slots: 2.try_into().expect("not zero"),
+                pole_pairs: 1.try_into().expect("not zero"),
+                coil_layout: CoilLayout::Single,
                 coils,
-            )
+                phase_data: vec![Default::default(); 1],
+                connection: Connection::Star,
+                end_winding_half_turn_length_overrides: Default::default(),
+            })
             .unwrap();
             let name = format!("tests/img/end_winding_{ew_style}_2_1_SL_single_coil.png");
             check(&winding, &params, &name);
@@ -528,13 +530,16 @@ mod cairo_tests {
             )
             .unwrap();
             coils.insert(coil.into()).unwrap();
-            let winding = CoilAssembly::new_minimal(
-                12.try_into().unwrap(),
-                5.try_into().unwrap(),
-                3.try_into().unwrap(),
-                CoilLayout::DoubleVertical,
+
+            let winding = CoilAssembly::new(CoilAssemblyBuilder {
+                slots: 12.try_into().expect("not zero"),
+                pole_pairs: 5.try_into().expect("not zero"),
+                coil_layout: CoilLayout::DoubleVertical,
                 coils,
-            )
+                phase_data: vec![Default::default(); 3],
+                connection: Connection::Star,
+                end_winding_half_turn_length_overrides: Default::default(),
+            })
             .unwrap();
             check(&winding, &params, "tests/img/end_winding_ca_12_1_a.png");
         }

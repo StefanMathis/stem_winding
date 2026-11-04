@@ -7,13 +7,15 @@ const ONE: NonZeroU16 = NonZeroU16::MIN;
 
 #[test]
 fn test_build_from_scratch() {
-    let mut coil_assembly = CoilAssembly::new_minimal(
-        12.try_into().expect("not zero"),
-        5.try_into().expect("not zero"),
-        3.try_into().expect("not zero"),
-        CoilLayout::DoubleHorizontal,
-        Coils::new(),
-    )
+    let mut coil_assembly = CoilAssembly::new(CoilAssemblyBuilder {
+        slots: 12.try_into().expect("not zero"),
+        pole_pairs: 5.try_into().expect("not zero"),
+        coil_layout: CoilLayout::DoubleHorizontal,
+        coils: Default::default(),
+        phase_data: vec![Default::default(); 3],
+        connection: Connection::Star,
+        end_winding_half_turn_length_overrides: Default::default(),
+    })
     .unwrap();
 
     // Add a coil, make sure it's there and then remove it

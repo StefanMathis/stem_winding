@@ -302,13 +302,15 @@ mod cairo_tests {
 
         {
             // CoilLayout::DoubleVertical
-            let coil_assembly = CoilAssembly::new_minimal(
-                1.try_into().expect("not zero"),
-                2.try_into().expect("not zero"),
-                3.try_into().expect("not zero"),
-                CoilLayout::DoubleVertical,
-                coils.clone(),
-            )
+            let coil_assembly = CoilAssembly::new(CoilAssemblyBuilder {
+                slots: 1.try_into().expect("not zero"),
+                pole_pairs: 2.try_into().expect("not zero"),
+                coil_layout: CoilLayout::DoubleVertical,
+                coils: coils.clone(),
+                phase_data: vec![Default::default(); 3],
+                connection: Connection::Star,
+                end_winding_half_turn_length_overrides: Default::default(),
+            })
             .unwrap();
 
             let core = LinCore::from_winding(&coil_assembly);
@@ -342,13 +344,15 @@ mod cairo_tests {
 
         {
             // CoilLayout::MultiVertical
-            let coil_assembly = CoilAssembly::new_minimal(
-                1.try_into().expect("not zero"),
-                2.try_into().expect("not zero"),
-                3.try_into().expect("not zero"),
-                CoilLayout::MultiVertical(2.try_into().expect("not zero")),
-                coils.clone(),
-            )
+            let coil_assembly = CoilAssembly::new(CoilAssemblyBuilder {
+                slots: 1.try_into().expect("not zero"),
+                pole_pairs: 2.try_into().expect("not zero"),
+                coil_layout: CoilLayout::MultiVertical(2.try_into().expect("not zero")),
+                coils: coils.clone(),
+                phase_data: vec![Default::default(); 3],
+                connection: Connection::Star,
+                end_winding_half_turn_length_overrides: Default::default(),
+            })
             .unwrap();
 
             let core = LinCore::from_winding(&coil_assembly);
@@ -427,13 +431,15 @@ mod cairo_tests {
             )
             .unwrap();
 
-        let coil_assembly = CoilAssembly::new_minimal(
-            1.try_into().expect("not zero"),
-            2.try_into().expect("not zero"),
-            3.try_into().expect("not zero"),
-            CoilLayout::MultiVertical(4.try_into().expect("not zero")),
-            coils.clone(),
-        )
+        let coil_assembly = CoilAssembly::new(CoilAssemblyBuilder {
+            slots: 1.try_into().expect("not zero"),
+            pole_pairs: 2.try_into().expect("not zero"),
+            coil_layout: CoilLayout::MultiVertical(4.try_into().expect("not zero")),
+            coils: coils.clone(),
+            phase_data: vec![Default::default(); 3],
+            connection: Connection::Star,
+            end_winding_half_turn_length_overrides: Default::default(),
+        })
         .unwrap();
 
         let core = LinCore::from_winding(&coil_assembly);
