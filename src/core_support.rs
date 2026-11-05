@@ -542,7 +542,7 @@ impl<'a> CoilProperties<'a> {
     ///         0.5, // slot_fill_factor_conductor
     ///         0.6, // slot_fill_factor_overall
     ///     ).expect("valid inputs")),
-    ///     mean_end_winding_half_turn_length: None,
+    ///     end_winding_half_turn_length_override: None,
     /// }
     /// .try_into()
     /// .unwrap();

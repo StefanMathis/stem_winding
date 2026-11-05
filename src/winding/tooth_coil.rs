@@ -105,7 +105,7 @@ coil arrangement for a double-layer winding.
 [`end_winding_half_turn_length_semicircle`] function (only available if the
 `stem_core` feature is enabled). This approximation can be overridden by
 providing the value directly, see
-[`ToothCoilWinding::set_mean_end_winding_half_turn_length`].
+[`ToothCoilWinding::set_end_winding_half_turn_length_override`].
 - Its end winding leakage inductance is calculated with the
 [`end_winding_leakage_inductance_tooth_coil`] function (only available if the
 `stem_core` feature is enabled).
@@ -199,7 +199,7 @@ pub struct ToothCoilWinding {
     wire: Box<dyn Wire>,
     coils: Coils,
     winding_table_constructor: WindingTableConstructor,
-    mean_end_winding_half_turn_length: Option<Length>,
+    end_winding_half_turn_length_override: Option<Length>,
 }
 
 impl ToothCoilWinding {
@@ -290,7 +290,8 @@ impl ToothCoilWinding {
         return self.end_winding_leakage_coefficient;
     }
 
-    /// Returns the mean end-winding half-turn length, if one was provided.
+    /// Returns the override for the end-winding half-turn length, if one was
+    /// provided.
     ///
     /// If this value is `Some`, [`ToothCoilWinding`] uses it for calculations
     /// such as [`Winding::resistance`] instead of calculating the length.
@@ -298,8 +299,8 @@ impl ToothCoilWinding {
     /// [`end_winding_half_turn_length_semicircle`] function. Providing a value
     /// is useful when the length is known from measurements or more precise
     /// models.
-    pub fn mean_end_winding_half_turn_length(&self) -> Option<Length> {
-        self.mean_end_winding_half_turn_length
+    pub fn end_winding_half_turn_length_override(&self) -> Option<Length> {
+        self.end_winding_half_turn_length_override
     }
 
     /// Sets the mean end-winding half-turn length.
@@ -307,19 +308,19 @@ impl ToothCoilWinding {
     /// The value must be non-negative. If a negative length is provided, the
     /// method returns an error and leaves the existing value unchanged. Passing
     /// `None` clears the value, so the length is calculated on demand. See
-    /// [`ToothCoilWinding::mean_end_winding_half_turn_length`] for details on
-    /// how the value is used.
-    pub fn set_mean_end_winding_half_turn_length(
+    /// [`ToothCoilWinding::end_winding_half_turn_length_override`] for details
+    /// on how the value is used.
+    pub fn set_end_winding_half_turn_length_override(
         &mut self,
-        mean_end_winding_half_turn_length: Option<Length>,
+        end_winding_half_turn_length_override: Option<Length>,
     ) -> Result<(), compare_variables::Comparison<Length>> {
-        if let Some(mean_end_winding_half_turn_length) = mean_end_winding_half_turn_length {
+        if let Some(end_winding_half_turn_length_override) = end_winding_half_turn_length_override {
             let zero_length = Length::new::<meter>(0.0);
             compare_variables::compare_variables!(
-                mean_end_winding_half_turn_length >= zero_length
+                end_winding_half_turn_length_override >= zero_length
             )?;
         }
-        self.mean_end_winding_half_turn_length = mean_end_winding_half_turn_length;
+        self.end_winding_half_turn_length_override = end_winding_half_turn_length_override;
         Ok(())
     }
 
@@ -503,7 +504,7 @@ impl Winding for ToothCoilWinding {
 
     #[cfg(feature = "stem_core")]
     fn end_winding_half_turn_length(&self, core: CoreRef<'_>, zone: Zone) -> Length {
-        if let Some(l) = self.mean_end_winding_half_turn_length() {
+        if let Some(l) = self.end_winding_half_turn_length_override() {
             return l;
         }
         end_winding_half_turn_length_semicircle(self, core, zone)
@@ -558,16 +559,16 @@ pub struct ToothCoilBuilder {
     /// The wire used for all coils of the winding.
     pub wire: Box<dyn Wire>,
     /// An override for the end winding half-turn length, see
-    /// [`ToothCoilWinding::mean_end_winding_half_turn_length`]. If provided,
-    /// this value must not be negative (`mean_end_winding_half_turn_length >= 0
-    /// m`).
+    /// [`ToothCoilWinding::end_winding_half_turn_length_override`]. If
+    /// provided, this value must not be negative
+    /// (`end_winding_half_turn_length_override >= 0 m`).
     #[cfg_attr(feature = "serde", serde(default))]
     #[cfg_attr(
         feature = "serde",
         serde(deserialize_with = "deserialize_opt_quantity")
     )]
     #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_opt_quantity"))]
-    pub mean_end_winding_half_turn_length: Option<Length>,
+    pub end_winding_half_turn_length_override: Option<Length>,
 }
 
 impl From<ToothCoilWinding> for ToothCoilBuilder {
@@ -583,7 +584,7 @@ impl From<ToothCoilWinding> for ToothCoilBuilder {
             connection: winding.connection,
             end_winding_leakage_coefficient: winding.end_winding_leakage_coefficient,
             wire: winding.wire,
-            mean_end_winding_half_turn_length: winding.mean_end_winding_half_turn_length,
+            end_winding_half_turn_length_override: winding.end_winding_half_turn_length_override,
         }
     }
 }
@@ -643,9 +644,11 @@ impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
             wire: builder.wire,
             coils: Coils::with_capacity(num_zones, num_coils),
             winding_table_constructor: builder.winding_table_constructor,
-            mean_end_winding_half_turn_length: None,
+            end_winding_half_turn_length_override: None,
         };
-        winding.set_mean_end_winding_half_turn_length(builder.mean_end_winding_half_turn_length)?;
+        winding.set_end_winding_half_turn_length_override(
+            builder.end_winding_half_turn_length_override,
+        )?;
         winding.create_coils(&winding_table, true)?;
 
         if winding.equal_winding_factors() {
@@ -717,7 +720,7 @@ impl TryFrom<ToothCoilMinimalBuilder> for ToothCoilWinding {
             end_winding_leakage_coefficient: 0.0,
             wire: Box::new(SffWire::default()),
             winding_table_constructor: builder.winding_table_constructor,
-            mean_end_winding_half_turn_length: None,
+            end_winding_half_turn_length_override: None,
         }
         .try_into()
     }

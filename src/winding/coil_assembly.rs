@@ -349,7 +349,7 @@ impl CoilAssembly {
     ///     end_winding_leakage_coefficient: 0.25,
     ///     wire: Box::new(SffWire::default()),
     ///     concentric_coils: false,
-    ///     mean_end_winding_half_turn_length: None,
+    ///     end_winding_half_turn_length_override: None,
     /// }
     /// .try_into()
     /// .expect("valid winding core");

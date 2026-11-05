@@ -33,6 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     distributed_winding_coil_throw_reduction(&zone_config)?;
     distributed_winding_zone_shift(&zone_config)?;
     squirrel_cage_winding()?;
+    quadruple_layer_tooth_coil_winding()?;
 
     return Ok(());
 }
@@ -1238,6 +1239,91 @@ fn squirrel_cage_winding() -> Result<(), Box<dyn std::error::Error>> {
                 if matches!(k, DrawableKind::Arrow(_)) {
                     d.line_reflection([0.0, 0.0], [1.0, 0.0]);
                 }
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
+    }
+
+    return Ok(());
+}
+
+fn quadruple_layer_tooth_coil_winding() -> Result<(), Box<dyn std::error::Error>> {
+    let zone_config = ZoneDrawablesConfig {
+        background_color: ZoneBackgroundColor::Phase,
+        center_config: ZoneCenterConfig::AmpereTurns(14.0),
+        show_empty_zones: true,
+    };
+
+    let wdg1: QuadrupleLayerToothCoilWinding = QuadrupleLayerToothCoilMinimalBuilder {
+        slots: 9.try_into()?,
+        pole_pairs: 4.try_into()?,
+        phases: 3.try_into()?,
+        winding_table_constructor: WindingTableConstructor::Tingley,
+        turns_per_slot_side: 10.try_into()?,
+        turns_upper_layer_coils: vec![],
+    }
+    .try_into()
+    .unwrap();
+
+    let wdg2: QuadrupleLayerToothCoilWinding = QuadrupleLayerToothCoilMinimalBuilder {
+        slots: 9.try_into()?,
+        pole_pairs: 4.try_into()?,
+        phases: 3.try_into()?,
+        winding_table_constructor: WindingTableConstructor::Tingley,
+        turns_per_slot_side: 10.try_into()?,
+        turns_upper_layer_coils: vec![4.try_into()?],
+    }
+    .try_into()
+    .unwrap();
+
+    let wdg3: QuadrupleLayerToothCoilWinding = QuadrupleLayerToothCoilMinimalBuilder {
+        slots: 9.try_into()?,
+        pole_pairs: 4.try_into()?,
+        phases: 3.try_into()?,
+        winding_table_constructor: WindingTableConstructor::Tingley,
+        turns_per_slot_side: 10.try_into()?,
+        turns_upper_layer_coils: vec![4.try_into()?, 3.try_into()?],
+    }
+    .try_into()
+    .unwrap();
+
+    for (idx, winding) in [wdg1, wdg2, wdg3].into_iter().enumerate() {
+        let core = LinCore::from_winding(&winding);
+        let mut core_drawable: Drawable = core.drawable().into();
+        core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
+
+        let side_length = SideLength::Long(600);
+
+        let drawables = winding
+            .zone_drawables(core.as_core_ref(), &zone_config)
+            .map(|(mut z, _)| {
+                z.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                z
+            });
+
+        let bb = core.shape().bounding_box();
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.002 * w,
+            bb.xmax() + 0.002 * w,
+            -bb.ymax() - 0.01 * h,
+            -bb.ymin() + 0.01 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!(
+            "docs/img/table_quadruple_layer_tooth_coil_winding_{idx}.svg"
+        ));
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+
+            core_drawable.draw(cr)?;
+
+            for d in drawables {
                 d.draw(cr)?;
             }
 

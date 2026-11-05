@@ -428,7 +428,7 @@ mod stem_core_tests {
             end_winding_leakage_coefficient: 0.25,
             wire: Box::new(wire.clone()),
             concentric_coils: false,
-            mean_end_winding_half_turn_length: None,
+            end_winding_half_turn_length_override: None,
         }
         .try_into()
         .unwrap();

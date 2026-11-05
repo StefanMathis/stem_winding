@@ -273,7 +273,7 @@ fn test_set_concentric() {
         wire: Box::new(SffWire::default()),
         concentric_coils: true,
         winding_table_constructor: WindingTableConstructor::Tingley,
-        mean_end_winding_half_turn_length: None,
+        end_winding_half_turn_length_override: None,
     }
     .try_into()
     .unwrap();
@@ -292,7 +292,7 @@ fn test_set_concentric() {
         wire: Box::new(SffWire::default()),
         concentric_coils: false,
         winding_table_constructor: WindingTableConstructor::Tingley,
-        mean_end_winding_half_turn_length: None,
+        end_winding_half_turn_length_override: None,
     }
     .try_into()
     .unwrap();
@@ -451,7 +451,7 @@ fn test_coil_span() {
             wire: Box::new(SffWire::default()),
             concentric_coils: true,
             winding_table_constructor: WindingTableConstructor::Tingley,
-            mean_end_winding_half_turn_length: None,
+            end_winding_half_turn_length_override: None,
         }
         .try_into()
         .unwrap();
@@ -485,7 +485,7 @@ fn test_coil_span() {
             wire: Box::new(SffWire::default()),
             concentric_coils: true,
             winding_table_constructor: WindingTableConstructor::Tingley,
-            mean_end_winding_half_turn_length: None,
+            end_winding_half_turn_length_override: None,
         }
         .try_into()
         .unwrap();
@@ -668,7 +668,7 @@ fn test_failed_creation() {
             wire: Box::new(SffWire::default()),
             concentric_coils: false,
             winding_table_constructor: WindingTableConstructor::Tingley,
-            mean_end_winding_half_turn_length: None,
+            end_winding_half_turn_length_override: None,
         })
         .is_err()
     );
@@ -931,7 +931,7 @@ fn test_series_turns_per_phase() {
         wire: Box::new(SffWire::default()),
         concentric_coils: false,
         winding_table_constructor: WindingTableConstructor::Tingley,
-        mean_end_winding_half_turn_length: None,
+        end_winding_half_turn_length_override: None,
     }
     .try_into()
     .unwrap();
@@ -953,7 +953,7 @@ fn test_series_turns_per_phase() {
         wire: Box::new(SffWire::default()),
         concentric_coils: false,
         winding_table_constructor: WindingTableConstructor::Tingley,
-        mean_end_winding_half_turn_length: None,
+        end_winding_half_turn_length_override: None,
     }
     .try_into()
     .unwrap();
@@ -978,7 +978,7 @@ fn test_doubled_zone_span() {
             wire: Box::new(SffWire::default()),
             winding_table_constructor: WindingTableConstructor::Tingley,
             concentric_coils: false,
-            mean_end_winding_half_turn_length: None,
+            end_winding_half_turn_length_override: None,
         })
         .is_err()
     );
@@ -995,7 +995,7 @@ fn test_doubled_zone_span() {
         wire: Box::new(SffWire::default()),
         winding_table_constructor: WindingTableConstructor::Tingley,
         concentric_coils: false,
-        mean_end_winding_half_turn_length: None,
+        end_winding_half_turn_length_override: None,
     })
     .unwrap();
 
@@ -1156,7 +1156,7 @@ fn test_normalized_induction_amp() {
             wire: Box::new(SffWire::default()),
             concentric_coils: false,
             winding_table_constructor: WindingTableConstructor::Tingley,
-            mean_end_winding_half_turn_length: None,
+            end_winding_half_turn_length_override: None,
         })
         .unwrap();
 
@@ -1592,7 +1592,7 @@ mod stem_core_tests {
             end_winding_leakage_coefficient: 0.25,
             wire: Box::new(wire.clone()),
             concentric_coils: false,
-            mean_end_winding_half_turn_length: None,
+            end_winding_half_turn_length_override: None,
         }
         .try_into()
         .unwrap();
@@ -1719,7 +1719,7 @@ mod stem_core_tests {
         );
 
         winding
-            .set_mean_end_winding_half_turn_length(Some(Length::new::<millimeter>(157.57)))
+            .set_end_winding_half_turn_length_override(Some(Length::new::<millimeter>(157.57)))
             .unwrap();
 
         assert_abs_diff_eq!(
@@ -1827,7 +1827,7 @@ mod stem_core_tests {
             end_winding_leakage_coefficient: 0.25,
             wire: Box::new(wire.clone()),
             concentric_coils: false,
-            mean_end_winding_half_turn_length: None,
+            end_winding_half_turn_length_override: None,
         }
         .try_into()
         .unwrap();
@@ -1915,7 +1915,7 @@ mod stem_core_tests {
             end_winding_leakage_coefficient: 0.25,
             wire: Box::new(wire.clone()),
             concentric_coils: false,
-            mean_end_winding_half_turn_length: None,
+            end_winding_half_turn_length_override: None,
         }
         .try_into()
         .unwrap();
@@ -1978,7 +1978,7 @@ mod stem_core_tests {
             end_winding_leakage_coefficient: 0.25,
             wire: Box::new(wire.clone()),
             concentric_coils: false,
-            mean_end_winding_half_turn_length: None,
+            end_winding_half_turn_length_override: None,
         }
         .try_into()
         .unwrap();
@@ -2040,7 +2040,7 @@ mod stem_core_tests {
                 end_winding_leakage_coefficient: 0.25,
                 wire: Box::new(wire.clone()),
                 concentric_coils: false,
-                mean_end_winding_half_turn_length: None,
+                end_winding_half_turn_length_override: None,
             }
             .try_into()
             .unwrap()

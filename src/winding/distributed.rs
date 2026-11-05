@@ -117,7 +117,7 @@ end winding half turn length. For a [`RotCore`],
 [`end_winding_half_turn_length_circular_arc`] is employed instead (both only
 available if the `stem_core` feature is enabled). These approximations can be
 overridden by providing the value directly, see
-[`DistributedWinding::set_mean_end_winding_half_turn_length`]
+[`DistributedWinding::set_end_winding_half_turn_length_override`]
 - Its end winding leakage inductance is calculated with the
 [`end_winding_leakage_inductance_distributed`] function (only available if the
 `stem_core` feature is enabled).
@@ -216,7 +216,7 @@ pub struct DistributedWinding {
     coils: Coils,
     winding_table_constructor: WindingTableConstructor,
     concentric_coils: bool,
-    mean_end_winding_half_turn_length: Option<Length>,
+    end_winding_half_turn_length_override: Option<Length>,
 }
 
 impl DistributedWinding {
@@ -750,7 +750,8 @@ impl DistributedWinding {
         self.end_winding_leakage_coefficient
     }
 
-    /// Returns the mean end-winding half-turn length, if one was provided.
+    /// Returns the override for the end-winding half-turn length, if one was
+    /// provided.
     ///
     /// If this value is `Some`, [`DistributedWinding`] uses it for calculations
     /// such as [`Winding::resistance`] instead of calculating the length.
@@ -759,8 +760,8 @@ impl DistributedWinding {
     /// [`end_winding_half_turn_length_circular_arc`] for a rotary core.
     /// Providing a value is useful when the length is known from
     /// measurements or more precise models.
-    pub fn mean_end_winding_half_turn_length(&self) -> Option<Length> {
-        self.mean_end_winding_half_turn_length
+    pub fn end_winding_half_turn_length_override(&self) -> Option<Length> {
+        self.end_winding_half_turn_length_override
     }
 
     /// Sets the mean end-winding half-turn length.
@@ -768,17 +769,17 @@ impl DistributedWinding {
     /// The value must be non-negative. If a negative length is provided, the
     /// method returns an error and leaves the existing value unchanged. Passing
     /// `None` clears the value, so the length is calculated on demand. See
-    /// [`DistributedWinding::mean_end_winding_half_turn_length`] for details on
-    /// how the value is used.
-    pub fn set_mean_end_winding_half_turn_length(
+    /// [`DistributedWinding::end_winding_half_turn_length_override`] for
+    /// details on how the value is used.
+    pub fn set_end_winding_half_turn_length_override(
         &mut self,
-        mean_end_winding_half_turn_length: Option<Length>,
+        end_winding_half_turn_length_override: Option<Length>,
     ) -> Result<(), Comparison<Length>> {
-        if let Some(mean_end_winding_half_turn_length) = mean_end_winding_half_turn_length {
+        if let Some(end_winding_half_turn_length_override) = end_winding_half_turn_length_override {
             let zero_length = Length::new::<meter>(0.0);
-            compare_variables!(mean_end_winding_half_turn_length >= zero_length)?;
+            compare_variables!(end_winding_half_turn_length_override >= zero_length)?;
         }
-        self.mean_end_winding_half_turn_length = mean_end_winding_half_turn_length;
+        self.end_winding_half_turn_length_override = end_winding_half_turn_length_override;
         Ok(())
     }
 
@@ -1197,7 +1198,7 @@ impl Winding for DistributedWinding {
 
     #[cfg(feature = "stem_core")]
     fn end_winding_half_turn_length(&self, core: CoreRef<'_>, zone: Zone) -> Length {
-        self.mean_end_winding_half_turn_length
+        self.end_winding_half_turn_length_override
             .unwrap_or_else(|| match core {
                 CoreRef::Lin(lin_core) => {
                     end_winding_half_turn_length_straight(self, lin_core, zone)
@@ -1295,11 +1296,11 @@ pub struct DistributedBuilder {
         serde(deserialize_with = "deserialize_opt_quantity")
     )]
     /// An override for the end winding half-turn length, see
-    /// [`DistributedWinding::mean_end_winding_half_turn_length`]. If provided,
-    /// this value must not be negative (`mean_end_winding_half_turn_length >= 0
-    /// m`).
+    /// [`DistributedWinding::end_winding_half_turn_length_override`]. If
+    /// provided, this value must not be negative
+    /// (`end_winding_half_turn_length_override >= 0 m`).
     #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_opt_quantity"))]
-    pub mean_end_winding_half_turn_length: Option<Length>,
+    pub end_winding_half_turn_length_override: Option<Length>,
 }
 
 impl From<DistributedWinding> for DistributedBuilder {
@@ -1318,7 +1319,7 @@ impl From<DistributedWinding> for DistributedBuilder {
             connection: winding.connection,
             end_winding_leakage_coefficient: winding.end_winding_leakage_coefficient,
             wire: winding.wire,
-            mean_end_winding_half_turn_length: winding.mean_end_winding_half_turn_length,
+            end_winding_half_turn_length_override: winding.end_winding_half_turn_length_override,
         }
     }
 }
@@ -1389,9 +1390,11 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
             coils: Coils::with_capacity(num_zones, num_coils),
             winding_table_constructor: builder.winding_table_constructor,
             concentric_coils: builder.concentric_coils,
-            mean_end_winding_half_turn_length: None,
+            end_winding_half_turn_length_override: None,
         };
-        winding.set_mean_end_winding_half_turn_length(builder.mean_end_winding_half_turn_length)?;
+        winding.set_end_winding_half_turn_length_override(
+            builder.end_winding_half_turn_length_override,
+        )?;
         winding.create_coils(&winding_table)?;
 
         if winding.equal_winding_factors() {
@@ -1459,7 +1462,7 @@ let builder = DistributedDoubleZoneSpanBuilder {
     end_winding_leakage_coefficient: 0.0,
     wire: Box::new(SffWire::default()),
     concentric_coils: false,
-    mean_end_winding_half_turn_length: None
+    end_winding_half_turn_length_override: None
 };
 
 let winding = DistributedWinding::new(builder).expect("all invariants upheld");
@@ -1545,11 +1548,11 @@ pub struct DistributedDoubleZoneSpanBuilder {
         serde(deserialize_with = "deserialize_opt_quantity")
     )]
     /// An override for the end winding half-turn length, see
-    /// [`DistributedWinding::mean_end_winding_half_turn_length`]. If provided,
-    /// this value must not be negative (`mean_end_winding_half_turn_length >= 0
-    /// m`).
+    /// [`DistributedWinding::end_winding_half_turn_length_override`]. If
+    /// provided, this value must not be negative
+    /// (`end_winding_half_turn_length_override >= 0 m`).
     #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_opt_quantity"))]
-    pub mean_end_winding_half_turn_length: Option<Length>,
+    pub end_winding_half_turn_length_override: Option<Length>,
 }
 
 impl TryFrom<DistributedDoubleZoneSpanBuilder> for DistributedWinding {
@@ -1580,7 +1583,7 @@ impl TryFrom<DistributedDoubleZoneSpanBuilder> for DistributedWinding {
             end_winding_leakage_coefficient: builder.end_winding_leakage_coefficient,
             wire: builder.wire,
             concentric_coils: builder.concentric_coils,
-            mean_end_winding_half_turn_length: builder.mean_end_winding_half_turn_length,
+            end_winding_half_turn_length_override: builder.end_winding_half_turn_length_override,
         }
         .try_into()
     }
@@ -1648,7 +1651,7 @@ impl TryFrom<DistributedMinimalBuilder> for DistributedWinding {
             end_winding_leakage_coefficient: 0.0,
             wire: Box::new(SffWire::default()),
             concentric_coils: false,
-            mean_end_winding_half_turn_length: None,
+            end_winding_half_turn_length_override: None,
         }
         .try_into();
     }
