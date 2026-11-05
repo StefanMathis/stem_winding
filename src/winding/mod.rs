@@ -126,7 +126,7 @@ as [`DistributedWinding`].
   implementation relies on comparing a couple of physical properties such as
   the [`Winding::resistance`] or the [`Winding::main_inductance`]. If the
   implementor of [`Winding`] is known to be symmetric, this function should be
-  overriden for performance reasons.
+  overridden for performance reasons.
  */
 #[cfg_attr(feature = "serde", typetag::serde)]
 pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 'static {
@@ -168,7 +168,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     fn as_dyn(&self) -> &dyn Winding;
 
     // =========================================================================
-    // These functions are likely to be overriden.
+    // These functions are likely to be overridden.
 
     /// Returns the number of base windings contained in the winding.
     ///
@@ -495,7 +495,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     }
 
     // =========================================================================
-    // These functions usually don't need to be overriden.
+    // These functions usually don't need to be overridden.
 
     /// Return the number of turns at the given [`Zone`].
     ///
@@ -563,7 +563,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
         }
     }
 
-    // Returns the number of [`Coil`]s in the winding.
+    /// Returns the number of [`Coil`]s in the winding.
     fn num_coils(&self) -> usize {
         self.coils_iter().count()
     }

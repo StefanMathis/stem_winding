@@ -167,9 +167,19 @@ impl<W: Winding> FromWinding<W> for LinCore {
         .expect("valid geometric data");
     }
 }
+
+/// An iterator over the [`CoilProperties`] of all coils.
+///
+/// This iterator is created from [`Winding::coil_properties_iter`], see its
+/// documentation for details.
 pub struct CoilPropertyIterator<'a> {
+    /// Iterator over the individual coils of [`CoilPropertyIterator::winding`].
     pub coils: crate::winding::CoilsIterator<'a>,
+    /// The winding used to create this iterator (see
+    /// [`Winding::coil_properties_iter`]).
     pub winding: &'a dyn Winding,
+    /// The core used to create this iterator (see
+    /// [`Winding::coil_properties_iter`]).
     pub core: CoreRef<'a>,
 }
 

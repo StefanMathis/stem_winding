@@ -677,9 +677,8 @@ impl Winding for SquirrelCageWinding {
     /// The [`SquirrelCageWinding`] overrides the default implementation of
     /// [`Winding::end_winding_half_turn_length`]:
     /// - [`LinCore::width`] / [`Winding::slots`] for a [`LinCore`]
-    /// - `π * (ri + ra) / N` where `ri` is
-    ///   [`SquirrelCageWinding::inner_end_ring_radius`], `ra` is
-    ///   [`SquirrelCageWinding::end_ring_radii`] and `N` is [`Winding::slots`].
+    /// - `π * (ri + ra) / N` where `ri` and `ra` are created via
+    ///   [`end_ring_radii`] and `N` is [`Winding::slots`].
     ///   [\[1\]](#end_winding_half_turn_length_1), eq. (3.70)
     ///
     /// # Literature

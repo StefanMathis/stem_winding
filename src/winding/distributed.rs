@@ -116,7 +116,7 @@ coil arrangement for a double-layer winding.
 end winding half turn length. For a [`RotCore`],
 [`end_winding_half_turn_length_circular_arc`] is employed instead (both only
 available if the `stem_core` feature is enabled). These approximations can be
-overriden by providing the value directly, see
+overridden by providing the value directly, see
 [`DistributedWinding::set_mean_end_winding_half_turn_length`]
 - Its end winding leakage inductance is calculated with the
 [`end_winding_leakage_inductance_distributed`] function (only available if the
@@ -1251,7 +1251,7 @@ pub struct DistributedBuilder {
     /// fails, the winding cannot be created.
     pub winding_table_constructor: WindingTableConstructor,
     /// Number of turns for each coil. Corresponds to
-    /// [`CoilExt::turns`](crate::coils::CoilExt::turns).
+    /// [`CoilExt::turns`].
     pub turns_per_coil: NonZeroUsize,
     /// Number of parallel paths. This value must be a divisor of the maximum
     /// number of parallel paths returned by
@@ -1295,7 +1295,7 @@ pub struct DistributedBuilder {
         serde(deserialize_with = "deserialize_opt_quantity")
     )]
     /// An override for the end winding half-turn length, see
-    /// [`ToothCoilWinding::mean_end_winding_half_turn_length`]. If provided,
+    /// [`DistributedWinding::mean_end_winding_half_turn_length`]. If provided,
     /// this value must not be negative (`mean_end_winding_half_turn_length >= 0
     /// m`).
     #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_opt_quantity"))]
@@ -1494,7 +1494,7 @@ pub struct DistributedDoubleZoneSpanBuilder {
     /// single-layer winding.
     pub coil_throw_reduction: i32,
     /// Number of turns for each coil. Corresponds to
-    /// [`CoilExt::turns`](crate::coils::CoilExt::turns).
+    /// [`CoilExt::turns`].
     pub turns_per_coil: NonZeroUsize,
     /// Number of parallel paths. This value must be a divisor of the maximum
     /// number of parallel paths returned by
@@ -1545,7 +1545,7 @@ pub struct DistributedDoubleZoneSpanBuilder {
         serde(deserialize_with = "deserialize_opt_quantity")
     )]
     /// An override for the end winding half-turn length, see
-    /// [`ToothCoilWinding::mean_end_winding_half_turn_length`]. If provided,
+    /// [`DistributedWinding::mean_end_winding_half_turn_length`]. If provided,
     /// this value must not be negative (`mean_end_winding_half_turn_length >= 0
     /// m`).
     #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_opt_quantity"))]

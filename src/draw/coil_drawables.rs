@@ -421,7 +421,7 @@ impl CoilDrawablesConfig {
     /// ... inf] interval.
     ///
     /// This value is used throughout [`CoilDrawables`] and the methods of
-    /// [`CoilDrawablesConfig`] to ensure sane behaviour even for negative
+    /// [`CoilDrawablesConfig`] to ensure sane behavior even for negative
     /// inputs.
     pub fn arrowhead_length_clamped(&self) -> f64 {
         self.arrowhead_length.clamp(0.0, INFINITY)
@@ -431,7 +431,7 @@ impl CoilDrawablesConfig {
     /// ... inf] interval.
     ///
     /// This value is used throughout [`CoilDrawables`] and the methods of
-    /// [`CoilDrawablesConfig`] to ensure sane behaviour even for negative
+    /// [`CoilDrawablesConfig`] to ensure sane behavior even for negative
     /// inputs.
     pub fn arrow_head_height_clamped(&self) -> f64 {
         self.arrow_head_height.clamp(0.0, INFINITY)
@@ -441,7 +441,7 @@ impl CoilDrawablesConfig {
     /// inf] interval.
     ///
     /// This value is used throughout [`CoilDrawables`] and the methods of
-    /// [`CoilDrawablesConfig`] to ensure sane behaviour even for negative
+    /// [`CoilDrawablesConfig`] to ensure sane behavior even for negative
     /// inputs.
     pub fn line_width_clamped(&self) -> f64 {
         self.line_width.clamp(0.0, INFINITY)
@@ -451,7 +451,7 @@ impl CoilDrawablesConfig {
     /// inf] interval.
     ///
     /// This value is used throughout [`CoilDrawables`] and the methods of
-    /// [`CoilDrawablesConfig`] to ensure sane behaviour even for negative
+    /// [`CoilDrawablesConfig`] to ensure sane behavior even for negative
     /// inputs.
     pub fn slot_width_clamped(&self) -> f64 {
         self.slot_width.clamp(0.0, INFINITY)
@@ -461,7 +461,7 @@ impl CoilDrawablesConfig {
     /// inf] interval.
     ///
     /// This value is used throughout [`CoilDrawables`] and the methods of
-    /// [`CoilDrawablesConfig`] to ensure sane behaviour even for negative
+    /// [`CoilDrawablesConfig`] to ensure sane behavior even for negative
     /// inputs.
     pub fn tooth_width_clamped(&self) -> f64 {
         self.tooth_width.clamp(0.0, INFINITY)
@@ -471,7 +471,7 @@ impl CoilDrawablesConfig {
     /// inf] interval.
     ///
     /// This value is used throughout [`CoilDrawables`] and the methods of
-    /// [`CoilDrawablesConfig`] to ensure sane behaviour even for negative
+    /// [`CoilDrawablesConfig`] to ensure sane behavior even for negative
     /// inputs.
     pub fn axial_length_clamped(&self) -> f64 {
         self.axial_length.clamp(0.0, INFINITY)
@@ -481,7 +481,7 @@ impl CoilDrawablesConfig {
     /// [0 ... inf] interval.
     ///
     /// This value is used throughout [`CoilDrawables`] and the methods of
-    /// [`CoilDrawablesConfig`] to ensure sane behaviour even for negative
+    /// [`CoilDrawablesConfig`] to ensure sane behavior even for negative
     /// inputs.
     pub fn axial_coil_overhang_clamped(&self) -> f64 {
         self.axial_coil_overhang.clamp(0.0, INFINITY)
@@ -491,7 +491,7 @@ impl CoilDrawablesConfig {
     /// ... 1] interval.
     ///
     /// This value is used throughout [`CoilDrawables`] and the methods of
-    /// [`CoilDrawablesConfig`] to ensure sane behaviour even for negative
+    /// [`CoilDrawablesConfig`] to ensure sane behavior even for negative
     /// inputs.
     pub fn delta_empty_zone_clamped(&self) -> f64 {
         self.delta_empty_zone.clamp(0.0, INFINITY)

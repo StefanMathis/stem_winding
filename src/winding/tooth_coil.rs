@@ -103,7 +103,7 @@ coil arrangement for a double-layer winding.
 /**
 - Its end winding turn length is approximated as a semicircle via the
 [`end_winding_half_turn_length_semicircle`] function (only available if the
-`stem_core` feature is enabled). This approximation can be overriden by
+`stem_core` feature is enabled). This approximation can be overridden by
 providing the value directly, see
 [`ToothCoilWinding::set_mean_end_winding_half_turn_length`].
 - Its end winding leakage inductance is calculated with the
@@ -542,7 +542,7 @@ pub struct ToothCoilBuilder {
     /// be created.
     pub winding_table_constructor: WindingTableConstructor,
     /// Number of turns for each coil. Corresponds to
-    /// [`CoilExt::turns`](crate::coils::CoilExt::turns).
+    /// [`CoilExt::turns`].
     pub turns_per_coil: NonZeroUsize,
     /// Number of parallel paths. This value must be a divisor of the maximum
     /// number of parallel paths returned by

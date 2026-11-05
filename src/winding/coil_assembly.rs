@@ -1,3 +1,11 @@
+//! Provides the [`CoilAssembly`] winding type and the support structs
+//! [`CoilAssemblyBuilder`] and [`PhaseData`].
+//!
+//! This is a special winding type which is essentially just a collection of
+//! connected coils. This allows the construction of arbitrary windings; for
+//! example it can be used to investigate the effect of asymmetries. See the
+//! [`CoilAssembly`] documentation for more.
+
 use std::{collections::HashMap, num::NonZeroU16};
 
 #[cfg(feature = "serde")]
@@ -20,8 +28,8 @@ use crate::{
 /// determining phase-specific data. For example, when retrieving the number
 /// of [`parallel_paths`](Winding::parallel_paths) for the nth phase,
 /// [`CoilAssembly`] returns [`PhaseData::parallel_paths`] for the (n-1)th item
-/// of the vector (phase 1 returns the value of vector[0], phase 2 that of
-/// vector[1] and so on). See [`CoilAssembly::phase_data`] for details. It is
+/// of the vector (phase 1 returns the value of vector/[0/], phase 2 that of
+/// vector/[1/] and so on). See [`CoilAssembly::phase_data`] for details. It is
 /// also possible to modify the phase data of an existing [`CoilAssembly`] using
 /// [`CoilAssembly::phase_data_mut`].
 ///
@@ -42,23 +50,23 @@ pub struct PhaseData {
     /// An override for the [`Winding::end_winding_leakage_inductance`]. If this
     /// value is not given, the default implementation of the trait method is
     /// used instead.
-    pub end_winding_leakage_inductance: Option<VarQuantity<Inductance>>,
+    pub end_winding_leakage_inductance_override: Option<VarQuantity<Inductance>>,
     /// An override for the [`Winding::slot_leakage_inductance`]. If this value
     /// is not given, the default implementation of the trait method is used
     /// instead.
-    pub slot_leakage_inductance: Option<VarQuantity<Inductance>>,
+    pub slot_leakage_inductance_override: Option<VarQuantity<Inductance>>,
     /// An override for the [`Winding::resistance`]. If this value is not given,
     /// the default implementation of the trait method is used instead.
-    pub resistance: Option<VarQuantity<ElectricalResistance>>,
+    pub resistance_override: Option<VarQuantity<ElectricalResistance>>,
 }
 
 impl Default for PhaseData {
     fn default() -> Self {
         Self {
             parallel_paths: NonZeroU16::MIN,
-            resistance: Default::default(),
-            slot_leakage_inductance: Default::default(),
-            end_winding_leakage_inductance: Default::default(),
+            resistance_override: Default::default(),
+            slot_leakage_inductance_override: Default::default(),
+            end_winding_leakage_inductance_override: Default::default(),
         }
     }
 }
@@ -281,11 +289,12 @@ impl CoilAssembly {
     /// the overrides using the methods of `winding` together with the `core`:
     /// - [`end_winding_half_turn_length_overrides`](CoilAssembly::end_winding_half_turn_length_overrides)
     ///   zone by zone from [`Winding::end_winding_half_turn_length`].
-    /// - [`PhaseData::end_winding_leakage_inductance`] phase by phase from
-    ///   [`Winding::end_winding_leakage_inductance`].
-    /// - [`PhaseData::slot_leakage_inductance`] phase by phase from
+    /// - [`PhaseData::end_winding_leakage_inductance_override`] phase by phase
+    ///   from [`Winding::end_winding_leakage_inductance`].
+    /// - [`PhaseData::slot_leakage_inductance_override`] phase by phase from
     ///   [`Winding::slot_leakage_inductance`].
-    /// - [`PhaseData::resistance`] phase by phase from [`Winding::resistance`].
+    /// - [`PhaseData::resistance_override`] phase by phase from
+    ///   [`Winding::resistance`].
     ///
     /// The other two arguments `spatial_order` and `effective_air_gap` are used
     /// as inputs to the trait method. The resulting coil assembly returns the
@@ -395,13 +404,13 @@ impl CoilAssembly {
             let phase = NonZeroU16::new(idx + 1).expect("not zero");
             let phase_data = &mut coil_assembly.phase_data[usize::from(idx)];
 
-            phase_data.end_winding_leakage_inductance =
+            phase_data.end_winding_leakage_inductance_override =
                 Some(winding.end_winding_leakage_inductance(core, phase, spatial_order));
 
-            phase_data.slot_leakage_inductance =
+            phase_data.slot_leakage_inductance_override =
                 Some(winding.slot_leakage_inductance(core, phase, effective_air_gap));
 
-            phase_data.resistance = Some(winding.resistance(core, phase));
+            phase_data.resistance_override = Some(winding.resistance(core, phase));
         }
         coil_assembly
     }
@@ -423,7 +432,7 @@ impl CoilAssembly {
     ///
     /// This method can be used to add, change or remove overrides from the
     /// [`CoilAssembly::end_winding_half_turn_length_overrides`] map. Negative
-    /// values are treated as non-existant when reading values from this map
+    /// values are treated as non-existent when reading values from this map
     /// within [`CoilAssembly::end_winding_half_turn_length`].
     pub fn end_winding_half_turn_length_overrides_mut(&mut self) -> &mut HashMap<Zone, Length> {
         &mut self.end_winding_half_turn_length_overrides
@@ -435,7 +444,7 @@ impl CoilAssembly {
     /// [`parallel_paths`](Winding::parallel_paths) for each phase of the
     /// assembly. Additionally, it provides the opportunity to override certain
     /// physical properties such as the phase resistance. This can be useful to
-    /// create a [`CoilAssembly`] which imitates the behaviour of the winding it
+    /// create a [`CoilAssembly`] which imitates the behavior of the winding it
     /// has been derived from, see [`CoilAssembly::from_winding_and_core`] for
     /// an example (only available with the `stem_core` feature enables).
     ///
@@ -453,11 +462,11 @@ impl CoilAssembly {
     ///
     /// let phase_data = vec![
     ///     PhaseData {
-    ///         resistance: Some(ElectricalResistance::new::<ohm>(1.0).into()),
+    ///         resistance_override: Some(ElectricalResistance::new::<ohm>(1.0).into()),
     ///         ..Default::default()
     ///     },
     ///     PhaseData {
-    ///         resistance: Some(ElectricalResistance::new::<ohm>(2.0).into()),
+    ///         resistance_override: Some(ElectricalResistance::new::<ohm>(2.0).into()),
     ///         ..Default::default()
     ///     },
     ///     PhaseData::default()
@@ -525,9 +534,9 @@ impl CoilAssembly {
     /// ).expect("valid");
     ///
     /// // Set the resistance of phase 1 and 2 to 1 Ohm and that of phase 3 to 1.5 Ohm
-    /// winding.phase_data_mut()[0].resistance = Some(ElectricalResistance::new::<ohm>(1.0).into());
-    /// winding.phase_data_mut()[1].resistance = Some(ElectricalResistance::new::<ohm>(1.0).into());
-    /// winding.phase_data_mut()[2].resistance = Some(ElectricalResistance::new::<ohm>(1.5).into());
+    /// winding.phase_data_mut()[0].resistance_override = Some(ElectricalResistance::new::<ohm>(1.0).into());
+    /// winding.phase_data_mut()[1].resistance_override = Some(ElectricalResistance::new::<ohm>(1.0).into());
+    /// winding.phase_data_mut()[2].resistance_override = Some(ElectricalResistance::new::<ohm>(1.5).into());
     ///
     /// let core = RotCore::from_winding(&winding);
     /// assert_eq!(
@@ -547,7 +556,85 @@ impl CoilAssembly {
         &mut self.phase_data
     }
 
-    // Try to insert a coil
+    /// Inserts a new coil into `self`.
+    ///
+    /// A coil can be inserted if the following conditions hold true:
+    /// - Its [`phase`](CoilExt::phase) is not larger than the number of
+    ///   [`Winding::phases`].
+    /// - All of its [`zones`](Coil::zones) must be part of the winding table.
+    ///   In other words, the [`slot`](Zone::slot) of each zone must be smaller
+    ///   than [`Winding::slots`] and the [`layer`](Zone::layer) of each zone
+    ///   must be smaller than [`Winding::layers`].
+    /// - None of its zones must already be occupied by another coil, see also
+    ///   [`Coils::insert`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stem_winding::prelude::*;
+    ///
+    /// let mut winding = CoilAssembly::new(
+    ///     CoilAssemblyBuilder {
+    ///         slots: 6.try_into().expect("not zero"),
+    ///         pole_pairs: 1.try_into().expect("not zero"),
+    ///         coil_layout: CoilLayout::DoubleVertical,
+    ///         coils: Default::default(),
+    ///         phase_data: vec![Default::default(); 3],
+    ///         connection: Connection::Star,
+    ///         end_winding_half_turn_length_overrides: Default::default(),
+    ///     }
+    /// ).expect("valid");
+    /// assert_eq!(winding.num_coils(), 0);
+    ///
+    /// // Successful insertion
+    /// let coil = FullCoil::new(
+    ///     Zone { slot: 0, layer: 0 },
+    ///     Zone { slot: 3, layer: 1 },
+    ///     true,
+    ///     10.try_into().expect("not zero"), // Number of turns
+    ///     1.try_into().expect("not zero"), // Phase
+    ///     Box::new(SffWire::default()),
+    /// )
+    /// .unwrap();
+    /// winding.insert(coil).expect("all insertion conditions fulfilled");
+    /// assert_eq!(winding.num_coils(), 1);
+    ///
+    /// // Failed insertion: One zone is not part of the winding table
+    /// let coil = FullCoil::new(
+    ///     Zone { slot: 0, layer: 0 },
+    ///     Zone { slot: 6, layer: 1 }, // Winding only has 6 zones -> outside winding table
+    ///     true,
+    ///     10.try_into().expect("not zero"), // Number of turns
+    ///     1.try_into().expect("not zero"), // Phase
+    ///     Box::new(SffWire::default()),
+    /// )
+    /// .unwrap();
+    /// assert!(winding.insert(coil).is_err());
+    ///
+    /// // Failed insertion: Phase larger than total number of phases
+    /// let coil = FullCoil::new(
+    ///     Zone { slot: 0, layer: 0 },
+    ///     Zone { slot: 3, layer: 1 },
+    ///     true,
+    ///     10.try_into().expect("not zero"), // Number of turns
+    ///     4.try_into().expect("not zero"), // Phase
+    ///     Box::new(SffWire::default()),
+    /// )
+    /// .unwrap();
+    /// assert!(winding.insert(coil).is_err());
+    ///
+    /// // Failed insertion: Collision with other coil
+    /// let coil = FullCoil::new(
+    ///     Zone { slot: 0, layer: 0 }, // Already occupied by first coil.
+    ///     Zone { slot: 3, layer: 2 },
+    ///     true,
+    ///     10.try_into().expect("not zero"), // Number of turns
+    ///     4.try_into().expect("not zero"), // Phase
+    ///     Box::new(SffWire::default()),
+    /// )
+    /// .unwrap();
+    /// assert!(winding.insert(coil).is_err());
+    /// ```
     pub fn insert<C: Into<Coil>>(&mut self, coil: C) -> Result<(), Error> {
         let coil: Coil = coil.into();
 
@@ -565,21 +652,118 @@ impl CoilAssembly {
         return self.coils.insert(coil).map_err(Error::from);
     }
 
-    /// Try to remove the coil occupying the given zone
+    /// Removes the coil occupying the specified `zone` from the winding.
+    ///
+    /// If there is no coil at the given zone, this method returns None.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stem_winding::prelude::*;
+    ///
+    /// let mut winding = CoilAssembly::new(
+    ///     CoilAssemblyBuilder {
+    ///         slots: 6.try_into().expect("not zero"),
+    ///         pole_pairs: 1.try_into().expect("not zero"),
+    ///         coil_layout: CoilLayout::DoubleVertical,
+    ///         coils: Default::default(),
+    ///         phase_data: vec![Default::default(); 3],
+    ///         connection: Connection::Star,
+    ///         end_winding_half_turn_length_overrides: Default::default(),
+    ///     }
+    /// ).expect("valid");
+    /// let coil = FullCoil::new(
+    ///     Zone { slot: 0, layer: 0 },
+    ///     Zone { slot: 3, layer: 1 },
+    ///     true,
+    ///     10.try_into().expect("not zero"), // Number of turns
+    ///     1.try_into().expect("not zero"), // Phase
+    ///     Box::new(SffWire::default()),
+    /// )
+    /// .unwrap();
+    /// winding.insert(coil).expect("all insertion conditions fulfilled");
+    /// assert_eq!(winding.num_coils(), 1);
+    ///
+    /// // Try to remove a coil at an unoccupied zone
+    /// assert!(winding.remove(Zone::new(1, 1)).is_none());
+    /// assert_eq!(winding.num_coils(), 1);
+    ///
+    /// // Try to remove a coil at a zone which is not part of the winding table
+    /// assert!(winding.remove(Zone::new(7, 1)).is_none());
+    /// assert_eq!(winding.num_coils(), 1);
+    ///
+    /// // Successfully remove a coil
+    /// assert!(winding.remove(Zone::new(0, 0)).is_some());
+    /// assert_eq!(winding.num_coils(), 0);
     pub fn remove(&mut self, zone: Zone) -> Option<Coil> {
         return self.coils.remove(zone);
     }
 
-    /// Remove all coils from the coil assembly
+    /// Removes all coils from the assembly.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use stem_winding::prelude::*;
+    ///
+    /// let mut winding = CoilAssembly::new(
+    ///     CoilAssemblyBuilder {
+    ///         slots: 6.try_into().expect("not zero"),
+    ///         pole_pairs: 1.try_into().expect("not zero"),
+    ///         coil_layout: CoilLayout::DoubleVertical,
+    ///         coils: Default::default(),
+    ///         phase_data: vec![Default::default(); 3],
+    ///         connection: Connection::Star,
+    ///         end_winding_half_turn_length_overrides: Default::default(),
+    ///     }
+    /// ).expect("valid");
+    ///
+    /// let coil = FullCoil::new(
+    ///     Zone { slot: 0, layer: 0 },
+    ///     Zone { slot: 3, layer: 1 },
+    ///     true,
+    ///     10.try_into().expect("not zero"), // Number of turns
+    ///     1.try_into().expect("not zero"), // Phase
+    ///     Box::new(SffWire::default()),
+    /// )
+    /// .unwrap();
+    /// winding.insert(coil).expect("all insertion conditions fulfilled");
+    /// assert_eq!(winding.num_coils(), 1);
+    ///
+    /// let coil = FullCoil::new(
+    ///     Zone { slot: 1, layer: 0 },
+    ///     Zone { slot: 4, layer: 1 },
+    ///     true,
+    ///     10.try_into().expect("not zero"), // Number of turns
+    ///     1.try_into().expect("not zero"), // Phase
+    ///     Box::new(SffWire::default()),
+    /// )
+    /// .unwrap();
+    /// winding.insert(coil).expect("all insertion conditions fulfilled");
+    /// assert_eq!(winding.num_coils(), 2);
+    ///
+    /// winding.clear_coils();
+    /// assert_eq!(winding.num_coils(), 0);
+    /// ```
     pub fn clear_coils(&mut self) {
         self.coils.clear();
     }
 
-    pub fn set_pole_pairs(&mut self, pole_pairs: NonZeroU16) {
+    /// Sets a new number of pole pairs.
+    ///
+    /// Some winding types, like e.g. a
+    /// [`SquirrelCageWinding`](crate::winding::SquirrelCageWinding) can change
+    /// the number of pole pairs during operation (see e.g.
+    /// [`SquirrelCageWinding::set_pole_pairs`](crate::winding::SquirrelCageWinding::set_pole_pairs)).
+    /// This method allows the [`CoilAssembly`] to mimic that behavior.
+    pub fn set_pole_pairs(&mut self, pole_pairs: NonZeroU16) -> NonZeroU16 {
+        let old = self.pole_pairs;
         self.pole_pairs = pole_pairs;
+        return old;
     }
 
-    /// Like [`Winding::coil_at`], but returns a mutable reference to the coil.
+    /// Like [`Winding::coil_at`], but returns a mutable reference to the coil
+    /// occupying the given `zone`.
     pub fn coil_at_mut(&mut self, zone: Zone) -> Option<&mut Coil> {
         self.coils.get_mut(zone)
     }
@@ -674,7 +858,7 @@ impl Winding for CoilAssembly {
         if let Some(inductance) = self
             .phase_data()
             .get(usize::from(phase.get()) - 1)
-            .map(|data| data.end_winding_leakage_inductance.clone())
+            .map(|data| data.end_winding_leakage_inductance_override.clone())
             .flatten()
         {
             return inductance;
@@ -693,7 +877,7 @@ impl Winding for CoilAssembly {
         if let Some(inductance) = self
             .phase_data()
             .get(usize::from(phase.get()) - 1)
-            .map(|data| data.slot_leakage_inductance.clone())
+            .map(|data| data.slot_leakage_inductance_override.clone())
             .flatten()
         {
             return inductance;
@@ -711,7 +895,7 @@ impl Winding for CoilAssembly {
         if let Some(resistance) = self
             .phase_data()
             .get(usize::from(phase.get()) - 1)
-            .map(|data| data.resistance.clone())
+            .map(|data| data.resistance_override.clone())
             .flatten()
         {
             return resistance;
@@ -751,15 +935,46 @@ impl<W: Winding + ?Sized> From<&W> for CoilAssembly {
     }
 }
 
+/**
+A builder struct for a [`CoilAssembly`].
+
+This builder can be used to create a [`CoilAssembly`] via its
+[`new`](CoilAssembly::new) method or via its [`TryFrom`] implementation.
+Creating the winding fails if the conditions stated on the documentation of the
+individual fields are not fulfilled (for example, all
+[`coils`](CoilAssemblyBuilder::coils) must fulfill the conditions outlined by
+[`CoilAssembly::insert`]).
+ */
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CoilAssemblyBuilder {
+    /// Number of slots. Corresponds to [`Winding::slots`] in the final winding.
     pub slots: NonZeroU16,
+    /// Number of pole pairs. Corresponds to [`Winding::pole_pairs`] in the
+    /// final winding.
     pub pole_pairs: NonZeroU16,
+    /// Coil layout of the final winding. The total number of layers of the
+    /// final winding is determined by [`CoilLayout::layers`].
     pub coil_layout: CoilLayout,
+    /// A collection of [`Coil`]s which should be inserted at construction time
+    /// into the resulting [`CoilAssembly`]. Each coil must fulfill the
+    /// conditions outlined by [`CoilAssembly::insert`], otherwise the
+    /// construction fails.
     pub coils: Coils,
+    /// Phase-specific data such as the number of parallel turns per phase or
+    /// the phase-individual overrides of physical properties like the phase
+    /// [`resistance`](PhaseData::resistance_override). The length of this
+    /// vector corresponds to [`Winding::phases`] in the final winding.
     pub phase_data: Vec<PhaseData>,
+    /// Electrical connection of the individual phases.
     #[cfg_attr(feature = "serde", serde(default = "connection_default"))]
     pub connection: Connection,
+    /// Overrides for the
+    /// [`end_winding_half_turn_length`](Winding::end_winding_half_turn_length)
+    /// of individual coil zones. See
+    /// [`CoilAssembly::end_winding_half_turn_length_overrides`] for details.
+    /// Any negative values are simply treated as if there was no override given
+    /// and [`end_winding_half_turn_length`](Winding::end_winding_half_turn_length)
+    /// falls back to its default implementation.
     pub end_winding_half_turn_length_overrides: HashMap<Zone, Length>,
 }
 
@@ -802,17 +1017,6 @@ impl TryFrom<CoilAssemblyBuilder> for CoilAssembly {
         for coil in builder.coils.into_iter() {
             winding.insert(coil)?;
         }
-
-        // Verify the overrides
-        let zero_length = Length::new::<meter>(0.0);
-        for length in winding
-            .end_winding_half_turn_length_overrides()
-            .values()
-            .cloned()
-        {
-            compare_variables::compare_variables!(length >= zero_length)?;
-        }
-
         return Ok(winding);
     }
 }
