@@ -764,7 +764,7 @@ impl DistributedWinding {
         self.end_winding_half_turn_length_override
     }
 
-    /// Sets the mean end-winding half-turn length.
+    /// Sets the end-winding half-turn length override.
     ///
     /// The value must be non-negative. If a negative length is provided, the
     /// method returns an error and leaves the existing value unchanged. Passing

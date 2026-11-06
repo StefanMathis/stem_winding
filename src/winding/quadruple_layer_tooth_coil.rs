@@ -223,7 +223,53 @@ May/June 2015.
 
 # Examples
 
+The following example compares a 9-slot / 8-pole
+[`QuadrupleLayerToothCoilWinding`] without layer shifting with a double-shifted
+one. The non-shifted winding has the same winding factor as a double-layer
+winding with the 9-slot / 8-pole topology, whereas the shifted one has a
+significant reduction of the subharmonic's winding factor at the cost of
+reducing the fundamental winding factor by 5 %.
 
+```
+use std::num::NonZeroU16;
+
+use approxim::assert_abs_diff_eq;
+use stem_winding::prelude::*;
+
+let wdg_no_shift: QuadrupleLayerToothCoilWinding = QuadrupleLayerToothCoilMinimalBuilder {
+    slots: 9.try_into().expect("not zero"),
+    pole_pairs: 4.try_into().expect("not zero"),
+    phases: 3.try_into().expect("not zero"),
+    winding_table_constructor: WindingTableConstructor::Tingley,
+    turns_per_slot_side: 10.try_into().expect("not zero"),
+    turns_upper_layer_coils: vec![],
+}
+.try_into()
+.unwrap();
+
+let wdg_shifted: QuadrupleLayerToothCoilWinding = QuadrupleLayerToothCoilMinimalBuilder {
+    slots: 9.try_into().expect("not zero"),
+    pole_pairs: 4.try_into().expect("not zero"),
+    phases: 3.try_into().expect("not zero"),
+    winding_table_constructor: WindingTableConstructor::Tingley,
+    turns_per_slot_side: 10.try_into().expect("not zero"),
+    turns_upper_layer_coils: vec![7.try_into().expect("not zero"), 3.try_into().expect("not zero")],
+}
+.try_into()
+.unwrap();
+
+let ph = NonZeroU16::MIN;
+
+// Second subharmonic
+let order = SpatialOrder::Mechanical(2);
+assert_abs_diff_eq!(wdg_no_shift.winding_factor(ph, order), 0.139, epsilon = 1e-3);
+assert_abs_diff_eq!(wdg_shifted.winding_factor(ph, order), 0.041, epsilon = 1e-3);
+
+// Fundamental harmonic
+let order = SpatialOrder::Mechanical(4);
+assert_abs_diff_eq!(wdg_no_shift.winding_factor(ph, order), 0.945, epsilon = 1e-3);
+assert_abs_diff_eq!(wdg_shifted.winding_factor(ph, order), 0.911, epsilon = 1e-3);
+```
  */
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
@@ -245,6 +291,12 @@ pub struct QuadrupleLayerToothCoilWinding {
 }
 
 impl QuadrupleLayerToothCoilWinding {
+    /// Creates a new winding.
+    ///
+    /// This is a wrapper around `T::try_into`. The builder structs provided by
+    /// the module implement [`TryInto<QuadrupleLayerToothCoilWinding>`], see
+    /// their respective documentation for details on the failure modes. The
+    /// struct documentation has an usage example.
     pub fn new<W>(builder: W) -> Result<Self, Error>
     where
         W: TryInto<QuadrupleLayerToothCoilWinding>,
@@ -253,34 +305,191 @@ impl QuadrupleLayerToothCoilWinding {
         builder.try_into().map_err(Into::into)
     }
 
+    /// Returns the number of slots by which the upper layer is shifted against
+    /// the lower one.
+    ///
+    /// This value is equal to the length of
+    /// [`QuadrupleLayerToothCoilWinding::turns_upper_layer_coils`].
     pub fn upper_layer_shift(&self) -> usize {
         self.turns_upper_layer_coils.len()
     }
 
+    /// Returns the number of turns per slot side.
+    ///
+    /// This is the sum of the turns of two coils which are stacked on top of
+    /// each other. If both coils have the same phase, the partition of this
+    /// value onto both coils is arbitrary (in practice, half the turns are
+    /// assigned to one of the coils and half to the other). If the phase of
+    /// both coils differs, the partition is defined by
+    /// [`QuadrupleLayerToothCoilWinding::turns_upper_layer_coils`]. Since each
+    /// coil must have at least one turn, this number is 2 or larger.
+    ///
+    /// The total number of turns per slot is two times this value.
     pub fn turns_per_slot_side(&self) -> NonZeroUsize {
         self.turns_per_slot_side
     }
 
+    /// Returns the slice specifying the number of turns in the shifted
+    /// upper-layer coils.
+    ///
+    /// The length of this slice defines the number of slots the upper layer is
+    /// shifted against the lower one, whereas the values determine the number
+    /// of turns in the corresponding shifted coil (starting from the left). The
+    /// maximum shift must not exceed the numerator `z` of the [`hole_number`]
+    /// `q = z/n` of the winding. The number of turns in the respective
+    /// lower layer is [`QuadrupleLayerToothCoilWinding::turns_per_slot_side`]
+    /// minus the upper-layer value. Since a coil must have at least one
+    /// turn, this means that every number in this slice must be smaller
+    /// than
+    /// [`turns_per_slot_side`](QuadrupleLayerToothCoilWinding::turns_per_slot_side).
+    /// Both invariants are checked during construction.
+    ///
+    /// # Examples
+    ///
+    /// The following code constructs the two pictured windings and compares the
+    /// number of turns at different zones.
+    ///
+    /// ## No coil shift
+    ///
+    /// [`turns_upper_layer_coils`](QuadrupleLayerToothCoilWinding::turns_upper_layer_coils) is empty.
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![Quadruple layer winding without shift][table_quadruple_layer_tooth_coil_winding_0]"
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image(
+            "table_quadruple_layer_tooth_coil_winding_0",
+            "docs/img/table_quadruple_layer_tooth_coil_winding_0.svg"
+        )
+    )]
+    ///
+    /// ## Coils shifted by two slots
+    ///
+    /// [`turns_upper_layer_coils`](QuadrupleLayerToothCoilWinding::turns_upper_layer_coils) is [4, 3].
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![Quadruple layer winding with a two-slot shift][table_quadruple_layer_tooth_coil_winding_2]"
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image(
+            "table_quadruple_layer_tooth_coil_winding_2",
+            "docs/img/table_quadruple_layer_tooth_coil_winding_2.svg"
+        )
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+    `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    ///
+    /// ```
+    /// use std::num::NonZeroU16;
+    ///
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let wdg_no_shift: QuadrupleLayerToothCoilWinding = QuadrupleLayerToothCoilMinimalBuilder {
+    ///         slots: 9.try_into().expect("not zero"),
+    ///         pole_pairs: 4.try_into().expect("not zero"),
+    ///         phases: 3.try_into().expect("not zero"),
+    ///         winding_table_constructor: WindingTableConstructor::Tingley,
+    ///         turns_per_slot_side: 10.try_into().expect("not zero"),
+    ///         turns_upper_layer_coils: vec![],
+    ///     }
+    ///     .try_into().unwrap();
+    ///
+    /// let wdg_shifted: QuadrupleLayerToothCoilWinding = QuadrupleLayerToothCoilMinimalBuilder {
+    ///         slots: 9.try_into().expect("not zero"),
+    ///         pole_pairs: 4.try_into().expect("not zero"),
+    ///         phases: 3.try_into().expect("not zero"),
+    ///         winding_table_constructor: WindingTableConstructor::Tingley,
+    ///         turns_per_slot_side: 10.try_into().expect("not zero"),
+    ///         turns_upper_layer_coils: vec![4.try_into().expect("not zero"), 3.try_into().expect("not zero")],
+    ///     }
+    ///     .try_into().unwrap();
+    ///
+    /// // Turn comparison
+    /// assert_eq!(wdg_no_shift.turns_at(Zone::new(2, 0)), 5);
+    /// assert_eq!(wdg_no_shift.turns_at(Zone::new(2, 1)), 5);
+    /// assert_eq!(wdg_shifted.turns_at(Zone::new(2, 0)), 6);
+    /// assert_eq!(wdg_shifted.turns_at(Zone::new(2, 1)), 4);
+    ///
+    /// assert_eq!(wdg_no_shift.turns_at(Zone::new(3, 0)), 5);
+    /// assert_eq!(wdg_no_shift.turns_at(Zone::new(3, 1)), 5);
+    /// assert_eq!(wdg_shifted.turns_at(Zone::new(3, 0)), 7);
+    /// assert_eq!(wdg_shifted.turns_at(Zone::new(3, 1)), 3);
+    ///
+    /// // Phase comparison
+    /// assert_eq!(wdg_no_shift.phase_at(Zone::new(2, 0)), -2);
+    /// assert_eq!(wdg_no_shift.phase_at(Zone::new(2, 1)), -2);
+    /// assert_eq!(wdg_shifted.phase_at(Zone::new(2, 0)), -2);
+    /// assert_eq!(wdg_shifted.phase_at(Zone::new(2, 1)), 1);
+    ///
+    /// assert_eq!(wdg_no_shift.phase_at(Zone::new(3, 0)), 2);
+    /// assert_eq!(wdg_no_shift.phase_at(Zone::new(3, 1)), 2);
+    /// assert_eq!(wdg_shifted.phase_at(Zone::new(3, 0)), 2);
+    /// assert_eq!(wdg_shifted.phase_at(Zone::new(3, 1)), -1);
+    /// ```
     pub fn turns_upper_layer_coils(&self) -> &[NonZeroUsize] {
         self.turns_upper_layer_coils.as_slice()
     }
 
+    /// Returns the [`Wire`] used by all coils of `self`.
+    ///
+    /// As stated in the struct documentation, all coils of a
+    /// [`QuadrupleLayerToothCoilWinding`] use the same wire by definition.
     pub fn wire(&self) -> &dyn Wire {
         &*self.wire
     }
 
+    /// Returns the [`WindingTableConstructor`] used to create the
+    /// [`WindingTable`] returned by the
+    /// [`winding_table`](Winding::winding_table) method.
     pub fn winding_table_constructor(&self) -> &WindingTableConstructor {
         &self.winding_table_constructor
     }
 
+    /// Returns the coefficient used for the
+    /// [`end_winding_leakage_inductance`](Winding::end_winding_leakage_inductance)
+    /// calculation.
+    ///
+    /// [`QuadrupleLayerToothCoilWinding`] uses the
+    /// [`end_winding_leakage_inductance_tooth_coil`] function for implementing
+    /// [`Winding::end_winding_leakage_inductance`]. This is the value passed
+    /// into that function.
     pub fn end_winding_leakage_coefficient(&self) -> f64 {
         self.end_winding_leakage_coefficient
     }
 
+    /// Returns the override for the end-winding half-turn length, if one was
+    /// provided.
+    ///
+    /// If this value is `Some`, [`QuadrupleLayerToothCoilWinding`] uses it for
+    /// calculations such as [`Winding::resistance`] instead of calculating
+    /// the length. Otherwise, the length is calculated on demand using the
+    /// [`end_winding_half_turn_length_semicircle`] function. Providing a value
+    /// is useful when the length is known from measurements or more precise
+    /// models.
     pub fn end_winding_half_turn_length_override(&self) -> Option<Length> {
         self.end_winding_half_turn_length_override
     }
 
+    /// Sets the end-winding half-turn length override.
+    ///
+    /// The value must be non-negative. If a negative length is provided, the
+    /// method returns an error and leaves the existing value unchanged. Passing
+    /// `None` clears the value, so the length is calculated on demand. See
+    /// [`QuadrupleLayerToothCoilWinding::end_winding_half_turn_length_override`]
+    /// for details on how the value is used.
     pub fn set_end_winding_half_turn_length_override(
         &mut self,
         end_winding_half_turn_length_override: Option<Length>,
@@ -293,13 +502,7 @@ impl QuadrupleLayerToothCoilWinding {
         Ok(())
     }
 
-    /**
-    Calculate the number of turns in the given zone
-     */
     fn calculated_turns_at(&self, zone: Zone, winding_table: &WindingTable) -> NonZeroUsize {
-        /*
-        Get the second layer which is on the same slot side as the zone
-         */
         let second_layer_on_zone_side = match zone.layer {
             LL => UL,
             UL => LL,
@@ -541,21 +744,69 @@ impl Winding for QuadrupleLayerToothCoilWinding {
     }
 }
 
+/**
+A builder struct for a [`QuadrupleLayerToothCoilWinding`].
+
+This builder can be used to create a [`QuadrupleLayerToothCoilWinding`] via its
+[`new`](QuadrupleLayerToothCoilWinding::new) method or via its [`TryFrom`]
+implementation. Creating the winding fails if the conditions stated on the
+documentation of the individual fields are not fulfilled (for example,
+[`QuadrupleLayerToothCoilBuilder::end_winding_leakage_coefficient`] must not be
+negative).
+ */
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct QuadrupleLayerToothCoilBuilder {
+    /// Number of slots. Corresponds to [`Winding::slots`] in the final winding.
     pub slots: NonZeroU16,
+    /// Number of pole pairs. Corresponds to [`Winding::pole_pairs`] in the
+    /// final winding.
     pub pole_pairs: NonZeroU16,
+    /// Number of phases. Corresponds to [`Winding::phases`] in the final
+    /// winding.
     pub phases: NonZeroU16,
+    /// Number of turns per slot side (half the number of turns per slot). Must
+    /// be equal to or larger than 2 (since each coil needs at least one turn
+    /// and a slot side contains two stacked coils). See
+    /// [`QuadrupleLayerToothCoilWinding::turns_per_slot_side`] for details.
     pub turns_per_slot_side: NonZeroUsize,
+    /// Turns in the shifted upper layers. The contained values must be smaller
+    /// than [`QuadrupleLayerToothCoilBuilder::turns_per_slot_side`] and the
+    /// vector length must not exceed the numerator of [`Winding::hole_number`].
+    /// See [`QuadrupleLayerToothCoilWinding::turns_upper_layer_coils`] for
+    /// details.
     pub turns_upper_layer_coils: Vec<NonZeroUsize>,
+    /// Number of parallel paths. This value must be a divisor of the maximum
+    /// number of parallel paths returned by
+    /// [`max_parallel_paths_symmetric`](super::max_parallel_paths_symmetric).
     pub parallel_paths: NonZeroU16,
+    /// Electrical connection of the individual phases.
     pub connection: Connection,
+    /// Coefficient used to calculate
+    /// [`Winding::end_winding_leakage_inductance`], see
+    /// [`QuadrupleLayerToothCoilWinding::end_winding_leakage_coefficient`].
+    /// Must not be negative (`end_winding_leakage_coefficient >= 0`).
     pub end_winding_leakage_coefficient: f64,
+    /// The wire used for all coils of the winding.
     pub wire: Box<dyn Wire>,
+    /// Winding table constructor used to determine the winding table of the
+    /// final winding via [`WindingTable::from_constructor`]. The `span`
+    /// argument to that function is always set to 1 (tooth-coil winding
+    /// property), all other arguments are taken from the fields of this struct.
+    /// If the construction of the winding table fails, the winding cannot
+    /// be created.
     pub winding_table_constructor: WindingTableConstructor,
+    /// An override for the end winding half-turn length, see
+    /// [`QuadrupleLayerToothCoilWinding::end_winding_half_turn_length_override`]. If
+    /// provided, this value must not be negative
+    /// (`end_winding_half_turn_length_override >= 0 m`).
     #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "deserialize_opt_quantity")
+    )]
+    #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_opt_quantity"))]
     pub end_winding_half_turn_length_override: Option<Length>,
 }
 
@@ -725,15 +976,45 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
     }
 }
 
+/**
+A minimal builder struct for a [`QuadrupleLayerToothCoilWinding`].
+
+This struct is useful if one is interested in a qualitative analysis for the
+specified topology (e.g. determining the winding factor or the harmonics).
+Compared to the fully-featured [`QuadrupleLayerToothCoilBuilder`], values such
+as the [`QuadrupleLayerToothCoilBuilder::end_winding_leakage_coefficient`] are
+set to sensible defaults. For quantitative calculations (e.g. the
+[`Winding::resistance`]), use [`QuadrupleLayerToothCoilBuilder`] instead.
+ */
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct QuadrupleLayerToothCoilMinimalBuilder {
+    /// Number of slots. Corresponds to [`Winding::slots`] in the final winding.
     pub slots: NonZeroU16,
+    /// Number of pole pairs. Corresponds to [`Winding::pole_pairs`] in the
+    /// final winding.
     pub pole_pairs: NonZeroU16,
+    /// Number of phases. Corresponds to [`Winding::phases`] in the final
+    /// winding.
     pub phases: NonZeroU16,
+    /// Number of turns per slot side (half the number of turns per slot). Must
+    /// be equal to or larger than 2 (since each coil needs at least one turn
+    /// and a slot side contains two stacked coils). See
+    /// [`QuadrupleLayerToothCoilWinding::turns_per_slot_side`] for details.
     pub turns_per_slot_side: NonZeroUsize,
+    /// Turns in the shifted upper layers. The contained values must be smaller
+    /// than [`QuadrupleLayerToothCoilBuilder::turns_per_slot_side`] and the
+    /// vector length must not exceed the numerator of [`Winding::hole_number`].
+    /// See [`QuadrupleLayerToothCoilMinimalBuilder::turns_upper_layer_coils`]
+    /// for details.
     pub turns_upper_layer_coils: Vec<NonZeroUsize>,
+    /// Winding table constructor used to determine the winding table of the
+    /// final winding via [`WindingTable::from_constructor`]. The `span`
+    /// argument to that function is always set to 1 (tooth-coil winding
+    /// property), all other arguments are taken from the fields of this struct.
+    /// If the construction of the winding table fails, the winding cannot
+    /// be created.
     pub winding_table_constructor: WindingTableConstructor,
 }
 
