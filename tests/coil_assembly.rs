@@ -114,19 +114,20 @@ fn test_derive_from_winding() {
         );
     }
     {
-        let mut wires: Vec<(NonZeroUsize, Box<dyn Wire>)> = Vec::with_capacity(2);
+        let mut coil_data: Vec<CoilData> = Vec::with_capacity(2);
         for turns in 2..4 {
-            wires.push((
-                NonZeroUsize::new(turns).unwrap(),
-                Box::new(SffWire::default()),
-            ));
+            coil_data.push(CoilData {
+                wire: Box::new(SffWire::default()),
+                turns: NonZeroUsize::new(turns).unwrap(),
+                end_winding_half_turn_length_override: None,
+            });
         }
         let winding: DistributedToothCoilWinding = DistributedToothCoilBuilder {
             slots: 24.try_into().expect("not zero"),
             pole_pairs: 4.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            wires,
+            coil_data,
             parallel_paths: 1.try_into().expect("not zero"),
             double_zone_span: true,
             connection: Connection::Star,
@@ -167,8 +168,7 @@ fn test_derive_from_winding() {
             pole_pairs: 10.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_group_turns: vec![NonZeroUsize::MIN, NonZeroUsize::MIN],
-            parallel_paths: 1.try_into().expect("not zero"),
+            turns: vec![NonZeroUsize::MIN, NonZeroUsize::MIN],
             double_zone_span: false,
         }
         .try_into()
@@ -201,7 +201,7 @@ fn test_derive_from_winding() {
     }
 
     {
-        let coil_group_turns = DistributedToothCoilWinding::double_layer_turn_distribution(
+        let turns = DistributedToothCoilWinding::double_layer_turn_distribution(
             2,
             100.try_into().unwrap(),
             15,
@@ -213,8 +213,7 @@ fn test_derive_from_winding() {
             pole_pairs: 1.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_group_turns,
-            parallel_paths: 1.try_into().expect("not zero"),
+            turns,
             double_zone_span: false,
         }
         .try_into()

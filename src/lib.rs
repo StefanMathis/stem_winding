@@ -42,10 +42,20 @@ pub mod prelude {
 
     // Reexporting
     pub use crate::coils::*;
-    pub use crate::winding::{
-        Connection, Winding, coil_assembly::*, distributed::*, distributed_tooth_coil::*,
-        quadruple_layer_tooth_coil::*, squirrel_cage::*, tooth_coil::*,
+    pub use crate::winding::{Connection, Winding};
+
+    pub use crate::winding::coil_assembly::*;
+    pub use crate::winding::distributed::*;
+    pub use crate::winding::distributed_tooth_coil::*;
+    pub use crate::winding::quadruple_layer_tooth_coil::{
+        QuadrupleLayerToothCoilBuilder, QuadrupleLayerToothCoilMinimalBuilder,
+        QuadrupleLayerToothCoilWinding,
     };
+    pub use crate::winding::squirrel_cage::{
+        SquirrelCageBuilder, SquirrelCageMinimalBuilder, SquirrelCageWinding,
+    };
+    pub use crate::winding::tooth_coil::*;
+
     pub use crate::winding_table::*;
 
     #[cfg(feature = "cairo")]

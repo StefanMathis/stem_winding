@@ -80,8 +80,7 @@ fn test_number_of_turns() {
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_group_turns: Vec::new(),
-            parallel_paths: 1.try_into().expect("not zero"),
+            turns: Vec::new(),
             double_zone_span: true,
         })
         .is_err()
@@ -92,8 +91,7 @@ fn test_number_of_turns() {
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_group_turns: vec![NonZeroUsize::new(1).expect("not zero")],
-            parallel_paths: 1.try_into().expect("not zero"),
+            turns: vec![NonZeroUsize::new(1).expect("not zero")],
             double_zone_span: true,
         })
         .is_ok()
@@ -104,11 +102,10 @@ fn test_number_of_turns() {
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_group_turns: vec![
+            turns: vec![
                 NonZeroUsize::new(1).expect("not zero"),
                 NonZeroUsize::new(1).expect("not zero")
             ],
-            parallel_paths: 1.try_into().expect("not zero"),
             double_zone_span: true,
         })
         .is_ok()
@@ -123,11 +120,10 @@ fn test_coil_analysis() {
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_group_turns: vec![
+            turns: vec![
                 NonZeroUsize::new(1).expect("not zero"),
                 NonZeroUsize::new(1).expect("not zero"),
             ],
-            parallel_paths: 1.try_into().expect("not zero"),
             double_zone_span: true,
         })
         .unwrap();
@@ -158,11 +154,10 @@ fn test_three_zones_single_layer() {
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_group_turns: vec![
+            turns: vec![
                 NonZeroUsize::new(1).expect("not zero"),
                 NonZeroUsize::new(1).expect("not zero"),
             ],
-            parallel_paths: 1.try_into().expect("not zero"),
             double_zone_span: true,
         })
         .unwrap();
@@ -208,11 +203,10 @@ fn test_three_zones_single_layer() {
             pole_pairs: 4.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_group_turns: vec![
+            turns: vec![
                 NonZeroUsize::new(1).expect("not zero"),
                 NonZeroUsize::new(1).expect("not zero"),
             ],
-            parallel_paths: 1.try_into().expect("not zero"),
             double_zone_span: true,
         })
         .unwrap();
@@ -295,11 +289,10 @@ fn test_three_zones_single_layer() {
             pole_pairs: 8.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_group_turns: vec![
+            turns: vec![
                 NonZeroUsize::new(1).expect("not zero"),
                 NonZeroUsize::new(1).expect("not zero"),
             ],
-            parallel_paths: 1.try_into().expect("not zero"),
             double_zone_span: true,
         })
         .unwrap();
@@ -378,24 +371,18 @@ fn test_three_zones_single_layer() {
 
 #[test]
 fn test_three_zones_single_layer_differing_number_of_coils() {
-    let mut wires: Vec<(NonZeroUsize, Box<dyn Wire>)> = Vec::with_capacity(2);
-    for turns in 2..4 {
-        wires.push((
-            NonZeroUsize::new(turns).unwrap(),
-            Box::new(SffWire::default()),
-        ));
+    let mut turns: Vec<NonZeroUsize> = Vec::with_capacity(2);
+    for coil_turns in 2..4 {
+        turns.push(coil_turns.try_into().unwrap());
     }
 
-    let winding = DistributedToothCoilWinding::new(DistributedToothCoilBuilder {
+    let winding = DistributedToothCoilWinding::new(DistributedToothCoilMinimalBuilder {
         slots: 24.try_into().expect("not zero"),
         pole_pairs: 4.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 1.try_into().expect("not zero"),
-        parallel_paths: 1.try_into().expect("not zero"),
+        turns,
         double_zone_span: true,
-        connection: Connection::Star,
-        end_winding_leakage_coefficient: 0.0,
-        wires,
     })
     .unwrap();
 
@@ -445,11 +432,10 @@ fn test_six_zones_single_layer() {
             pole_pairs: 10.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_group_turns: vec![
+            turns: vec![
                 NonZeroUsize::new(1).expect("not zero"),
                 NonZeroUsize::new(1).expect("not zero"),
             ],
-            parallel_paths: 1.try_into().expect("not zero"),
             double_zone_span: false,
         })
         .unwrap();
@@ -532,11 +518,10 @@ fn test_six_zones_single_layer() {
             pole_pairs: 14.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_group_turns: vec![
+            turns: vec![
                 NonZeroUsize::new(1).expect("not zero"),
                 NonZeroUsize::new(1).expect("not zero"),
             ],
-            parallel_paths: 1.try_into().expect("not zero"),
             double_zone_span: false,
         })
         .unwrap();
@@ -617,7 +602,7 @@ fn test_six_zones_single_layer() {
 fn test_single_layer_24_1() {
     {
         // Calculate with 1 pole pairs as working harmonic (two basic windings)
-        let coil_group_turns = DistributedToothCoilWinding::double_layer_turn_distribution(
+        let turns = DistributedToothCoilWinding::double_layer_turn_distribution(
             2,
             2.try_into().expect("not zero"),
             0,
@@ -628,8 +613,7 @@ fn test_single_layer_24_1() {
             pole_pairs: 1.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            coil_group_turns,
-            parallel_paths: 1.try_into().expect("not zero"),
+            turns,
             double_zone_span: false,
         })
         .unwrap();
@@ -645,8 +629,7 @@ fn test_single_layer_24_1() {
                 pole_pairs: 1.try_into().expect("not zero"),
                 phases: 3.try_into().expect("not zero"),
                 layers: 1.try_into().expect("not zero"),
-                coil_group_turns: vec![NonZeroUsize::new(1).expect("not zero")],
-                parallel_paths: 1.try_into().expect("not zero"),
+                turns: vec![NonZeroUsize::new(1).expect("not zero")],
                 double_zone_span: true,
             })
             .is_err()
@@ -657,7 +640,7 @@ fn test_single_layer_24_1() {
 #[test]
 fn test_double_layer_24_2() {
     // Calculate with 1 pole pairs as working harmonic (two basic windings)
-    let coil_group_turns = DistributedToothCoilWinding::double_layer_turn_distribution(
+    let turns = DistributedToothCoilWinding::double_layer_turn_distribution(
         2,
         2.try_into().expect("not zero"),
         0,
@@ -669,8 +652,7 @@ fn test_double_layer_24_2() {
         pole_pairs: 2.try_into().expect("not zero"),
         phases: 3.try_into().expect("not zero"),
         layers: 2.try_into().expect("not zero"),
-        coil_group_turns,
-        parallel_paths: 1.try_into().expect("not zero"),
+        turns,
         double_zone_span: false,
     })
     .unwrap();
@@ -760,7 +742,7 @@ fn test_double_layer_24_2() {
 fn test_double_layer_differing_number_of_coils_24_2_dl() {
     {
         // Calculate with 2 pole pairs as working harmonic (one basic winding)
-        let coil_group_turns = DistributedToothCoilWinding::double_layer_turn_distribution(
+        let turns = DistributedToothCoilWinding::double_layer_turn_distribution(
             2,
             200.try_into().expect("not zero"),
             15,
@@ -772,8 +754,7 @@ fn test_double_layer_differing_number_of_coils_24_2_dl() {
             pole_pairs: 1.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_group_turns: coil_group_turns,
-            parallel_paths: 1.try_into().expect("not zero"),
+            turns,
             double_zone_span: false,
         })
         .unwrap();
@@ -810,7 +791,7 @@ fn test_double_layer_differing_number_of_coils_24_2_dl() {
 
     {
         // Calculate with 2 pole pairs as working harmonic (two basic windings)
-        let coil_group_turns = DistributedToothCoilWinding::double_layer_turn_distribution(
+        let turns = DistributedToothCoilWinding::double_layer_turn_distribution(
             2,
             200.try_into().expect("not zero"),
             15,
@@ -818,7 +799,7 @@ fn test_double_layer_differing_number_of_coils_24_2_dl() {
         .unwrap();
 
         assert_eq!(
-            coil_group_turns,
+            turns,
             vec![
                 NonZeroUsize::new(85).expect("not zero"),
                 NonZeroUsize::new(115).expect("not zero")
@@ -830,8 +811,7 @@ fn test_double_layer_differing_number_of_coils_24_2_dl() {
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_group_turns: coil_group_turns,
-            parallel_paths: 1.try_into().expect("not zero"),
+            turns,
             double_zone_span: false,
         })
         .unwrap();
@@ -898,7 +878,7 @@ fn test_double_layer_differing_number_of_coils_24_2_dl() {
 
     {
         // Calculate with 1 pole pairs as working harmonic (two basic windings)
-        let coil_group_turns = DistributedToothCoilWinding::double_layer_turn_distribution(
+        let turns = DistributedToothCoilWinding::double_layer_turn_distribution(
             2,
             200.try_into().expect("not zero"),
             30,
@@ -909,8 +889,7 @@ fn test_double_layer_differing_number_of_coils_24_2_dl() {
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_group_turns: coil_group_turns.clone(),
-            parallel_paths: 1.try_into().expect("not zero"),
+            turns,
             double_zone_span: false,
         })
         .unwrap();
@@ -949,7 +928,7 @@ Tests for an overflow which could occur in the harmonic orders iterator
  */
 #[test]
 fn test_overflow_iterator_bug() {
-    let coil_group_turns = DistributedToothCoilWinding::double_layer_turn_distribution(
+    let turns = DistributedToothCoilWinding::double_layer_turn_distribution(
         2,
         100.try_into().expect("not zero"),
         15,
@@ -963,8 +942,7 @@ fn test_overflow_iterator_bug() {
             pole_pairs: 1.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_group_turns: coil_group_turns.clone(),
-            parallel_paths: 1.try_into().expect("not zero"),
+            turns: turns.clone(),
             double_zone_span: false
         })
         .is_ok()
@@ -977,8 +955,7 @@ fn test_overflow_iterator_bug() {
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_group_turns: coil_group_turns.clone(),
-            parallel_paths: 1.try_into().expect("not zero"),
+            turns,
             double_zone_span: false
         })
         .is_err()
@@ -993,7 +970,7 @@ mod serde_tests {
 
     #[test]
     fn test_serialize_and_deserialize() {
-        let coil_group_turns = DistributedToothCoilWinding::double_layer_turn_distribution(
+        let turns = DistributedToothCoilWinding::double_layer_turn_distribution(
             2,
             200.try_into().expect("not zero"),
             15,
@@ -1005,8 +982,7 @@ mod serde_tests {
             pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            coil_group_turns: coil_group_turns,
-            parallel_paths: 1.try_into().expect("not zero"),
+            turns,
             double_zone_span: false,
         })
         .unwrap();
@@ -1029,8 +1005,7 @@ mod serde_tests {
             pole_pairs: 2
             phases: 3
             layers: 1
-            coil_group_turns: [1, 1]
-            parallel_paths: 1
+            turns: [1, 1]
             double_zone_span: true
             "};
 
@@ -1060,51 +1035,6 @@ mod serde_tests {
         approxim::assert_abs_diff_eq!(
             0.1294,
             winding.winding_factor(ONE, SpatialOrder::Mechanical(7)),
-            epsilon = 0.0001
-        );
-    }
-
-    #[test]
-    fn test_deserialize_min_double_layer() {
-        // Minimal winding
-        let yaml = indoc! {"
-                ---
-                slots: 24
-                pole_pairs: 2
-                phases: 3
-                mean_coil_group_turns: 2
-                turn_difference: 0
-                coils_per_coil_group: 2
-                parallel_paths: 1
-                double_zone_span: false
-                "};
-
-        let winding: DistributedToothCoilWinding = serde_yaml::from_str(yaml).unwrap();
-
-        // Check the winding factor
-        approxim::assert_abs_diff_eq!(
-            0.4830,
-            winding.winding_factor(ONE, SpatialOrder::Electrical(1)),
-            epsilon = 0.0001
-        );
-        approxim::assert_abs_diff_eq!(
-            0.1294,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(10)),
-            epsilon = 0.0001
-        );
-        approxim::assert_abs_diff_eq!(
-            0.1294,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(14)),
-            epsilon = 0.0001
-        );
-        approxim::assert_abs_diff_eq!(
-            0.4830,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(22)),
-            epsilon = 0.0001
-        );
-        approxim::assert_abs_diff_eq!(
-            0.4830,
-            winding.winding_factor(ONE, SpatialOrder::Mechanical(26)),
             epsilon = 0.0001
         );
     }

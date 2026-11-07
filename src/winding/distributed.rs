@@ -45,7 +45,7 @@ where the hole number `q = N / (2 * p * m)` is an integer and fractional-slot
 windings, where it is not ( with `N` being the number of
 [`slots`](Winding::slots), `p` being the number of
 [`pole_pairs`](Winding::pole_pairs) and `m` being the number of
-[`phases`](Winding::phases). Integer-slot windings offer a particularily smooth
+[`phases`](Winding::phases). Integer-slot windings offer a particularly smooth
 EMF and a high fundamental winding factor, whereas fractional-slot windings can
 be designed to suppress certain harmonics almost completely. Additionally, the
 extremely low cogging torque makes fractional-slot windings well-suited for
@@ -76,7 +76,6 @@ with 12 slots and 2 poles:
 _Image created with `/examples/winding_plots.rs`, function `distributed_winding()`._
 
 # Properties
-
 
 With regards to its [`Winding`] implementation, a [`DistributedWinding`] has the
 following properties:

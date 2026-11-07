@@ -49,16 +49,7 @@ pub mod tooth_coil;
 
 mod support;
 
-pub use coil_assembly::*;
-pub use distributed::*;
-pub use distributed_tooth_coil::*;
-pub use quadruple_layer_tooth_coil::{
-    QuadrupleLayerToothCoilBuilder, QuadrupleLayerToothCoilMinimalBuilder,
-    QuadrupleLayerToothCoilWinding,
-};
-pub use squirrel_cage::{SquirrelCageBuilder, SquirrelCageMinimalBuilder, SquirrelCageWinding};
 pub use support::*;
-pub use tooth_coil::*;
 
 /// A value (winding factor, resistance, inductance, ...) is considered zero if
 /// its absolute value is below this threshold. This accounts for floating-point

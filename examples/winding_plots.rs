@@ -34,6 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     distributed_winding_zone_shift(&zone_config)?;
     squirrel_cage_winding()?;
     quadruple_layer_tooth_coil_winding()?;
+    distributed_tooth_coil_winding(&zone_config)?;
 
     return Ok(());
 }
@@ -1329,6 +1330,391 @@ fn quadruple_layer_tooth_coil_winding() -> Result<(), Box<dyn std::error::Error>
 
             return Ok(());
         })?;
+    }
+
+    return Ok(());
+}
+
+fn distributed_tooth_coil_winding(
+    zone_config: &ZoneDrawablesConfig,
+) -> Result<(), Box<dyn std::error::Error>> {
+    {
+        let winding: DistributedWinding = DistributedMinimalBuilder {
+            slots: 12.try_into()?,
+            pole_pairs: 1.try_into()?,
+            phases: 3.try_into()?,
+            layers: 2.try_into()?,
+            coil_throw_reduction: 0,
+            zone_shift: 0,
+            winding_table_constructor: WindingTableConstructor::Tingley,
+        }
+        .try_into()
+        .unwrap();
+
+        let core = LinCore::from_winding(&winding);
+        let mut core_drawable: Drawable = core.drawable().into();
+        core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
+
+        let side_length = SideLength::Long(600);
+
+        let drawables = winding
+            .zone_drawables(core.as_core_ref(), &zone_config)
+            .map(|(mut z, _)| {
+                z.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                z
+            });
+
+        let bb = core.shape().bounding_box();
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.002 * w,
+            bb.xmax() + 0.002 * w,
+            -bb.ymax() - 0.01 * h,
+            -bb.ymin() + 0.01 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/table_derive_dtc_0.svg");
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+
+            core_drawable.draw(cr)?;
+
+            for d in drawables {
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
+    }
+    {
+        let winding: DistributedWinding = DistributedMinimalBuilder {
+            slots: 12.try_into()?,
+            pole_pairs: 1.try_into()?,
+            phases: 3.try_into()?,
+            layers: 2.try_into()?,
+            coil_throw_reduction: 4,
+            zone_shift: 0,
+            winding_table_constructor: WindingTableConstructor::Tingley,
+        }
+        .try_into()
+        .unwrap();
+
+        let core = LinCore::from_winding(&winding);
+        let mut core_drawable: Drawable = core.drawable().into();
+        core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
+
+        let side_length = SideLength::Long(600);
+
+        let drawables = winding
+            .zone_drawables(core.as_core_ref(), &zone_config)
+            .map(|(mut z, _)| {
+                z.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                z
+            });
+
+        let bb = core.shape().bounding_box();
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.002 * w,
+            bb.xmax() + 0.002 * w,
+            -bb.ymax() - 0.01 * h,
+            -bb.ymin() + 0.01 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/table_derive_dtc_1.svg");
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+
+            core_drawable.draw(cr)?;
+
+            for d in drawables {
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
+    }
+    {
+        let winding: DistributedToothCoilWinding = DistributedToothCoilMinimalBuilder {
+            slots: 12.try_into()?,
+            pole_pairs: 1.try_into()?,
+            phases: 3.try_into()?,
+            layers: 2.try_into()?,
+            turns: vec![7.try_into()?, 3.try_into()?],
+            double_zone_span: false,
+        }
+        .try_into()
+        .unwrap();
+
+        let core = LinCore::from_winding(&winding);
+        let side_length = SideLength::Long(600);
+
+        {
+            let mut core_drawable: Drawable = core.drawable().into();
+            core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
+
+            let drawables = winding
+                .zone_drawables(core.as_core_ref(), &zone_config)
+                .map(|(mut z, _)| {
+                    z.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                    z
+                });
+
+            let bb = core.shape().bounding_box();
+            let w = bb.width();
+            let h = bb.height();
+            let bb = BoundingBox::new(
+                bb.xmin() - 0.002 * w,
+                bb.xmax() + 0.002 * w,
+                -bb.ymax() - 0.01 * h,
+                -bb.ymin() + 0.01 * h,
+            );
+
+            let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("docs/img/table_double_layer_dtc_winding_0.svg");
+            let view = Viewport::from_bounding_box(&bb, side_length);
+            view.write_to_file(&fp, |cr| {
+                cr.set_source_rgb(1.0, 1.0, 1.0);
+                cr.paint()?;
+
+                core_drawable.draw(cr)?;
+
+                for d in drawables {
+                    d.draw(cr)?;
+                }
+
+                return Ok(());
+            })?;
+        }
+        {
+            let zone_config = ZoneDrawablesConfig {
+                background_color: ZoneBackgroundColor::Phase,
+                center_config: ZoneCenterConfig::AmpereTurns(14.0),
+                show_empty_zones: true,
+            };
+
+            let mut core_drawable: Drawable = core.drawable().into();
+            core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
+
+            let drawables = winding
+                .zone_drawables(core.as_core_ref(), &zone_config)
+                .map(|(mut z, _)| {
+                    z.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                    z
+                });
+
+            let bb = core.shape().bounding_box();
+            let w = bb.width();
+            let h = bb.height();
+            let bb = BoundingBox::new(
+                bb.xmin() - 0.002 * w,
+                bb.xmax() + 0.002 * w,
+                -bb.ymax() - 0.01 * h,
+                -bb.ymin() + 0.01 * h,
+            );
+
+            let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("docs/img/table_double_layer_dtc_winding_1.svg");
+            let view = Viewport::from_bounding_box(&bb, side_length);
+            view.write_to_file(&fp, |cr| {
+                cr.set_source_rgb(1.0, 1.0, 1.0);
+                cr.paint()?;
+
+                core_drawable.draw(cr)?;
+
+                for d in drawables {
+                    d.draw(cr)?;
+                }
+
+                return Ok(());
+            })?;
+        }
+
+        {
+            let mut coil_config = CoilDrawablesConfig::from(&core);
+            coil_config.cyclic = true;
+
+            let drawables = winding.coil_drawables(&coil_config);
+            let bb = coil_config.bounding_box(&winding);
+            let w = bb.width();
+            let h = bb.height();
+            let bb = BoundingBox::new(
+                bb.xmin() - 0.03 * w,
+                bb.xmax() + 0.03 * w,
+                -bb.ymax() - 0.08 * h,
+                -bb.ymin() + 0.08 * h,
+            );
+
+            let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join(&format!("docs/img/coils_double_layer_dtc_winding_0.svg"));
+            let view = Viewport::from_bounding_box(&bb, side_length);
+            view.write_to_file(&fp, |cr| {
+                cr.set_source_rgb(1.0, 1.0, 1.0);
+                cr.paint()?;
+
+                for (mut d, k) in drawables {
+                    if matches!(k, DrawableKind::Arrow(_)) {
+                        d.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                    }
+                    d.draw(cr)?;
+                }
+
+                return Ok(());
+            })?;
+        }
+    }
+    {
+        let winding: DistributedWinding = DistributedMinimalBuilder {
+            slots: 12.try_into()?,
+            pole_pairs: 1.try_into()?,
+            phases: 3.try_into()?,
+            layers: 2.try_into()?,
+            coil_throw_reduction: 4,
+            zone_shift: 2,
+            winding_table_constructor: WindingTableConstructor::Tingley,
+        }
+        .try_into()
+        .unwrap();
+
+        let core = LinCore::from_winding(&winding);
+        let mut core_drawable: Drawable = core.drawable().into();
+        core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
+
+        let side_length = SideLength::Long(600);
+
+        let drawables = winding
+            .zone_drawables(core.as_core_ref(), &zone_config)
+            .map(|(mut z, _)| {
+                z.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                z
+            });
+
+        let bb = core.shape().bounding_box();
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.002 * w,
+            bb.xmax() + 0.002 * w,
+            -bb.ymax() - 0.01 * h,
+            -bb.ymin() + 0.01 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/table_derive_dtc_2.svg");
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+
+            core_drawable.draw(cr)?;
+
+            for d in drawables {
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
+    }
+    {
+        let winding: DistributedToothCoilWinding = DistributedToothCoilMinimalBuilder {
+            slots: 12.try_into()?,
+            pole_pairs: 1.try_into()?,
+            phases: 3.try_into()?,
+            layers: 1.try_into()?,
+            turns: vec![7.try_into()?, 3.try_into()?],
+            double_zone_span: true,
+        }
+        .try_into()
+        .unwrap();
+
+        let core = LinCore::from_winding(&winding);
+        let side_length = SideLength::Long(600);
+
+        {
+            let mut core_drawable: Drawable = core.drawable().into();
+            core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
+
+            let drawables = winding
+                .zone_drawables(core.as_core_ref(), &zone_config)
+                .map(|(mut z, _)| {
+                    z.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                    z
+                });
+
+            let bb = core.shape().bounding_box();
+            let w = bb.width();
+            let h = bb.height();
+            let bb = BoundingBox::new(
+                bb.xmin() - 0.002 * w,
+                bb.xmax() + 0.002 * w,
+                -bb.ymax() - 0.01 * h,
+                -bb.ymin() + 0.01 * h,
+            );
+
+            let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("docs/img/table_single_layer_dtc_winding_0.svg");
+            let view = Viewport::from_bounding_box(&bb, side_length);
+            view.write_to_file(&fp, |cr| {
+                cr.set_source_rgb(1.0, 1.0, 1.0);
+                cr.paint()?;
+
+                core_drawable.draw(cr)?;
+
+                for d in drawables {
+                    d.draw(cr)?;
+                }
+
+                return Ok(());
+            })?;
+        }
+        {
+            let zone_config = ZoneDrawablesConfig {
+                background_color: ZoneBackgroundColor::Phase,
+                center_config: ZoneCenterConfig::AmpereTurns(14.0),
+                show_empty_zones: true,
+            };
+
+            let mut core_drawable: Drawable = core.drawable().into();
+            core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
+
+            let drawables = winding
+                .zone_drawables(core.as_core_ref(), &zone_config)
+                .map(|(mut z, _)| {
+                    z.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                    z
+                });
+
+            let bb = core.shape().bounding_box();
+            let w = bb.width();
+            let h = bb.height();
+            let bb = BoundingBox::new(
+                bb.xmin() - 0.002 * w,
+                bb.xmax() + 0.002 * w,
+                -bb.ymax() - 0.01 * h,
+                -bb.ymin() + 0.01 * h,
+            );
+
+            let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("docs/img/table_single_layer_dtc_winding_1.svg");
+            let view = Viewport::from_bounding_box(&bb, side_length);
+            view.write_to_file(&fp, |cr| {
+                cr.set_source_rgb(1.0, 1.0, 1.0);
+                cr.paint()?;
+
+                core_drawable.draw(cr)?;
+
+                for d in drawables {
+                    d.draw(cr)?;
+                }
+
+                return Ok(());
+            })?;
+        }
     }
 
     return Ok(());

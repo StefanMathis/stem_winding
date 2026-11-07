@@ -37,7 +37,7 @@ use stem_core::prelude::*;
 use crate::{
     coils::{Coil, CoilExt},
     draw::{DrawableKind, end_winding_layouter::EndWindingLayouter, phase_color},
-    winding::{SquirrelCageWinding, Winding},
+    winding::{Winding, squirrel_cage::SquirrelCageWinding},
 };
 
 const BLACK: Color = Color {
