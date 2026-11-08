@@ -228,7 +228,7 @@ mod stem_core_tests {
             slots: 28.try_into().expect("not zero"),
             pole_pairs: 2.try_into().expect("not zero"),
             end_winding_leakage_coefficient: 0.35,
-            wire: Box::new(SffWire::new(copper, 1.0, 1.0).unwrap()),
+            wire: Arc::new(SffWire::new(copper, 1.0, 1.0).unwrap()),
             end_ring_width: Length::new::<millimeter>(11.0),
             end_ring_height: Length::new::<millimeter>(11.2),
             consider_current_displacement: true,
@@ -269,7 +269,7 @@ mod stem_core_tests {
                 slots: 28.try_into().expect("not zero"),
                 starts_in_slot_middle: true,
                 carter_factor_model: CarterFactorModel::Bin12,
-                slot: Box::new(slot),
+                slot: Arc::new(slot),
             }),
             flux_barrier: None,
         }

@@ -1,11 +1,5 @@
 /*!
 [`Wire`]: crate::wire::Wire
-[`RoundWire`]: crate::round::RoundWire
-[`RectangularWire`]: crate::rectangular::RectangularWire
-[`StrandedWire`]: crate::stranded::StrandedWire
-[`SffWire`]: crate::sff::SffWire
-[`CastWire`]: crate::cast::CastWire
-[`resistance`]: crate::resistance
 
 Winding definition for stem – a Simulation Toolbox for Electric Motors. The
 [stem book](https://stefanmathis.github.io/stem_book/) provides a comprehensive

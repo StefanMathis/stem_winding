@@ -1,4 +1,4 @@
-use std::num::NonZeroU16;
+use std::{num::NonZeroU16, sync::Arc};
 
 use approxim::{self, assert_abs_diff_eq};
 use stem_winding::{
@@ -270,7 +270,7 @@ fn test_set_concentric() {
         parallel_paths: 1.try_into().expect("not zero"),
         connection: Connection::Star,
         end_winding_leakage_coefficient: 0.0,
-        wire: Box::new(SffWire::default()),
+        wire: Arc::new(SffWire::default()),
         concentric_coils: true,
         winding_table_constructor: WindingTableConstructor::Tingley,
         end_winding_half_turn_length_override: None,
@@ -289,7 +289,7 @@ fn test_set_concentric() {
         parallel_paths: 1.try_into().expect("not zero"),
         connection: Connection::Star,
         end_winding_leakage_coefficient: 0.0,
-        wire: Box::new(SffWire::default()),
+        wire: Arc::new(SffWire::default()),
         concentric_coils: false,
         winding_table_constructor: WindingTableConstructor::Tingley,
         end_winding_half_turn_length_override: None,
@@ -448,7 +448,7 @@ fn test_coil_span() {
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(SffWire::default()),
+            wire: Arc::new(SffWire::default()),
             concentric_coils: true,
             winding_table_constructor: WindingTableConstructor::Tingley,
             end_winding_half_turn_length_override: None,
@@ -482,7 +482,7 @@ fn test_coil_span() {
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(SffWire::default()),
+            wire: Arc::new(SffWire::default()),
             concentric_coils: true,
             winding_table_constructor: WindingTableConstructor::Tingley,
             end_winding_half_turn_length_override: None,
@@ -665,7 +665,7 @@ fn test_failed_creation() {
             parallel_paths: 3.try_into().expect("not zero"),
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(SffWire::default()),
+            wire: Arc::new(SffWire::default()),
             concentric_coils: false,
             winding_table_constructor: WindingTableConstructor::Tingley,
             end_winding_half_turn_length_override: None,
@@ -928,7 +928,7 @@ fn test_series_turns_per_phase() {
         parallel_paths: 1.try_into().expect("not zero"),
         connection: Connection::Star,
         end_winding_leakage_coefficient: 0.0,
-        wire: Box::new(SffWire::default()),
+        wire: Arc::new(SffWire::default()),
         concentric_coils: false,
         winding_table_constructor: WindingTableConstructor::Tingley,
         end_winding_half_turn_length_override: None,
@@ -950,7 +950,7 @@ fn test_series_turns_per_phase() {
         parallel_paths: 1.try_into().expect("not zero"),
         connection: Connection::Star,
         end_winding_leakage_coefficient: 0.0,
-        wire: Box::new(SffWire::default()),
+        wire: Arc::new(SffWire::default()),
         concentric_coils: false,
         winding_table_constructor: WindingTableConstructor::Tingley,
         end_winding_half_turn_length_override: None,
@@ -975,7 +975,7 @@ fn test_doubled_zone_span() {
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(SffWire::default()),
+            wire: Arc::new(SffWire::default()),
             winding_table_constructor: WindingTableConstructor::Tingley,
             concentric_coils: false,
             end_winding_half_turn_length_override: None,
@@ -992,7 +992,7 @@ fn test_doubled_zone_span() {
         parallel_paths: 1.try_into().expect("not zero"),
         connection: Connection::Star,
         end_winding_leakage_coefficient: 0.0,
-        wire: Box::new(SffWire::default()),
+        wire: Arc::new(SffWire::default()),
         winding_table_constructor: WindingTableConstructor::Tingley,
         concentric_coils: false,
         end_winding_half_turn_length_override: None,
@@ -1153,7 +1153,7 @@ fn test_normalized_induction_amp() {
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.25,
-            wire: Box::new(SffWire::default()),
+            wire: Arc::new(SffWire::default()),
             concentric_coils: false,
             winding_table_constructor: WindingTableConstructor::Tingley,
             end_winding_half_turn_length_override: None,
@@ -1455,7 +1455,7 @@ mod stem_core_tests {
                 36.try_into().expect("not zero"),
                 true,
                 CarterFactorModel::Bin12,
-                Box::new(slot),
+                Arc::new(slot),
             )),
             flux_barrier: None,
         }
@@ -1490,7 +1490,7 @@ mod stem_core_tests {
                 36.try_into().expect("not zero"),
                 true,
                 CarterFactorModel::Bin12,
-                Box::new(slot),
+                Arc::new(slot),
             )),
             flux_barrier: None,
         }
@@ -1527,7 +1527,7 @@ mod stem_core_tests {
                 36.try_into().expect("not zero"),
                 true,
                 CarterFactorModel::Bin12,
-                Box::new(slot),
+                Arc::new(slot),
             )),
             flux_barrier: None,
         }
@@ -1574,8 +1574,8 @@ mod stem_core_tests {
         .unwrap();
 
         let strand_list = vec![
-            WireGroup::new(Box::new(wire_1), 2.try_into().unwrap()),
-            WireGroup::new(Box::new(wire_2), 3.try_into().unwrap()),
+            WireGroup::new(Arc::new(wire_1), 2.try_into().unwrap()),
+            WireGroup::new(Arc::new(wire_2), 3.try_into().unwrap()),
         ];
         let wire = StrandedWire::new(strand_list).unwrap();
         let mut winding: DistributedWinding = DistributedBuilder {
@@ -1590,7 +1590,7 @@ mod stem_core_tests {
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.25,
-            wire: Box::new(wire.clone()),
+            wire: Arc::new(wire.clone()),
             concentric_coils: false,
             end_winding_half_turn_length_override: None,
         }
@@ -1809,8 +1809,8 @@ mod stem_core_tests {
         .unwrap();
 
         let strand_list = vec![
-            WireGroup::new(Box::new(wire_1), 2.try_into().unwrap()),
-            WireGroup::new(Box::new(wire_2), 3.try_into().unwrap()),
+            WireGroup::new(Arc::new(wire_1), 2.try_into().unwrap()),
+            WireGroup::new(Arc::new(wire_2), 3.try_into().unwrap()),
         ];
         let wire = StrandedWire::new(strand_list).unwrap();
         let winding: DistributedWinding = DistributedBuilder {
@@ -1825,7 +1825,7 @@ mod stem_core_tests {
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.25,
-            wire: Box::new(wire.clone()),
+            wire: Arc::new(wire.clone()),
             concentric_coils: false,
             end_winding_half_turn_length_override: None,
         }
@@ -1897,8 +1897,8 @@ mod stem_core_tests {
         .unwrap();
 
         let strand_list = vec![
-            WireGroup::new(Box::new(wire_1), 2.try_into().unwrap()),
-            WireGroup::new(Box::new(wire_2), 3.try_into().unwrap()),
+            WireGroup::new(Arc::new(wire_1), 2.try_into().unwrap()),
+            WireGroup::new(Arc::new(wire_2), 3.try_into().unwrap()),
         ];
         let wire = StrandedWire::new(strand_list).unwrap();
         let winding: DistributedWinding = DistributedBuilder {
@@ -1913,7 +1913,7 @@ mod stem_core_tests {
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.25,
-            wire: Box::new(wire.clone()),
+            wire: Arc::new(wire.clone()),
             concentric_coils: false,
             end_winding_half_turn_length_override: None,
         }
@@ -1960,8 +1960,8 @@ mod stem_core_tests {
         .unwrap();
 
         let strand_list = vec![
-            WireGroup::new(Box::new(wire_1), 2.try_into().unwrap()),
-            WireGroup::new(Box::new(wire_2), 3.try_into().unwrap()),
+            WireGroup::new(Arc::new(wire_1), 2.try_into().unwrap()),
+            WireGroup::new(Arc::new(wire_2), 3.try_into().unwrap()),
         ];
         let wire = StrandedWire::new(strand_list).unwrap();
         let winding: DistributedWinding = DistributedBuilder {
@@ -1976,7 +1976,7 @@ mod stem_core_tests {
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.25,
-            wire: Box::new(wire.clone()),
+            wire: Arc::new(wire.clone()),
             concentric_coils: false,
             end_winding_half_turn_length_override: None,
         }
@@ -2038,7 +2038,7 @@ mod stem_core_tests {
                 parallel_paths: 1.try_into().expect("not zero"),
                 connection: Connection::Star,
                 end_winding_leakage_coefficient: 0.25,
-                wire: Box::new(wire.clone()),
+                wire: Arc::new(wire.clone()),
                 concentric_coils: false,
                 end_winding_half_turn_length_override: None,
             }

@@ -197,7 +197,7 @@ fn test_end_winding_half_turn_phd_motor() {
             36.try_into().expect("not zero"),
             false,
             CarterFactorModel::Bin12,
-            Box::new(slot.clone()),
+            Arc::new(slot.clone()),
         )),
         flux_barrier: None,
     }

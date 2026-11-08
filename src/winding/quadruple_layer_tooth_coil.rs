@@ -1,13 +1,15 @@
 //! Provides the [`QuadrupleLayerToothCoilWinding`] - a variation of the
-//! [`ToothCoilWinding`](crate::winding::ToothCoilWinding) - as well as its
-//! builder structs.
+//! [`ToothCoilWinding`](crate::winding::tooth_coil::ToothCoilWinding) - as well
+//! as its builder structs.
 //!
 //! See the documentation of [`QuadrupleLayerToothCoilWinding`] for details.
 
-use std::num::{NonZeroU16, NonZeroUsize};
+use std::{
+    num::{NonZeroU16, NonZeroUsize},
+    sync::Arc,
+};
 
 use compare_variables::{Comparison, compare_variables};
-use dyn_clone::clone_box;
 use num::Integer;
 use stem_types::{CoilLayout, Zone};
 use stem_wire::{sff::SffWire, wire::Wire};
@@ -283,7 +285,7 @@ pub struct QuadrupleLayerToothCoilWinding {
     parallel_paths: NonZeroU16,
     connection: Connection,
     end_winding_leakage_coefficient: f64,
-    wire: Box<dyn Wire>,
+    wire: Arc<dyn Wire>,
     #[cfg_attr(feature = "serde", serde(skip))]
     coils: Coils,
     winding_table_constructor: WindingTableConstructor,
@@ -658,7 +660,7 @@ impl QuadrupleLayerToothCoilWinding {
             positive_slot_direction,
             turns,
             phase_abs.try_into().unwrap_or(NonZeroU16::MIN),
-            clone_box(&*self.wire),
+            self.wire.clone(),
         )
         .ok()
         .map(|coil| Coil::Full(coil));
@@ -789,7 +791,7 @@ pub struct QuadrupleLayerToothCoilBuilder {
     /// Must not be negative (`end_winding_leakage_coefficient >= 0`).
     pub end_winding_leakage_coefficient: f64,
     /// The wire used for all coils of the winding.
-    pub wire: Box<dyn Wire>,
+    pub wire: Arc<dyn Wire>,
     /// Winding table constructor used to determine the winding table of the
     /// final winding via [`WindingTable::from_constructor`]. The `span`
     /// argument to that function is always set to 1 (tooth-coil winding
@@ -1031,7 +1033,7 @@ impl TryFrom<QuadrupleLayerToothCoilMinimalBuilder> for QuadrupleLayerToothCoilW
             parallel_paths: NonZeroU16::MIN,
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(SffWire::default()),
+            wire: Arc::new(SffWire::default()),
             winding_table_constructor: builder.winding_table_constructor,
             end_winding_half_turn_length_override: None,
         }

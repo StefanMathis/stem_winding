@@ -1,4 +1,7 @@
-use std::num::{NonZeroU16, NonZeroUsize};
+use std::{
+    num::{NonZeroU16, NonZeroUsize},
+    sync::Arc,
+};
 
 use approxim;
 use stem_winding::prelude::*;
@@ -26,7 +29,7 @@ fn test_build_from_scratch() {
             true,
             1.try_into().expect("not zero"),
             2.try_into().expect("not zero"),
-            Box::new(wire.clone()),
+            Arc::new(wire.clone()),
         ))
         .unwrap();
     assert!(coil_assembly.coil_at(Zone::new(0, 0)).is_some());
@@ -42,7 +45,7 @@ fn test_build_from_scratch() {
                 true,
                 1.try_into().expect("not zero"),
                 2.try_into().expect("not zero"),
-                Box::new(wire.clone()),
+                Arc::new(wire.clone()),
             )
             .unwrap(),
         )
@@ -117,13 +120,13 @@ fn test_derive_from_winding() {
         let mut coil_data: Vec<CoilData> = Vec::with_capacity(2);
         for turns in 2..4 {
             coil_data.push(CoilData {
-                wire: Box::new(SffWire::default()),
+                wire: Arc::new(SffWire::default()),
                 turns: NonZeroUsize::new(turns).unwrap(),
                 end_winding_half_turn_length_override: None,
             });
         }
         let winding: DistributedToothCoilWinding = DistributedToothCoilBuilder {
-            slots: 24.try_into().expect("not zero"),
+            base_winding_count: 2.try_into().expect("not zero"),
             pole_pairs: 4.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
@@ -164,11 +167,11 @@ fn test_derive_from_winding() {
 
     {
         let winding: DistributedToothCoilWinding = DistributedToothCoilMinimalBuilder {
-            slots: 48.try_into().expect("not zero"),
+            base_winding_count: 2.try_into().expect("not zero"),
             pole_pairs: 10.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
-            turns: vec![NonZeroUsize::MIN, NonZeroUsize::MIN],
+            coil_group_turns: vec![NonZeroUsize::MIN, NonZeroUsize::MIN],
             double_zone_span: false,
         }
         .try_into()
@@ -201,19 +204,19 @@ fn test_derive_from_winding() {
     }
 
     {
-        let turns = DistributedToothCoilWinding::double_layer_turn_distribution(
-            2,
+        let coil_group_turns = DistributedToothCoilWinding::even_turn_distribution(
+            2.try_into().unwrap(),
             100.try_into().unwrap(),
             15,
         )
         .unwrap();
 
         let winding: DistributedToothCoilWinding = DistributedToothCoilMinimalBuilder {
-            slots: 12.try_into().expect("not zero"),
+            base_winding_count: 1.try_into().expect("not zero"),
             pole_pairs: 1.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 2.try_into().expect("not zero"),
-            turns,
+            coil_group_turns,
             double_zone_span: false,
         }
         .try_into()
@@ -379,7 +382,7 @@ mod stem_core_tests {
                 36.try_into().expect("not zero"),
                 true,
                 CarterFactorModel::Bin12,
-                Box::new(slot),
+                Arc::new(slot),
             )),
             flux_barrier: None,
         }
@@ -409,8 +412,8 @@ mod stem_core_tests {
         .unwrap();
 
         let strand_list = vec![
-            WireGroup::new(Box::new(wire_1), 2.try_into().unwrap()),
-            WireGroup::new(Box::new(wire_2), 3.try_into().unwrap()),
+            WireGroup::new(Arc::new(wire_1), 2.try_into().unwrap()),
+            WireGroup::new(Arc::new(wire_2), 3.try_into().unwrap()),
         ];
         let wire = StrandedWire::new(strand_list).unwrap();
         let winding: DistributedWinding = DistributedBuilder {
@@ -425,7 +428,7 @@ mod stem_core_tests {
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.25,
-            wire: Box::new(wire.clone()),
+            wire: Arc::new(wire.clone()),
             concentric_coils: false,
             end_winding_half_turn_length_override: None,
         }

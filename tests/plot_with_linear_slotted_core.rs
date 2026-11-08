@@ -34,7 +34,7 @@ mod cairo_tests {
                 slots: NonZeroU16::new(12).unwrap(),
                 starts_in_slot_middle: true,
                 carter_factor_model: CarterFactorModel::Bin12,
-                slot: Box::new(slot),
+                slot: Arc::new(slot),
             }),
             flux_barrier: None,
         }
@@ -272,7 +272,7 @@ mod cairo_tests {
         // Create a coil assembly which is used to derive the shapes
         let mut coils = Coils::with_capacity(4, 4);
 
-        let wire = Box::new(SffWire::default());
+        let wire = Arc::new(SffWire::default());
 
         // First slot
         coils
@@ -391,7 +391,7 @@ mod cairo_tests {
         let mut coils = Coils::with_capacity(4, 4);
 
         // Left-most coil
-        let wire = Box::new(SffWire::default());
+        let wire = Arc::new(SffWire::default());
 
         // First slot
         coils

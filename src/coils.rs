@@ -23,6 +23,7 @@ use [`Coils`] to provide convenient access to their individual coils.
 use std::{
     f64::consts::{PI, TAU},
     num::{NonZeroU16, NonZeroUsize},
+    sync::Arc,
 };
 
 use crate::error::Error;
@@ -151,10 +152,11 @@ impl Coils {
     /// # Examples
     ///
     /// ```
+    /// use std::sync::Arc;
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let wire: Box<dyn Wire> = Box::new(SffWire::default());
+    /// let wire: Arc<dyn Wire> = Arc::new(SffWire::default());
     ///
     /// let coil = FullCoil::new(
     ///     Zone::new(0, 0),
@@ -188,10 +190,11 @@ impl Coils {
     /// # Examples
     ///
     /// ```
+    /// use std::sync::Arc;
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let wire: Box<dyn Wire> = Box::new(SffWire::default());
+    /// let wire: Arc<dyn Wire> = Arc::new(SffWire::default());
     ///
     /// let coil = FullCoil::new(
     ///     Zone::new(0, 0),
@@ -226,10 +229,11 @@ impl Coils {
     /// # Examples
     ///
     /// ```
+    /// use std::sync::Arc;
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let wire: Box<dyn Wire> = Box::new(SffWire::default());
+    /// let wire: Arc<dyn Wire> = Arc::new(SffWire::default());
     ///
     /// let coil = FullCoil::new(
     ///     Zone::new(0, 0),
@@ -261,10 +265,11 @@ impl Coils {
     /// # Examples
     ///
     /// ```
+    /// use std::sync::Arc;
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let wire: Box<dyn Wire> = Box::new(SffWire::default());
+    /// let wire: Arc<dyn Wire> = Arc::new(SffWire::default());
     ///
     /// let coil = FullCoil::new(
     ///     Zone::new(0, 0),
@@ -301,10 +306,11 @@ impl Coils {
     /// # Examples
     ///
     /// ```
+    /// use std::sync::Arc;
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let wire: Box<dyn Wire> = Box::new(SffWire::default());
+    /// let wire: Arc<dyn Wire> = Arc::new(SffWire::default());
     ///
     /// let coil = FullCoil::new(
     ///     Zone::new(0, 0),
@@ -327,10 +333,11 @@ impl Coils {
     /// # Examples
     ///
     /// ```
+    /// use std::sync::Arc;
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let wire: Box<dyn Wire> = Box::new(SffWire::default());
+    /// let wire: Arc<dyn Wire> = Arc::new(SffWire::default());
     ///
     /// let coil = FullCoil::new(
     ///     Zone::new(0, 0),
@@ -431,10 +438,11 @@ impl Coil {
     /// # Examples
     ///
     /// ```
+    /// use std::sync::Arc;
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let full_coil_wire: Box<dyn Wire> = Box::new(SffWire::default());
+    /// let full_coil_wire: Arc<dyn Wire> = Arc::new(SffWire::default());
     /// let full_coil: Coil = FullCoil::new(
     ///     Zone::new(0, 0),
     ///     Zone::new(1, 0),
@@ -449,7 +457,7 @@ impl Coil {
     /// assert_eq!(zones.next(), Some(Zone::new(1, 0)));
     /// assert_eq!(zones.next(), None);
     ///
-    /// let half_coil_wire: Box<dyn Wire> = Box::new(SffWire::default());
+    /// let half_coil_wire: Arc<dyn Wire> = Arc::new(SffWire::default());
     /// let half_coil: Coil = HalfCoil::new(
     ///     Zone::new(0, 0),
     ///     true,
@@ -473,10 +481,11 @@ impl Coil {
     /// # Examples
     ///
     /// ```
+    /// use std::sync::Arc;
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let full_coil_wire: Box<dyn Wire> = Box::new(SffWire::default());
+    /// let full_coil_wire: Arc<dyn Wire> = Arc::new(SffWire::default());
     /// let full_coil: Coil = FullCoil::new(
     ///     Zone::new(0, 0),
     ///     Zone::new(1, 0),
@@ -498,7 +507,7 @@ impl Coil {
     ///    is_positive: false,
     /// }));
     ///
-    /// let half_coil_wire: Box<dyn Wire> = Box::new(SffWire::default());
+    /// let half_coil_wire: Arc<dyn Wire> = Arc::new(SffWire::default());
     /// let half_coil: Coil = HalfCoil::new(
     ///     Zone::new(0, 0),
     ///     false,
@@ -624,11 +633,12 @@ pub trait CoilExt: private::Sealed {
     /// # Examples
     ///
     /// ```
+    /// use std::sync::Arc;
     /// use approxim::assert_abs_diff_eq;
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let wire: Box<dyn Wire> = Box::new(SffWire::default());
+    /// let wire: Arc<dyn Wire> = Arc::new(SffWire::default());
     /// let mut coil: Coil = FullCoil::new(
     ///     Zone::new(0, 0),
     ///     Zone::new(3, 0),
@@ -666,11 +676,12 @@ pub trait CoilExt: private::Sealed {
     /// # Examples
     ///
     /// ```
+    /// use std::sync::Arc;
     /// use approxim::assert_abs_diff_eq;
     /// use std::num::{NonZeroU16, NonZeroUsize};
     /// use stem_winding::prelude::*;
     ///
-    /// let wire: Box<dyn Wire> = Box::new(SffWire::default());
+    /// let wire: Arc<dyn Wire> = Arc::new(SffWire::default());
     /// let mut coil: Coil = FullCoil::new(
     ///     Zone::new(0, 0),
     ///     Zone::new(3, 0),
@@ -710,13 +721,13 @@ pub trait CoilExt: private::Sealed {
     fn any_zone(&self) -> Zone;
 
     /// Returns a reference to the underlying [`Wire`] trait object.
-    fn wire(&self) -> &dyn Wire;
+    fn wire(&self) -> &Arc<dyn Wire>;
 
     /// Sets a new wire for the coil. See [`CoilExt::wire`] for more.
-    fn set_wire(&mut self, wire: Box<dyn Wire>);
+    fn set_wire(&mut self, wire: Arc<dyn Wire>);
 
     /// Returns the underlying [`Wire`] trait object, consuming the coil.
-    fn into_wire(self) -> Box<dyn Wire>;
+    fn into_wire(self) -> Arc<dyn Wire>;
 
     /**
     Returns the coil throw in slot pitches.
@@ -785,10 +796,11 @@ pub trait CoilExt: private::Sealed {
     # Examples
 
     ```
+    use std::sync::Arc;
     use std::num::{NonZeroU16, NonZeroUsize};
     use stem_winding::prelude::*;
 
-    let wire: Box<dyn Wire> = Box::new(SffWire::default());
+    let wire: Arc<dyn Wire> = Arc::new(SffWire::default());
     let coil = FullCoil::new(
         Zone::new(0, 0),
         Zone::new(5, 0),
@@ -893,21 +905,21 @@ impl CoilExt for Coil {
         }
     }
 
-    fn wire(&self) -> &dyn Wire {
+    fn wire(&self) -> &Arc<dyn Wire> {
         match self {
             Coil::Full(coil) => coil.wire(),
             Coil::Half(coil) => coil.wire(),
         }
     }
 
-    fn set_wire(&mut self, wire: Box<dyn Wire>) {
+    fn set_wire(&mut self, wire: Arc<dyn Wire>) {
         match self {
             Coil::Full(coil) => coil.set_wire(wire),
             Coil::Half(coil) => coil.set_wire(wire),
         }
     }
 
-    fn into_wire(self) -> Box<dyn Wire> {
+    fn into_wire(self) -> Arc<dyn Wire> {
         match self {
             Coil::Full(coil) => coil.into_wire(),
             Coil::Half(coil) => coil.into_wire(),
@@ -995,7 +1007,7 @@ pub struct FullCoil {
     positive_slot_direction: bool,
     turns: NonZeroUsize,
     phase: NonZeroU16,
-    wire: Box<dyn Wire>,
+    wire: Arc<dyn Wire>,
 }
 
 impl FullCoil {
@@ -1012,7 +1024,7 @@ impl FullCoil {
         positive_slot_direction: bool,
         turns: NonZeroUsize,
         phase: NonZeroU16,
-        wire: Box<dyn Wire>,
+        wire: Arc<dyn Wire>,
     ) -> Result<Self, Error> {
         if positive_zone == negative_zone {
             return Err(Error::EqualCoilZones(positive_zone));
@@ -1107,6 +1119,7 @@ impl FullCoil {
     # Examples
 
     ```
+    use std::sync::Arc;
     use std::num::{NonZeroU16, NonZeroUsize};
     use stem_winding::prelude::*;
 
@@ -1116,7 +1129,7 @@ impl FullCoil {
         false, // parameter positive_slot_direction
         NonZeroUsize::new(10).expect("not zero"),
         NonZeroU16::MIN,
-        Box::new(SffWire::default()),
+        Arc::new(SffWire::default()),
     )
     .expect("zones identical");
 
@@ -1158,7 +1171,7 @@ impl<'de> Deserialize<'de> for FullCoil {
             positive_slot_direction: bool,
             turns: NonZeroUsize,
             phase: NonZeroU16,
-            wire: Box<dyn Wire>,
+            wire: Arc<dyn Wire>,
         }
 
         let coil = FullCoilDe::deserialize(deserializer)?;
@@ -1261,15 +1274,15 @@ impl CoilExt for FullCoil {
         self.positive_zone
     }
 
-    fn wire(&self) -> &dyn Wire {
-        return &*self.wire;
+    fn wire(&self) -> &Arc<dyn Wire> {
+        return &self.wire;
     }
 
-    fn set_wire(&mut self, wire: Box<dyn Wire>) {
+    fn set_wire(&mut self, wire: Arc<dyn Wire>) {
         self.wire = wire;
     }
 
-    fn into_wire(self) -> Box<dyn Wire> {
+    fn into_wire(self) -> Arc<dyn Wire> {
         return self.wire;
     }
 
@@ -1333,7 +1346,7 @@ impl CoilExt for FullCoil {
     }
 }
 
-impl From<FullCoil> for Box<dyn Wire> {
+impl From<FullCoil> for Arc<dyn Wire> {
     fn from(value: FullCoil) -> Self {
         value.wire
     }
@@ -1364,7 +1377,7 @@ pub struct HalfCoil {
     /// The phase of the coil.
     pub phase: NonZeroU16,
     /// The underlying wire.
-    pub wire: Box<dyn Wire>,
+    pub wire: Arc<dyn Wire>,
 }
 
 impl HalfCoil {
@@ -1377,7 +1390,7 @@ impl HalfCoil {
         is_positive: bool,
         turns: NonZeroUsize,
         phase: NonZeroU16,
-        wire: Box<dyn Wire>,
+        wire: Arc<dyn Wire>,
     ) -> Self {
         Self {
             zone,
@@ -1441,15 +1454,15 @@ impl CoilExt for HalfCoil {
         return Complex::from_polar(self.turns().get() as f64, slot_angle);
     }
 
-    fn wire(&self) -> &dyn Wire {
-        return &*self.wire;
+    fn wire(&self) -> &Arc<dyn Wire> {
+        return &self.wire;
     }
 
-    fn set_wire(&mut self, wire: Box<dyn Wire>) {
+    fn set_wire(&mut self, wire: Arc<dyn Wire>) {
         self.wire = wire;
     }
 
-    fn into_wire(self) -> Box<dyn Wire> {
+    fn into_wire(self) -> Arc<dyn Wire> {
         return self.wire;
     }
 
@@ -1476,7 +1489,7 @@ impl CoilExt for HalfCoil {
     }
 }
 
-impl From<HalfCoil> for Box<dyn Wire> {
+impl From<HalfCoil> for Arc<dyn Wire> {
     fn from(value: HalfCoil) -> Self {
         value.wire
     }

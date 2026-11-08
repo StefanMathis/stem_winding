@@ -78,9 +78,10 @@ pub enum WindingTableConstructor {
     special cases, can be found in [\[1\]](#tingley_1).
 
     (*): For the special case of a single-layer
-    [`ToothCoilWinding`](crate::winding::ToothCoilWinding) (`span.abs() == 1`),
-    a double-layer [`ToothCoilWinding`](crate::winding::ToothCoilWinding) with
-    half the number of slots is created and then "flattened" into a single-layer
+    [`ToothCoilWinding`](crate::winding::tooth_coil::ToothCoilWinding)
+    (`span.abs() == 1`), a double-layer
+    [`ToothCoilWinding`](crate::winding::tooth_coil::ToothCoilWinding) with half
+    the number of slots is created and then "flattened" into a single-layer
     winding with the given number of slots.
 
     # Notes

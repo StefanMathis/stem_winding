@@ -4,6 +4,7 @@ mod cairo_tests {
     use std::{
         f64::consts::PI,
         num::{NonZeroU16, NonZeroUsize},
+        sync::Arc,
     };
 
     use cairo_viewport::{bounding_box::ToBoundingBox, *};
@@ -374,7 +375,7 @@ mod cairo_tests {
                         true,
                         NonZeroUsize::MIN,
                         NonZeroU16::MIN,
-                        Box::new(SffWire::default()),
+                        Arc::new(SffWire::default()),
                     )
                     .expect("zones not identical")
                     .into(),
@@ -493,7 +494,7 @@ mod cairo_tests {
                 false,
                 1.try_into().unwrap(),
                 1.try_into().unwrap(),
-                Box::new(SffWire::default()),
+                Arc::new(SffWire::default()),
             )
             .unwrap();
 
@@ -504,7 +505,7 @@ mod cairo_tests {
                 false,
                 1.try_into().unwrap(),
                 1.try_into().unwrap(),
-                Box::new(SffWire::default()),
+                Arc::new(SffWire::default()),
             )
             .unwrap();
             coils.insert(coil.into()).unwrap();
@@ -515,7 +516,7 @@ mod cairo_tests {
                 false,
                 1.try_into().unwrap(),
                 2.try_into().unwrap(),
-                Box::new(SffWire::default()),
+                Arc::new(SffWire::default()),
             )
             .unwrap();
             coils.insert(coil.into()).unwrap();
@@ -526,7 +527,7 @@ mod cairo_tests {
                 false,
                 1.try_into().unwrap(),
                 2.try_into().unwrap(),
-                Box::new(SffWire::default()),
+                Arc::new(SffWire::default()),
             )
             .unwrap();
             coils.insert(coil.into()).unwrap();

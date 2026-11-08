@@ -2,11 +2,13 @@
 //!
 //! See the documentation of [`DistributedWinding`] for details.
 
-use std::num::{NonZeroU16, NonZeroUsize};
+use std::{
+    num::{NonZeroU16, NonZeroUsize},
+    sync::Arc,
+};
 
 use compare_variables::{Comparison, compare_variables};
 
-use dyn_clone::clone_box;
 use num::rational::Ratio;
 
 use stem_types::{CoilLayout, Zone};
@@ -210,7 +212,7 @@ pub struct DistributedWinding {
     parallel_paths: NonZeroU16,
     connection: Connection,
     end_winding_leakage_coefficient: f64,
-    wire: Box<dyn Wire>,
+    wire: Arc<dyn Wire>,
     #[cfg_attr(feature = "serde", serde(skip))]
     coils: Coils,
     winding_table_constructor: WindingTableConstructor,
@@ -913,7 +915,7 @@ impl DistributedWinding {
                                     positive_slot_direction,
                                     self.turns_per_coil,
                                     NonZeroU16::new(pos.phase as u16).expect("cannot be zero"),
-                                    clone_box(&*self.wire),
+                                    self.wire.clone(),
                                 )?;
                                 self.coils.insert(Coil::Full(coil))?;
                             }
@@ -933,7 +935,7 @@ impl DistributedWinding {
                                     positive_slot_direction,
                                     self.turns_per_coil,
                                     NonZeroU16::new(pos.phase as u16).expect("cannot be zero"),
-                                    clone_box(&*self.wire),
+                                    self.wire.clone(),
                                 )?;
                                 self.coils.insert(Coil::Full(coil))?;
                             }
@@ -1265,7 +1267,7 @@ pub struct DistributedBuilder {
     /// negative (`end_winding_leakage_coefficient >= 0`).
     pub end_winding_leakage_coefficient: f64,
     /// The wire used for all coils of the winding.
-    pub wire: Box<dyn Wire>,
+    pub wire: Arc<dyn Wire>,
     /**
     Whether the coils of a coil group should have the same span or be
     concentric, see [`DistributedWinding::concentric_coils`].
@@ -1442,6 +1444,7 @@ by this builder:
 # Examples
 
 ```
+use std::sync::Arc;
 use std::num::NonZeroU16;
 
 use approxim::assert_abs_diff_eq;
@@ -1459,7 +1462,7 @@ let builder = DistributedDoubleZoneSpanBuilder {
     parallel_paths: 1.try_into().expect("not zero"),
     connection: Connection::Star,
     end_winding_leakage_coefficient: 0.0,
-    wire: Box::new(SffWire::default()),
+    wire: Arc::new(SffWire::default()),
     concentric_coils: false,
     end_winding_half_turn_length_override: None
 };
@@ -1510,7 +1513,7 @@ pub struct DistributedDoubleZoneSpanBuilder {
     /// negative (`end_winding_leakage_coefficient >= 0`).
     pub end_winding_leakage_coefficient: f64,
     /// The wire used for all coils of the winding.
-    pub wire: Box<dyn Wire>,
+    pub wire: Arc<dyn Wire>,
     /// Winding table constructor used to determine the winding table of the
     /// final winding via [`WindingTable::from_constructor`]. The `span`
     /// argument to that function is calculated as the integer division of slots
@@ -1648,7 +1651,7 @@ impl TryFrom<DistributedMinimalBuilder> for DistributedWinding {
             parallel_paths: NonZeroU16::MIN,
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(SffWire::default()),
+            wire: Arc::new(SffWire::default()),
             concentric_coils: false,
             end_winding_half_turn_length_override: None,
         }

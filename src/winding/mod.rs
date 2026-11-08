@@ -4,18 +4,13 @@
 //! Besides the [`Winding`] trait, which is the centerpiece of this crate, this
 //! module also includes tools for analyzing winding properties, such as
 //! [`FecSpectralAnalysis`].
-//!
-//! The module reexports predefined winding implementations, including the
-//! common [`DistributedWinding`], [`ToothCoilWinding`] and
-//! [`SquirrelCageWinding`], as well as more specialized variants such as
-//! [`QuadrupleLayerToothCoilWinding`] and [`DistributedToothCoilWinding`].
-//! Associated helper types, such as builder structs, are reexported as well.
 
 use dyn_clone::DynClone;
 use num::{Complex, Integer, integer::gcd};
 use std::{
     f64::consts::{PI, TAU},
     num::{NonZeroU16, NonZeroUsize},
+    sync::Arc,
 };
 
 use rayon::prelude::*;
@@ -96,7 +91,7 @@ properties such as the total wire mass. See the documentation of
 
 Besides the required methods, it is recommended to override the following
 methods when appropriate. For examples, see the predefined winding types such
-as [`DistributedWinding`].
+as [`DistributedWinding`](crate::winding::distributed::DistributedWinding).
 
 - [`Winding::base_winding_count`] determines the number of base or repeating
   windings of `self`. The default implementation uses an O(n) algorithm, but
@@ -248,7 +243,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// and sums the turns belonging to the specified `phase`. This is an
     /// O(n) operation, and it is recommended to override it with an O(1)
     /// algorithm if the winding structure allows it, as is the case for
-    /// [`DistributedWinding`].
+    /// [`DistributedWinding`](crate::winding::distributed::DistributedWinding).
     fn series_turns_per_phase(&self, phase: NonZeroU16) -> num::rational::Ratio<usize> {
         // Sum of the turns in all coil sides belonging to that phase
         let mut turns = 0;
@@ -425,7 +420,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///
     /// Implementations known to be symmetric should override this method to
     /// avoid the property comparisons. An example from this crate is
-    /// [`DistributedWinding::is_symmetric`].
+    /// [`DistributedWinding::is_symmetric`](crate::winding::distributed::DistributedWinding::is_symmetric).
     #[cfg(feature = "stem_core")]
     fn is_symmetric(&self, core: CoreRef<'_>) -> bool {
         // Condition 1: Comparison of winding factors
@@ -524,7 +519,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// given [`Zone`].
     ///
     /// If the specified [`Zone`] is empty, this method returns `None`.
-    fn wire_at(&self, zone: Zone) -> Option<&dyn Wire> {
+    fn wire_at(&self, zone: Zone) -> Option<&Arc<dyn Wire>> {
         self.coil_at(zone).map(CoilExt::wire)
     }
 
@@ -887,16 +882,16 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// }
     /// ```
     fn winding_factor(&self, phase: NonZeroU16, spatial_order: SpatialOrder) -> f64 {
-        // It is sufficient to calculate the phasor star for the basic winding.
+        // It is sufficient to calculate the phasor star for the base winding.
         // However, this also means that the spatial and likewise the phasor
         // angle must adjusted accordingly!
         let base_winding_count = self.base_winding_count().get();
-        let slots_basic = self.slots().get() / base_winding_count;
+        let slots_base = self.slots().get() / base_winding_count;
 
         let elec_order = match spatial_order {
             SpatialOrder::Mechanical(v) => {
                 if v % u32::from(base_winding_count) != 0 {
-                    // W.r.t. the basic winding, no fractional order can exist!
+                    // W.r.t. the base winding, no fractional order can exist!
                     return 0.0;
                 }
                 f64::from(v) / f64::from(self.pole_pairs().get() * base_winding_count)
@@ -906,7 +901,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
         let layers = self.layers().get();
         let alpha_u = self.phasor_angle() * f64::from(base_winding_count);
 
-        let (phasor_sum_geo, phasor_sum_abs) = (0..slots_basic)
+        let (phasor_sum_geo, phasor_sum_abs) = (0..slots_base)
             .into_par_iter()
             .map(|slot| {
                 let mut phasor_sum_abs = 0;
@@ -1602,6 +1597,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// [`HalfCoil`](crate::coils::HalfCoil)s.
     ///
     /// ```
+    /// use std::sync::Arc;
     /// use std::num::{NonZeroUsize, NonZeroU16};
     /// use stem_winding::prelude::*;
     ///
@@ -1625,7 +1621,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///         true,
     ///         NonZeroUsize::MIN,
     ///         NonZeroU16::MIN,
-    ///         Box::new(SffWire::default()),
+    ///         Arc::new(SffWire::default()),
     ///     )
     ///     .expect("zones identical")).unwrap();
     /// winding
@@ -1634,7 +1630,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///         true,
     ///         1.try_into().expect("not zero"),
     ///         2.try_into().expect("not zero"),
-    ///         Box::new(SffWire::default()),
+    ///         Arc::new(SffWire::default()),
     ///     )).unwrap();
     ///
     /// // The total number of coils is 2.
@@ -1821,7 +1817,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///         36.try_into().expect("not zero"),
     ///         true,
     ///         CarterFactorModel::Bin12,
-    ///         Box::new(slot),
+    ///         Arc::new(slot),
     ///     )),
     ///     flux_barrier: None,
     /// }
@@ -1840,7 +1836,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///     parallel_paths: 1.try_into().expect("not zero"),
     ///     connection: Connection::Star,
     ///     end_winding_leakage_coefficient: 0.25,
-    ///     wire: Box::new(SffWire::default()),
+    ///     wire: Arc::new(SffWire::default()),
     ///     concentric_coils: false,
     ///     end_winding_half_turn_length_override: None,
     /// }
@@ -2113,8 +2109,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// )
     /// .expect("valid_geometry");
     /// let wire = StrandedWire::new(vec![
-    ///     WireGroup::new(Box::new(wire_1), 2.try_into().expect("not zero")),
-    ///     WireGroup::new(Box::new(wire_2), 3.try_into().expect("not zero")),
+    ///     WireGroup::new(Arc::new(wire_1), 2.try_into().expect("not zero")),
+    ///     WireGroup::new(Arc::new(wire_2), 3.try_into().expect("not zero")),
     /// ]).expect("not empty");
     ///
     /// // Define the winding using the full constructor
@@ -2130,7 +2126,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///     parallel_paths: 1.try_into().expect("not zero"),
     ///     connection: Connection::Star,
     ///     end_winding_leakage_coefficient: 0.25,
-    ///     wire: Box::new(wire),
+    ///     wire: Arc::new(wire),
     ///     concentric_coils: false,
     ///     end_winding_half_turn_length_override: None,
     /// }
@@ -2162,7 +2158,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///         36.try_into().expect("not zero"),
     ///         true,
     ///         CarterFactorModel::Bin12,
-    ///         Box::new(slot),
+    ///         Arc::new(slot),
     ///     )),
     ///     flux_barrier: None,
     /// }.try_into().expect("valid magnetic core");
@@ -2544,9 +2540,9 @@ pub fn slot_leakage_inductance<W: Winding + ?Sized>(
         slot.leakage_coefficient_opening() + slot.leakage_coefficient_tooth_tip(effective_air_gap);
 
     // Calculate the total slot leakage inductance by iterating over all slots of a
-    // basic winding and calculating the sum of the slot flux leakage inductance.
-    let number_basic_slots = winding.slots().get() / winding.base_winding_count();
-    let slots = 0..number_basic_slots;
+    // base winding and calculating the sum of the slot flux leakage inductance.
+    let number_base_slots = winding.slots().get() / winding.base_winding_count();
+    let slots = 0..number_base_slots;
     let number_layers = winding.layers().get();
     let number_layers_squared = number_layers.pow(2);
 
@@ -2560,7 +2556,7 @@ pub fn slot_leakage_inductance<W: Winding + ?Sized>(
     let single_turn_inductance = *VACUUM_PERMEABILITY * core.axial_coil_length();
 
     // Calculate the total slot inductance for the selected phase
-    let basic_winding_slot_inductance: Inductance = slots
+    let base_winding_slot_inductance: Inductance = slots
         .into_par_iter()
         .map(|slot_idx| {
             // Calculate the self-inductance of a single slot according to [1], section
@@ -2628,7 +2624,7 @@ pub fn slot_leakage_inductance<W: Winding + ?Sized>(
 
     // Scale with the winding base_winding_count and the number of parallel paths
     return VarQuantity::from(
-        basic_winding_slot_inductance * winding.base_winding_count().get() as f64
+        base_winding_slot_inductance * winding.base_winding_count().get() as f64
             / f64::from(winding.parallel_paths(phase).get()),
     );
 }

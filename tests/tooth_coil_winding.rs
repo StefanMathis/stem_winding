@@ -807,7 +807,7 @@ mod stem_core_tests {
                 12.try_into().expect("not zero"),
                 true,
                 CarterFactorModel::Bin12,
-                Box::new(slot),
+                Arc::new(slot),
             )),
             flux_barrier: None,
         }
@@ -844,7 +844,7 @@ mod stem_core_tests {
                 12.try_into().expect("not zero"),
                 true,
                 CarterFactorModel::Bin12,
-                Box::new(slot),
+                Arc::new(slot),
             )),
             flux_barrier: None,
         }
@@ -865,7 +865,7 @@ mod stem_core_tests {
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.25,
-            wire: Box::new(wire),
+            wire: Arc::new(wire),
             winding_table_constructor: WindingTableConstructor::Tingley,
             end_winding_half_turn_length_override: None,
         }
@@ -886,7 +886,7 @@ mod stem_core_tests {
             parallel_paths: 1.try_into().expect("not zero"),
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.25,
-            wire: Box::new(wire),
+            wire: Arc::new(wire),
             winding_table_constructor: WindingTableConstructor::Tingley,
             end_winding_half_turn_length_override: None,
         }

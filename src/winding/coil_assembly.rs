@@ -87,10 +87,10 @@ no two coils may occupy the same zone). This ensures that the resulting assembly
 remains valid.
 
 A concrete use case for this winding type is the evaluation of asymmetries:
-Given a [`ToothCoilWinding`](crate::winding::ToothCoilWinding), we want to
-evaluate the effect of a mistake made during the winding process, where one coil
-is missing one turn. This breaks the spatial symmetry of the winding, resulting
-in additional spatial harmonics of the created field:
+Given a [`ToothCoilWinding`](crate::winding::tooth_coil::ToothCoilWinding), we
+want to evaluate the effect of a mistake made during the winding process, where
+one coil is missing one turn. This breaks the spatial symmetry of the winding,
+resulting in additional spatial harmonics of the created field:
 
 ```
 use std::num::NonZeroUsize;
@@ -194,6 +194,7 @@ This example shows how to build a [`CoilAssembly`] coil by coil and also how to
 remove existing coils using [`CoilAssembly::remove`].
 
 ```
+use std::sync::Arc;
 use std::num::NonZeroU16;
 
 use stem_winding::prelude::*;
@@ -218,7 +219,7 @@ winding.insert(
         true,
         10.try_into().expect("not zero"), // Number of turns
         1.try_into().expect("not zero"), // Phase
-        Box::new(SffWire::default()),
+        Arc::new(SffWire::default()),
     )
     .unwrap(),
 ).expect("valid");
@@ -229,7 +230,7 @@ winding.insert(
         true,
         12.try_into().expect("not zero"), // Number of turns
         2.try_into().expect("not zero"), // Phase
-        Box::new(SffWire::default()),
+        Arc::new(SffWire::default()),
     )
     .unwrap(),
 ).expect("valid");
@@ -328,7 +329,7 @@ impl CoilAssembly {
     ///         36.try_into().expect("not zero"),
     ///         true,
     ///         CarterFactorModel::Bin12,
-    ///         Box::new(slot),
+    ///         Arc::new(slot),
     ///     )),
     ///     flux_barrier: None,
     /// }
@@ -347,7 +348,7 @@ impl CoilAssembly {
     ///     parallel_paths: 1.try_into().expect("not zero"),
     ///     connection: Connection::Star,
     ///     end_winding_leakage_coefficient: 0.25,
-    ///     wire: Box::new(SffWire::default()),
+    ///     wire: Arc::new(SffWire::default()),
     ///     concentric_coils: false,
     ///     end_winding_half_turn_length_override: None,
     /// }
@@ -571,6 +572,7 @@ impl CoilAssembly {
     /// # Examples
     ///
     /// ```
+    /// use std::sync::Arc;
     /// use stem_winding::prelude::*;
     ///
     /// let mut winding = CoilAssembly::new(
@@ -593,7 +595,7 @@ impl CoilAssembly {
     ///     true,
     ///     10.try_into().expect("not zero"), // Number of turns
     ///     1.try_into().expect("not zero"), // Phase
-    ///     Box::new(SffWire::default()),
+    ///     Arc::new(SffWire::default()),
     /// )
     /// .unwrap();
     /// winding.insert(coil).expect("all insertion conditions fulfilled");
@@ -606,7 +608,7 @@ impl CoilAssembly {
     ///     true,
     ///     10.try_into().expect("not zero"), // Number of turns
     ///     1.try_into().expect("not zero"), // Phase
-    ///     Box::new(SffWire::default()),
+    ///     Arc::new(SffWire::default()),
     /// )
     /// .unwrap();
     /// assert!(winding.insert(coil).is_err());
@@ -618,7 +620,7 @@ impl CoilAssembly {
     ///     true,
     ///     10.try_into().expect("not zero"), // Number of turns
     ///     4.try_into().expect("not zero"), // Phase
-    ///     Box::new(SffWire::default()),
+    ///     Arc::new(SffWire::default()),
     /// )
     /// .unwrap();
     /// assert!(winding.insert(coil).is_err());
@@ -630,7 +632,7 @@ impl CoilAssembly {
     ///     true,
     ///     10.try_into().expect("not zero"), // Number of turns
     ///     4.try_into().expect("not zero"), // Phase
-    ///     Box::new(SffWire::default()),
+    ///     Arc::new(SffWire::default()),
     /// )
     /// .unwrap();
     /// assert!(winding.insert(coil).is_err());
@@ -659,6 +661,7 @@ impl CoilAssembly {
     /// # Examples
     ///
     /// ```
+    /// use std::sync::Arc;
     /// use stem_winding::prelude::*;
     ///
     /// let mut winding = CoilAssembly::new(
@@ -678,7 +681,7 @@ impl CoilAssembly {
     ///     true,
     ///     10.try_into().expect("not zero"), // Number of turns
     ///     1.try_into().expect("not zero"), // Phase
-    ///     Box::new(SffWire::default()),
+    ///     Arc::new(SffWire::default()),
     /// )
     /// .unwrap();
     /// winding.insert(coil).expect("all insertion conditions fulfilled");
@@ -704,6 +707,7 @@ impl CoilAssembly {
     /// # Examples
     ///
     /// ```
+    /// use std::sync::Arc;
     /// use stem_winding::prelude::*;
     ///
     /// let mut winding = CoilAssembly::new(
@@ -724,7 +728,7 @@ impl CoilAssembly {
     ///     true,
     ///     10.try_into().expect("not zero"), // Number of turns
     ///     1.try_into().expect("not zero"), // Phase
-    ///     Box::new(SffWire::default()),
+    ///     Arc::new(SffWire::default()),
     /// )
     /// .unwrap();
     /// winding.insert(coil).expect("all insertion conditions fulfilled");
@@ -736,7 +740,7 @@ impl CoilAssembly {
     ///     true,
     ///     10.try_into().expect("not zero"), // Number of turns
     ///     1.try_into().expect("not zero"), // Phase
-    ///     Box::new(SffWire::default()),
+    ///     Arc::new(SffWire::default()),
     /// )
     /// .unwrap();
     /// winding.insert(coil).expect("all insertion conditions fulfilled");
@@ -752,9 +756,9 @@ impl CoilAssembly {
     /// Sets a new number of pole pairs.
     ///
     /// Some winding types, like e.g. a
-    /// [`SquirrelCageWinding`](crate::winding::SquirrelCageWinding) can change
-    /// the number of pole pairs during operation (see e.g.
-    /// [`SquirrelCageWinding::set_pole_pairs`](crate::winding::SquirrelCageWinding::set_pole_pairs)).
+    /// [`SquirrelCageWinding`](crate::winding::squirrel_cage::SquirrelCageWinding)
+    /// can change the number of pole pairs during operation (see e.g.
+    /// [`SquirrelCageWinding::set_pole_pairs`](crate::winding::squirrel_cage::SquirrelCageWinding::set_pole_pairs)).
     /// This method allows the [`CoilAssembly`] to mimic that behavior.
     pub fn set_pole_pairs(&mut self, pole_pairs: NonZeroU16) -> NonZeroU16 {
         let old = self.pole_pairs;

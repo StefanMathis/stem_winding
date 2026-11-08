@@ -1,9 +1,16 @@
-use std::num::{NonZeroU16, NonZeroUsize};
+//! Provides the [`DistributedToothCoilWinding`] - a variation of the
+//! [`DistributedWinding`](crate::winding::distributed::DistributedWinding) - as
+//! well as helper structs.
+//!
+//! See the documentation of [`DistributedToothCoilWinding`] for details.
+
+use std::{
+    num::{NonZeroU16, NonZeroUsize},
+    sync::Arc,
+};
 
 use compare_variables::compare_variables;
 
-use dyn_clone::clone_box;
-use num::Integer;
 use stem_types::{CoilLayout, Zone};
 use stem_wire::{sff::SffWire, wire::Wire};
 
@@ -24,82 +31,6 @@ use crate::{
 };
 
 /**
-This iterator returns all possible configurations for the number of coils in a coil group of an distributed tooth-coil winding.
-```
-use stem_winding::winding::CoilsPerCoilGroupIterator;
-let mut iter = CoilsPerCoilGroupIterator::new(12, 3, 2, false);
-assert_eq!(iter.next().unwrap(), 1);
-assert_eq!(iter.next().unwrap(), 2);
-assert!(iter.next().is_none());
-```
- */
-pub struct CoilsPerCoilGroupIterator {
-    slots: u16,
-    phases: u16,
-    layers: u16,
-    coils_per_coil_group: u16,
-    max_pole_pairs: u16,
-    multiplier: u16,
-    iterator_is_exhausted: bool,
-}
-
-impl CoilsPerCoilGroupIterator {
-    pub fn new(
-        slots: NonZeroU16,
-        phases: NonZeroU16,
-        layers: NonZeroU16,
-        double_zone_span: bool,
-    ) -> Self {
-        let slots = slots.get();
-        let phases = phases.get();
-        let layers = layers.get();
-
-        // Check if the current number of turns per coil would lead to a valid winding
-        let multiplier = if double_zone_span { 1 } else { 2 };
-
-        let max_pole_pairs = multiplier * slots / phases * layers;
-        Self {
-            slots,
-            phases,
-            layers,
-            coils_per_coil_group: 0,
-            max_pole_pairs,
-            multiplier,
-            iterator_is_exhausted: false,
-        }
-    }
-}
-
-impl Iterator for CoilsPerCoilGroupIterator {
-    type Item = u16;
-    fn next(&mut self) -> Option<u16> {
-        // Check if the iterator is exhausted
-        if self.iterator_is_exhausted {
-            return None;
-        }
-
-        // Exhaust the iterator
-        if 2 * self.phases * self.coils_per_coil_group > self.layers * self.slots {
-            self.iterator_is_exhausted = true;
-            return None;
-        }
-
-        // Increase the iterator
-        self.coils_per_coil_group = self.coils_per_coil_group + 1;
-
-        for pole_pairs in 1..(self.max_pole_pairs + 1) {
-            if self.layers * self.slots
-                == self.multiplier * 2 * self.phases * self.coils_per_coil_group * pole_pairs
-            {
-                return Some(self.coils_per_coil_group);
-            }
-        }
-
-        return self.next();
-    }
-}
-
-/**
 Data for a coil of a [`DistributedToothCoilWinding`].
 
 This struct is used as part of the [`DistributedToothCoilBuilder`] to specify
@@ -109,7 +40,7 @@ certain properties of one of the concentric coils.
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct CoilData {
     /// The [`Wire`] used by the coil.
-    pub wire: Box<dyn Wire>,
+    pub wire: Arc<dyn Wire>,
     /// The number of [`turns`](crate::coils::CoilExt::turns) of the coil.
     pub turns: NonZeroUsize,
     /// An optional override for the length of an end-winding half-turn of the
@@ -124,14 +55,14 @@ pub struct CoilData {
 A short-pitched distributed winding with concentric non-overlapping coils.
 
 This winding type is a derivative of the
-[`DistributedWinding`](crate::winding::DistributedWinding) with a strong
-pitching / large
-[`coil_throw_reduction`](crate::winding::DistributedWinding::coil_throw_reduction).
+[`DistributedWinding`](crate::winding::distributed::DistributedWinding) with a
+strong pitching / large
+[`coil_throw_reduction`](crate::winding::distributed::DistributedWinding::coil_throw_reduction).
 Its distinctive feature are the concentric, non-overlapping coils and the
 resulting short end windings, making this winding type particularly suited for
 very short motors which require a sinusoidal air gap field and are therefore
-unsuited for [`ToothCoilWinding`](crate::winding::ToothCoilWinding)s. A
-practical example would be induction motors in fan applications, which need to
+unsuited for [`ToothCoilWinding`](crate::winding::tooth_coil::ToothCoilWinding)s.
+A practical example would be induction motors in fan applications, which need to
 start directly on the grid. [\[1\]](#dtcw_1)
 
 # Winding table and coil layout
@@ -148,7 +79,7 @@ demonstrated in the following sections.
 
 Because it is a derivative, the zone plan of a distributed tooth-coil winding
 can be created by short-pitching that of a
-[`DistributedWinding`](crate::winding::DistributedWinding) [\[1\]](#dtcw_1).
+[`DistributedWinding`](crate::winding::distributed::DistributedWinding) [\[1\]](#dtcw_1).
 Consider the following double-layered distributed winding with 12 slots and one
 pole pair without any pitching.
 
@@ -236,9 +167,10 @@ where the innermost coil is a tooth-coil:
 
 # Single-layer
 
-It is also possible to derive a single-layer version by doubling the zone span
-as shown in [\[2\]](#dtcw_2) (see also
-[`DistributedDoubleZoneSpanBuilder`](crate::winding::DistributedDoubleZoneSpanBuilder)):
+It is also possible to derive a single-layer version from a heavily-pitched
+distributed tooth coil winding [\[2\]](#dtcw_2). The following example
+demonstrates this for a 3-phase winding with a doubled zone span, but this is
+equally possible for windings with normal zone span.
 
 */
 #[doc = ""]
@@ -292,7 +224,7 @@ L \ S │   0   1   2   3   4   5   6   7   8   9  10  11
   0   │   1   1  -1  -1   2   2  -2  -2   3   3  -3  -3
           ┃   ┗━━━┛   ┃   ┃   ┗━━━┛   ┃   ┃   ┗━━━┛   ┃
           ┗━━━━━━━━━━━┛   ┗━━━━━━━━━━━┛   ┗━━━━━━━━━━━┛
-             Group A         Group B         Group C
+           Coil Group A    Coil Group B    Coil Group C
 ```
 The indexing convention for the coils inside a coil group is as follows: The
 innermost coil has the index 0, the next one 1 and so on. In the case of group
@@ -405,10 +337,40 @@ Elektrotechnik & Informationstechnik (2021) 138/2: p. 55-61.
 
 # Examples
 
-```
+This winding represents to the 6-zone example from [\[2\]](#dtcw_2),
+section 2.2. The snippet compares the calculated winding factors with the ones
+given in the paper, table 3.
 
 ```
+use std::num::NonZeroU16;
+use approxim::assert_abs_diff_eq;
+use stem_winding::prelude::*;
 
+let winding = DistributedToothCoilWinding::new(
+    DistributedToothCoilMinimalBuilder {
+        base_winding_count: 1.try_into().expect("not zero"),
+        pole_pairs: 5.try_into().expect("not zero"),
+        phases: 3.try_into().expect("not zero"),
+        layers: 1.try_into().expect("not zero"),
+        coil_group_turns: vec![1.try_into().expect("not zero"), 1.try_into().expect("not zero")],
+        double_zone_span: false
+    }
+).expect("valid winding");
+
+let ph = NonZeroU16::MIN;
+
+// First subharmonic
+let order = SpatialOrder::Mechanical(1);
+assert_abs_diff_eq!(winding.winding_factor(ph, order), 0.2566, epsilon = 1e-3);
+
+// Fundamental harmonic
+let order = SpatialOrder::Mechanical(5);
+assert_abs_diff_eq!(winding.winding_factor(ph, order), 0.7663, epsilon = 1e-3);
+
+// First superharmonic
+let order = SpatialOrder::Mechanical(7);
+assert_abs_diff_eq!(winding.winding_factor(ph, order), 0.5880, epsilon = 1e-3);
+```
  */
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
@@ -457,15 +419,63 @@ impl DistributedToothCoilWinding {
 
     /// Whether the winding has a doubled zone span or not.
     ///
-    /// TODO: Describe what this does during construction
+    /// This parameter is given during construction via
+    /// [`DistributedToothCoilBuilder`] or
+    /// [`DistributedToothCoilMinimalBuilder`]. The following images show the
+    /// difference between a normal zone span and a doubled zone span for the
+    /// same number of slots. Note that the winding with doubled zone span has
+    /// four concentric coils, but only one coil group per phase, whereas the
+    /// other one has two coil groups per phase with two coils each.
+    ///
+    /// # Normal zone span
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![Normal zone span][table_dtc_normal_zone_span]"
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image(
+            "table_dtc_normal_zone_span",
+            "docs/img/table_dtc_normal_zone_span.svg"
+        )
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    ///
+    /// # Doubled zone span
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![Doubled zone span][table_dtc_double_zone_span]"
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image(
+            "table_dtc_double_zone_span",
+            "docs/img/table_dtc_double_zone_span.svg"
+        )
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
     pub fn double_zone_span(&self) -> bool {
         self.double_zone_span
     }
 
-    pub fn coil_group_turns<'a>(&'a self) -> impl Iterator<Item = NonZeroUsize> + 'a {
-        self.coil_data.iter().map(|d| d.turns)
-    }
-
+    /// Returns the coefficient used for the
+    /// [`end_winding_leakage_inductance`](Winding::end_winding_leakage_inductance)
+    /// calculation.
+    ///
+    /// [`DistributedToothCoilWinding`] uses the
+    /// [`end_winding_leakage_inductance_tooth_coil`] function for implementing
+    /// [`Winding::end_winding_leakage_inductance`]. This is the value passed
+    /// into that function.
     pub fn end_winding_leakage_coefficient(&self) -> f64 {
         self.end_winding_leakage_coefficient
     }
@@ -480,6 +490,20 @@ impl DistributedToothCoilWinding {
         self.coil_data.get(n)
     }
 
+    /// Returns the override for the end-winding half-turn length for the nth
+    /// coil of a coil group, if one was provided.
+    ///
+    /// The index n starts at the innermost coil of a coil group. If n is out of
+    /// bounds (i.e. larger than or equal to
+    /// [`DistributedToothCoilWinding::coils_per_coil_group`]), this method
+    /// returns `None` instead.
+    ///
+    /// If this value is `Some`, [`DistributedToothCoilWinding`] uses it for
+    /// calculations such as [`Winding::resistance`] instead of calculating
+    /// the length. Otherwise, the length is calculated on demand using the
+    /// [`end_winding_half_turn_length_semicircle`] function. Providing a value
+    /// is useful when the length is known from measurements or more precise
+    /// models.
     pub fn end_winding_half_turn_length_override(&self, n: usize) -> Option<Length> {
         self.coil_data
             .get(n)
@@ -487,6 +511,13 @@ impl DistributedToothCoilWinding {
             .flatten()
     }
 
+    /// Sets the end-winding half-turn length override.
+    ///
+    /// The value must be non-negative. If a negative length is provided, the
+    /// method returns an error and leaves the existing value unchanged. Passing
+    /// `None` clears the value, so the length is calculated on demand. See
+    /// [`DistributedToothCoilWinding::end_winding_half_turn_length_override`]
+    /// for details on how the value is used.
     pub fn set_end_winding_half_turn_length_override(
         &mut self,
         end_winding_half_turn_length_override: Option<Length>,
@@ -503,49 +534,63 @@ impl DistributedToothCoilWinding {
     }
 
     /**
-    Create a turn distribution for a double-layer distributed winding which keeps the number of turns per slot constant.
+    Returns a turn distribution for a double-layer
+    [`DistributedToothCoilWinding`] which keeps the number of turns per slot
+    constant.
+
+    This function can be used to determine the
+    [`DistributedToothCoilMinimalBuilder::coil_group_turns`] or the
+    [`CoilData::turns`] of [`DistributedToothCoilBuilder::coil_data`].
 
     # Example
     ```
     use stem_winding::prelude::*;
 
-    // Three coils per coil group, 10 turns per slot (5 per coil). The inner coil gets 5 - 2 = 3 turns, the middle coil gets 5 turns, the outer coil gets 5 + 2 = 7 turns.
-    let turns = DistributedToothCoilWinding::double_layer_turn_distribution(3, 10, 2).unwrap();
-    assert_eq!(turns[0], 3);
-    assert_eq!(turns[1], 5);
-    assert_eq!(turns[2], 7);
+    // Three coils per coil group, 10 turns per slot (5 per coil). The inner
+    // coil gets 5 - 2 = 3 turns, the middle coil gets 5 turns, the outer coil gets 5 + 2 = 7 turns.
+    let turns = DistributedToothCoilWinding::even_turn_distribution(
+        3.try_into().expect("not zero"),
+        10.try_into().expect("not zero"),
+        2
+    ).unwrap();
+    assert_eq!(turns[0].get(), 3);
+    assert_eq!(turns[1].get(), 5);
+    assert_eq!(turns[2].get(), 7);
 
-    // Four coils per coil group, 10 turns per slot. The inner coils get 3 turns, the outer coils get 7 turns.
-    let turns = DistributedToothCoilWinding::double_layer_turn_distribution(4, 10, 2).unwrap();
-    assert_eq!(turns[0], 3);
-    assert_eq!(turns[1], 3);
-    assert_eq!(turns[2], 7);
-    assert_eq!(turns[3], 7);
+    // Four coils per coil group, 9 turns per slot. The inner coils get 3 turns,
+    // the outer coils get 7 turns.
+    let turns = DistributedToothCoilWinding::even_turn_distribution(
+        4.try_into().expect("not zero"),
+        9.try_into().expect("not zero"),
+        2
+    ).unwrap();
+    assert_eq!(turns[0].get(), 2);
+    assert_eq!(turns[1].get(), 2);
+    assert_eq!(turns[2].get(), 7);
+    assert_eq!(turns[3].get(), 7);
 
-    // Function errors for the following cases: turns per slot is zero or odd, absolute value of turn_difference equal to or greater than turns_per_slot
-    assert!(DistributedToothCoilWinding::double_layer_turn_distribution(3, 0, 3).is_err());
-    assert!(DistributedToothCoilWinding::double_layer_turn_distribution(3, 9, 3).is_err());
-    assert!(DistributedToothCoilWinding::double_layer_turn_distribution(3, 10, 5).is_err());
+    // Function errors if the absolute value of 2*turn_difference is equal to or
+    // greater than turns_per_slot
+    assert!(DistributedToothCoilWinding::even_turn_distribution(
+        3.try_into().expect("not zero"),
+        10.try_into().expect("not zero"),
+        5
+    ).is_err());
     ```
      */
-    pub fn double_layer_turn_distribution(
-        coils_per_coil_group: u16,
+    pub fn even_turn_distribution(
+        coils_per_coil_group: NonZeroU16,
         turns_per_slot: NonZeroUsize,
         turn_difference: i32,
     ) -> Result<Vec<NonZeroUsize>, Error> {
+        let coils_per_coil_group = coils_per_coil_group.get();
         let turns_per_slot = turns_per_slot.get();
-        compare_variables!(0 < coils_per_coil_group)?;
-        compare_variables!(0 < turns_per_slot)?;
 
         let twice_turn_difference = 2 * turn_difference.abs() as usize;
         compare_variables!(turns_per_slot > twice_turn_difference)?;
 
-        if turns_per_slot.is_odd() {
-            return Err(Error::OddNumberOfTurnsPerSlot);
-        }
-
-        // Create the turns per coil vector from coil_group_turns and turn_difference as
-        // described in [Hut19], p. 137.
+        // Create the turns per coil vector from coil_group_turns and
+        // turn_difference as described in [1], p. 137.
         let mut coil_group_turns: Vec<NonZeroUsize> = vec![
             NonZeroUsize::new(turns_per_slot / 2)
                 .unwrap_or(NonZeroUsize::MIN);
@@ -564,7 +609,7 @@ impl DistributedToothCoilWinding {
             // Outer coils: Increase the number of turns per coil
             } else {
                 let turns =
-                    NonZeroUsize::new((turns_per_slot as i32 / 2 + turn_difference) as usize)
+                    NonZeroUsize::new(((turns_per_slot + 1) as i32 / 2 + turn_difference) as usize)
                         .unwrap_or(NonZeroUsize::MIN);
                 coil_group_turns[hole as usize] = turns;
             }
@@ -572,19 +617,73 @@ impl DistributedToothCoilWinding {
         return Ok(coil_group_turns);
     }
 
-    fn calculated_turns_at(&self, zone: Zone, _winding_table: &WindingTable) -> NonZeroUsize {
-        // The number of turns is encoded in the vector self.coil_group_turns as
-        // follows: First entry is the innermost coil, second entry is the
-        // second-innermost coil and so on.
+    /// Returns the coil group index n of the coil at the specified zone.
+    ///
+    /// The returned value is the coil index within its coil group counted from
+    /// the innermost coil. Hence, 0 corresponds to the innermost tooth coil,
+    /// 1 to the concentric coil wrapping around it and so on.
+    ///
+    /// # Examples
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![Single-layer distributed tooth coil winding][table_single_layer_dtc_winding_0]"
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image(
+            "table_single_layer_dtc_winding_0",
+            "docs/img/table_single_layer_dtc_winding_0.svg"
+        )
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    ///
+    /// ```
+    /// use stem_winding::prelude::*;
+    ///
+    /// let winding = DistributedToothCoilWinding::new(
+    ///     DistributedToothCoilMinimalBuilder {
+    ///         base_winding_count: 1.try_into().expect("not zero"),
+    ///         pole_pairs: 1.try_into().expect("not zero"),
+    ///         phases: 3.try_into().expect("not zero"),
+    ///         layers: 1.try_into().expect("not zero"),
+    ///         coil_group_turns: vec![1.try_into().expect("not zero"), 1.try_into().expect("not zero")],
+    ///         double_zone_span: false
+    ///     }
+    /// ).expect("valid winding");
+    ///
+    /// assert_eq!(winding.coil_group_index(Zone::new(0, 0)), 1);
+    /// assert_eq!(winding.coil_group_index(Zone::new(1, 0)), 0);
+    /// assert_eq!(winding.coil_group_index(Zone::new(2, 0)), 0);
+    /// assert_eq!(winding.coil_group_index(Zone::new(3, 0)), 1);
+    ///
+    /// assert_eq!(winding.coil_group_index(Zone::new(4, 0)), 1);
+    /// assert_eq!(winding.coil_group_index(Zone::new(5, 0)), 0);
+    /// assert_eq!(winding.coil_group_index(Zone::new(6, 0)), 0);
+    /// assert_eq!(winding.coil_group_index(Zone::new(7, 0)), 1);
+    ///
+    /// assert_eq!(winding.coil_group_index(Zone::new(8, 0)), 1);
+    /// assert_eq!(winding.coil_group_index(Zone::new(9, 0)), 0);
+    /// assert_eq!(winding.coil_group_index(Zone::new(10, 0)), 0);
+    /// assert_eq!(winding.coil_group_index(Zone::new(11, 0)), 1);
+    /// ```
+    pub fn coil_group_index(&self, zone: Zone) -> usize {
         let cpcg = self.coils_per_coil_group().get() as u16;
         let offset = if zone.layer == 0 { 0 } else { cpcg };
         let normalized_slot = (zone.slot + offset) % (2 * cpcg);
-        let idx = if normalized_slot < cpcg {
-            (cpcg - 1 - normalized_slot) as usize
+        if normalized_slot < cpcg {
+            usize::from(cpcg - 1 - normalized_slot)
         } else {
-            (normalized_slot % (2 * cpcg) - cpcg) as usize
-        };
-        self.coil_data[idx].turns
+            usize::from(normalized_slot % (2 * cpcg) - cpcg)
+        }
+    }
+
+    fn calculated_turns_at(&self, zone: Zone) -> NonZeroUsize {
+        self.coil_data[self.coil_group_index(zone)].turns
     }
 
     fn create_coils(&mut self, winding_table: &WindingTable) -> Result<(), Error> {
@@ -652,13 +751,13 @@ impl DistributedToothCoilWinding {
                 let index = index.unwrap();
                 let phase_abs = NonZeroU16::new(phase.abs() as u16)
                     .expect("phase cannot be zero for this winding type");
-                let wire = clone_box(&*self.coil_data[index as usize].wire);
+                let wire = self.coil_data[index as usize].wire.clone();
                 if phase > 0 {
                     return FullCoil::new(
                         Zone::new(slot, layer),
                         Zone::new(return_slot, layer),
                         positive_slot_direction,
-                        self.calculated_turns_at(Zone::new(slot, layer), winding_table),
+                        self.calculated_turns_at(Zone::new(slot, layer)),
                         phase_abs,
                         wire,
                     )
@@ -669,7 +768,7 @@ impl DistributedToothCoilWinding {
                         Zone::new(return_slot, layer),
                         Zone::new(slot, layer),
                         !positive_slot_direction,
-                        self.calculated_turns_at(Zone::new(slot, layer), winding_table),
+                        self.calculated_turns_at(Zone::new(slot, layer)),
                         phase_abs,
                         wire,
                     )
@@ -712,8 +811,6 @@ impl Winding for DistributedToothCoilWinding {
         }
     }
 
-    /// Returns the hole number representation q = g + z/n where g, z and n are
-    /// integers in order [g, z, n].
     fn hole_number(&self) -> num::rational::Ratio<u16> {
         return num::rational::Ratio::new(2 * self.coils_per_coil_group().get() as u16, 1);
     }
@@ -722,8 +819,6 @@ impl Winding for DistributedToothCoilWinding {
         self.connection
     }
 
-    /// The number of parallel paths of this winding type is always twice the
-    /// number of basic windings.
     fn parallel_paths(&self, _phase: NonZeroU16) -> NonZeroU16 {
         self.parallel_paths
     }
@@ -755,29 +850,100 @@ impl Winding for DistributedToothCoilWinding {
 
     #[cfg(feature = "stem_core")]
     fn end_winding_half_turn_length(&self, core: CoreRef<'_>, zone: Zone) -> Length {
+        // Check if there is an override for this particular coil
+        if let Some(length) = self
+            .coil_data(self.coil_group_index(zone))
+            .map(|d| d.end_winding_half_turn_length_override)
+            .flatten()
+        {
+            return length;
+        }
         end_winding_half_turn_length_semicircle(self, core, zone)
     }
 }
 
+/**
+A builder struct for a [`DistributedToothCoilWinding`].
+
+This builder can be used to create a [`DistributedToothCoilWinding`] via its
+[`new`](DistributedToothCoilWinding::new) method or via its [`TryFrom`]
+implementation. Creating the winding fails if the conditions stated on the
+documentation of the individual fields are not fulfilled (for example,
+[`DistributedToothCoilWinding::end_winding_leakage_coefficient`] must not be
+negative).
+
+In contrast to most other builder structs offered by this crate, the ones for
+[`DistributedToothCoilWinding`] do not offer the possibility to specify the
+number of slots directly. Instead, it is determined by the following equations:
+
+`base_winding_slots = (2 + 2 * !double_zone_span) * coil_data.len() * phases / layers`
+`slots = base_winding_count * base_winding_slots`
+
+using the [`DistributedToothCoilBuilder::double_zone_span`],
+[`DistributedToothCoilBuilder::coil_data`],
+[`DistributedToothCoilBuilder::phases`],
+[`DistributedToothCoilBuilder::layers`] and
+[`DistributedToothCoilBuilder::base_winding_count`] fields.
+
+The reason for this indirect approach is that the number of slots of the base
+winding is already completely defined by the first four mentioned fields. Asking
+for the number of slots instead would necessitate to check if the provided value
+is a multiple of `base_winding_slots`, therefore one would need to perform this
+calculation in advance anyway to see if the selected number of slots is valid.
+ */
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct DistributedToothCoilBuilder {
-    pub slots: NonZeroU16,
+    /// Determines the number of base windings and by that the number slots.
+    /// See the struct documentation for details. Corresponds to
+    /// [`Winding::base_winding_count`] in the final winding.
+    pub base_winding_count: NonZeroU16,
+    /// Number of pole pairs. Corresponds to [`Winding::pole_pairs`] in the
+    /// final winding.
+    ///
+    /// This number must correspond to the spatial order of a non-zero harmonic
+    /// of the resulting winding, as it is treated as the fundamental harmonic
+    /// of the winding (e.g. for [`SpatialOrder::Electrical`]). During the
+    /// build process, this is checked using [`Winding::is_harmonic`]. If the
+    /// value is not an harmonic, an [`Error::PolePairNumberNotAnHarmonic`] is
+    /// returned from [`new`](DistributedToothCoilWinding::new) /
+    /// [`try_from`](DistributedToothCoilWinding::try_from).
     pub pole_pairs: NonZeroU16,
+    /// Number of phases. Corresponds to [`Winding::phases`] in the final
+    /// winding.
     pub phases: NonZeroU16,
+    /// Number of layers. Corresponds to [`Winding::layers`] in the final
+    /// winding. Must be 1 or 2 (`1 <= layers <= 2`).
     pub layers: NonZeroU16,
+    /// Number of parallel paths. This value must be a divisor of the maximum
+    /// number of parallel paths returned by
+    /// [`max_parallel_paths_symmetric`](super::max_parallel_paths_symmetric).
     pub parallel_paths: NonZeroU16,
+    /// Electrical connection of the individual phases.
     pub connection: Connection,
+    /// Coefficient used to calculate
+    /// [`Winding::end_winding_leakage_inductance`], see
+    /// [`DistributedToothCoilWinding::end_winding_leakage_coefficient`]. Must
+    /// not be negative (`end_winding_leakage_coefficient >= 0`).
     pub end_winding_leakage_coefficient: f64,
+    /// Properties of the individual coil groups. The length of this vector
+    /// defines the number of coils in a coil group, whereas the [`CoilData`]
+    /// instances describe the properties of the individual coils. If an
+    /// [`CoilData::end_winding_half_turn_length_override`] is given, it must
+    /// not be negative (`end_winding_half_turn_length_override >= 0`).
     pub coil_data: Vec<CoilData>,
+    /// Whether the resulting winding should have a doubled zone span. If true,
+    /// each phase has one coil group per base winding, otherwise it has two.
+    /// This parameter therefore determines the number of slots, see the struct
+    /// documentation for details.
     pub double_zone_span: bool,
 }
 
 impl From<DistributedToothCoilWinding> for DistributedToothCoilBuilder {
     fn from(value: DistributedToothCoilWinding) -> Self {
         Self {
-            slots: value.slots,
+            base_winding_count: value.base_winding_count(),
             pole_pairs: value.pole_pairs,
             phases: value.phases,
             layers: value.layers,
@@ -808,9 +974,22 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
             )?;
         }
 
+        // Try creating the zone plan for the basic pole pair number
+        let slots_winding_table = if builder.double_zone_span {
+            2 * coils_per_group * builder.phases.get() / builder.layers.get()
+        } else {
+            4 * coils_per_group * builder.phases.get() / builder.layers.get()
+        };
+
+        // Cannot be zero, because layers is either 1 or 2, coils_per_group is
+        // larger than 0 and phases is larger than 0 too.
+        let slots: NonZeroU16 =
+            NonZeroU16::new(slots_winding_table * builder.base_winding_count.get())
+                .expect("not zero");
+
         // Check if the number of parallel paths is valid
         let max_par_paths = super::max_parallel_paths_symmetric(
-            builder.slots,
+            slots,
             builder.pole_pairs,
             builder.phases,
             builder.layers,
@@ -818,20 +997,6 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
         .get();
         if max_par_paths % builder.parallel_paths.get() != 0 {
             return Err(Error::InvalidNumberParallelPaths);
-        }
-
-        // Try creating the zone plan for the basic pole pair number (which is
-        // calculated by winding_holes)
-        let slots_winding_table = if builder.double_zone_span {
-            2 * coils_per_group * builder.phases.get() / builder.layers.get()
-        } else {
-            4 * coils_per_group * builder.phases.get() / builder.layers.get()
-        };
-
-        let base_winding_count = builder.slots.get() / slots_winding_table;
-        compare_variables!(base_winding_count > 0)?;
-        if builder.pole_pairs.get() % base_winding_count != 0 {
-            return Err(Error::InvalidPolePairNumber);
         }
 
         let mut winding_table = distributed_tooth_coil_assembly(
@@ -843,10 +1008,10 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
             builder.double_zone_span,
         )?;
 
-        let num_zones = (builder.slots.get() * builder.layers.get()).into();
+        let num_zones = (slots.get() * builder.layers.get()).into();
         let num_coils = num_zones / 2;
         let mut winding = DistributedToothCoilWinding {
-            slots: builder.slots,
+            slots,
             pole_pairs: builder.pole_pairs,
             phases: builder.phases,
             layers: builder.layers,
@@ -855,7 +1020,7 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
             end_winding_leakage_coefficient: builder.end_winding_leakage_coefficient,
             coil_data: builder.coil_data,
             coils: Coils::with_capacity(num_zones, num_coils),
-            base_winding_count: NonZeroU16::new(base_winding_count).expect("not zero"),
+            base_winding_count: builder.base_winding_count,
             double_zone_span: builder.double_zone_span,
         };
 
@@ -873,9 +1038,9 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
             if !is_positive {
                 for layer in 0..winding_table.layers().get() {
                     let mut left = 0;
-                    let mut right = winding_table.slots().get();
+                    let mut right = winding_table.slots().get().saturating_sub(1);
 
-                    while left < right.saturating_sub(1) {
+                    while left < right {
                         right -= 1;
 
                         let tmp = winding_table[Zone::new(left, layer)];
@@ -889,7 +1054,7 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
                 winding_table.shift_layers(2 * coils_per_group as i32);
             }
         } else {
-            return Err(Error::InvalidPolePairNumber);
+            return Err(Error::PolePairNumberNotAnHarmonic);
         }
 
         // Recreate the coils from the adjusted zone plan
@@ -903,32 +1068,63 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
     }
 }
 
+/**
+A minimal builder struct for a [`DistributedToothCoilWinding`].
+
+This struct is useful if one is interested in a qualitative analysis for the
+specified topology (e.g. determining the winding factor or the harmonics).
+Compared to the fully-featured [`DistributedToothCoilBuilder`], values such as the
+[`DistributedToothCoilWinding::end_winding_leakage_coefficient`] are set to sensible
+defaults. For quantitative calculations (e.g. the [`Winding::resistance`]), use
+[`DistributedToothCoilBuilder`] instead.
+
+In contrast to most other builder structs offered by this crate, the ones for
+[`DistributedToothCoilWinding`] do not offer the possibility to specify the
+number of slots directly, as it is fully defined by the other parameters. See
+[`DistributedToothCoilBuilder`] for details.
+ */
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct DistributedToothCoilMinimalBuilder {
-    pub slots: NonZeroU16,
+    /// Determines the number of base windings and by that the number slots.
+    /// See the documentation of [`DistributedToothCoilBuilder`] for details.
+    /// Corresponds to [`Winding::base_winding_count`] in the final winding.
+    pub base_winding_count: NonZeroU16,
+    /// Number of pole pairs. Corresponds to [`Winding::pole_pairs`] in the
+    /// final winding. See [`DistributedToothCoilBuilder::pole_pairs`] for
+    /// details.
     pub pole_pairs: NonZeroU16,
+    /// Number of phases. Corresponds to [`Winding::phases`] in the final
+    /// winding.
     pub phases: NonZeroU16,
+    /// Number of layers. Corresponds to [`Winding::layers`] in the final
+    /// winding. Must be 1 or 2 (`1 <= layers <= 2`).
     pub layers: NonZeroU16,
-    pub turns: Vec<NonZeroUsize>,
+    /// Number of turns per coil for all coils in a coil group. This vector is
+    /// expanded to `Vec<CoilData>` during the building process. See
+    /// [`DistributedToothCoilBuilder::coil_data`] for details.
+    pub coil_group_turns: Vec<NonZeroUsize>,
+    /// Whether the resulting winding should have a doubled zone span. If true,
+    /// each phase has one coil group per base winding, otherwise it has two.
+    /// This parameter therefore determines the number of slots, see the
+    /// documentation  of [`DistributedToothCoilBuilder`] for details.
     pub double_zone_span: bool,
 }
 
-impl TryFrom<DistributedToothCoilMinimalBuilder> for DistributedToothCoilWinding {
-    type Error = Error;
-
-    fn try_from(builder: DistributedToothCoilMinimalBuilder) -> Result<Self, Self::Error> {
-        let mut coil_data: Vec<CoilData> = Vec::with_capacity(builder.turns.len());
-        for turns in builder.turns {
+impl From<DistributedToothCoilMinimalBuilder> for DistributedToothCoilBuilder {
+    fn from(builder: DistributedToothCoilMinimalBuilder) -> Self {
+        let mut coil_data: Vec<CoilData> = Vec::with_capacity(builder.coil_group_turns.len());
+        let wire = Arc::new(SffWire::default());
+        for turns in builder.coil_group_turns {
             coil_data.push(CoilData {
-                wire: Box::new(SffWire::default()),
+                wire: wire.clone(),
                 turns,
                 end_winding_half_turn_length_override: None,
             });
         }
         DistributedToothCoilBuilder {
-            slots: builder.slots,
+            base_winding_count: builder.base_winding_count,
             pole_pairs: builder.pole_pairs,
             phases: builder.phases,
             layers: builder.layers,
@@ -938,7 +1134,14 @@ impl TryFrom<DistributedToothCoilMinimalBuilder> for DistributedToothCoilWinding
             coil_data,
             double_zone_span: builder.double_zone_span,
         }
-        .try_into()
+    }
+}
+
+impl TryFrom<DistributedToothCoilMinimalBuilder> for DistributedToothCoilWinding {
+    type Error = Error;
+
+    fn try_from(builder: DistributedToothCoilMinimalBuilder) -> Result<Self, Self::Error> {
+        DistributedToothCoilBuilder::from(builder).try_into()
     }
 }
 

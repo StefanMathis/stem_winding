@@ -2,7 +2,10 @@
 //!
 //! See the documentation of [`ToothCoilWinding`] for details.
 
-use std::num::{NonZeroU16, NonZeroUsize};
+use std::{
+    num::{NonZeroU16, NonZeroUsize},
+    sync::Arc,
+};
 
 use num::Integer;
 use stem_types::{CoilLayout, Zone};
@@ -196,7 +199,7 @@ pub struct ToothCoilWinding {
     parallel_paths: NonZeroU16,
     connection: Connection,
     end_winding_leakage_coefficient: f64,
-    wire: Box<dyn Wire>,
+    wire: Arc<dyn Wire>,
     coils: Coils,
     winding_table_constructor: WindingTableConstructor,
     end_winding_half_turn_length_override: Option<Length>,
@@ -391,7 +394,7 @@ impl ToothCoilWinding {
                         counter.is_odd(),
                         self.turns_per_coil,
                         phase_abs,
-                        dyn_clone::clone_box(&*self.wire),
+                        self.wire.clone(),
                     )
                     .ok()
                     .map(|coil| Coil::Full(coil));
@@ -414,7 +417,7 @@ impl ToothCoilWinding {
                 layer == 1,
                 self.turns_per_coil,
                 phase_abs,
-                dyn_clone::clone_box(&*self.wire),
+                self.wire.clone(),
             )
             .ok()
             .map(|coil| Coil::Full(coil));
@@ -557,7 +560,7 @@ pub struct ToothCoilBuilder {
     /// negative (`end_winding_leakage_coefficient >= 0`).
     pub end_winding_leakage_coefficient: f64,
     /// The wire used for all coils of the winding.
-    pub wire: Box<dyn Wire>,
+    pub wire: Arc<dyn Wire>,
     /// An override for the end winding half-turn length, see
     /// [`ToothCoilWinding::end_winding_half_turn_length_override`]. If
     /// provided, this value must not be negative
@@ -718,7 +721,7 @@ impl TryFrom<ToothCoilMinimalBuilder> for ToothCoilWinding {
             parallel_paths: NonZeroU16::MIN,
             connection: Connection::Star,
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(SffWire::default()),
+            wire: Arc::new(SffWire::default()),
             winding_table_constructor: builder.winding_table_constructor,
             end_winding_half_turn_length_override: None,
         }

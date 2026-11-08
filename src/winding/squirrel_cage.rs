@@ -11,10 +11,12 @@
 //! Usually, a user only interacts with [`SquirrelCageWinding`] and the builder
 //! structs [`SquirrelCageBuilder`] and [`SquirrelCageMinimalBuilder`] directly.
 
-use std::num::{NonZeroU16, NonZeroUsize};
+use std::{
+    num::{NonZeroU16, NonZeroUsize},
+    sync::Arc,
+};
 
 use compare_variables::compare_variables;
-use dyn_clone::clone_box;
 use stem_types::{CoilLayout, Zone};
 use stem_wire::prelude::*;
 
@@ -265,14 +267,14 @@ assert_abs_diff_eq!(
 );
 ```
 */
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize))]
 #[cfg_attr(feature = "serde", serde(into = "SquirrelCageBuilder"))]
 pub struct SquirrelCageWinding {
     slots: NonZeroU16,
     pole_pairs: NonZeroU16,
     end_winding_leakage_coefficient: f64,
-    wire: Box<dyn Wire>,
+    wire: Arc<dyn Wire>,
     end_ring_width: Length,
     end_ring_height: Length,
     consider_current_displacement: bool,
@@ -381,21 +383,6 @@ impl SquirrelCageWinding {
         let old = self.pole_pairs;
         self.pole_pairs = pole_pairs;
         return old;
-    }
-}
-
-impl Clone for SquirrelCageWinding {
-    fn clone(&self) -> Self {
-        Self {
-            slots: self.slots.clone(),
-            pole_pairs: self.pole_pairs.clone(),
-            end_winding_leakage_coefficient: self.end_winding_leakage_coefficient.clone(),
-            wire: clone_box(&*self.wire),
-            end_ring_width: self.end_ring_width.clone(),
-            end_ring_height: self.end_ring_height.clone(),
-            consider_current_displacement: self.consider_current_displacement.clone(),
-            coils: self.coils.clone(),
-        }
     }
 }
 
@@ -729,7 +716,7 @@ pub struct SquirrelCageBuilder {
     /// negative (`end_winding_leakage_coefficient >= 0`).
     pub end_winding_leakage_coefficient: f64,
     /// The wire used for all coils of the winding.
-    pub wire: Box<dyn Wire>,
+    pub wire: Arc<dyn Wire>,
     /// The axial width of the end ring. Must be positive (`end_ring_width >
     /// 0`).
     #[cfg_attr(feature = "serde", serde(deserialize_with = "deserialize_quantity"))]
@@ -780,7 +767,7 @@ impl TryFrom<SquirrelCageBuilder> for SquirrelCageWinding {
                 true,
                 NonZeroUsize::MIN,
                 NonZeroU16::new(slot + 1).expect("is non-zero"),
-                clone_box(&*builder.wire),
+                builder.wire.clone(),
             )
             .into();
             coils.insert(coil)?;
@@ -856,7 +843,7 @@ impl From<SquirrelCageMinimalBuilder> for SquirrelCageWinding {
                 true,
                 NonZeroUsize::MIN,
                 NonZeroU16::new(slot + 1).expect("is non-zero"),
-                Box::new(SffWire::default()),
+                Arc::new(SffWire::default()),
             )
             .into();
             coils
@@ -868,7 +855,7 @@ impl From<SquirrelCageMinimalBuilder> for SquirrelCageWinding {
             slots: builder.slots,
             pole_pairs: builder.pole_pairs,
             end_winding_leakage_coefficient: 0.0,
-            wire: Box::new(SffWire::default()),
+            wire: Arc::new(SffWire::default()),
             end_ring_width: Length::new::<meter>(1.0),
             end_ring_height: Length::new::<meter>(1.0),
             consider_current_displacement: false,
@@ -958,7 +945,7 @@ pub fn end_ring_radii(
 ///
 /// use approxim::assert_abs_diff_eq;
 /// use stem_winding::prelude::*;
-/// use stem_winding::winding::squirrel_cage::end_ring_radii;
+/// use stem_winding::winding::squirrel_cage::{end_ring_radii, end_ring_resistance_coefficient};
 ///
 /// let end_ring_height = Length::new::<millimeter>(11.2);
 /// let [outer_rad, inner_rad] = end_ring_radii(end_ring_height, Length::new::<millimeter>(54.4), false);

@@ -105,7 +105,7 @@ fn zone_polarity() -> Result<(), Box<dyn std::error::Error>> {
             true,
             NonZeroUsize::MIN,
             NonZeroU16::MIN,
-            Box::new(SffWire::default()),
+            Arc::new(SffWire::default()),
         )
         .expect("zones not identical")
         .into(),
@@ -216,7 +216,7 @@ fn phd_stator() -> Result<(), Box<dyn std::error::Error>> {
             36.try_into().expect("not zero"),
             true,
             CarterFactorModel::Bin12,
-            Box::new(slot),
+            Arc::new(slot),
         )),
         flux_barrier: None,
     }
@@ -279,7 +279,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
             true,
             1.try_into().expect("not zero"),
             1.try_into().expect("not zero"),
-            Box::new(SffWire::default()),
+            Arc::new(SffWire::default()),
         )
         .unwrap(),
     )?;
@@ -290,7 +290,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
             true,
             1.try_into().expect("not zero"),
             3.try_into().expect("not zero"),
-            Box::new(SffWire::default()),
+            Arc::new(SffWire::default()),
         )
         .unwrap(),
     )?;
@@ -301,7 +301,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
             true,
             1.try_into().expect("not zero"),
             2.try_into().expect("not zero"),
-            Box::new(SffWire::default()),
+            Arc::new(SffWire::default()),
         )
         .unwrap(),
     )?;
@@ -1442,11 +1442,11 @@ fn distributed_tooth_coil_winding(
     }
     {
         let winding: DistributedToothCoilWinding = DistributedToothCoilMinimalBuilder {
-            slots: 12.try_into()?,
+            base_winding_count: 1.try_into()?,
             pole_pairs: 1.try_into()?,
             phases: 3.try_into()?,
             layers: 2.try_into()?,
-            turns: vec![7.try_into()?, 3.try_into()?],
+            coil_group_turns: vec![7.try_into()?, 3.try_into()?],
             double_zone_span: false,
         }
         .try_into()
@@ -1622,11 +1622,11 @@ fn distributed_tooth_coil_winding(
     }
     {
         let winding: DistributedToothCoilWinding = DistributedToothCoilMinimalBuilder {
-            slots: 12.try_into()?,
+            base_winding_count: 1.try_into()?,
             pole_pairs: 1.try_into()?,
             phases: 3.try_into()?,
             layers: 1.try_into()?,
-            turns: vec![7.try_into()?, 3.try_into()?],
+            coil_group_turns: vec![7.try_into()?, 3.try_into()?],
             double_zone_span: true,
         }
         .try_into()
@@ -1715,6 +1715,108 @@ fn distributed_tooth_coil_winding(
                 return Ok(());
             })?;
         }
+    }
+    {
+        let winding: DistributedToothCoilWinding = DistributedToothCoilMinimalBuilder {
+            base_winding_count: 1.try_into()?,
+            pole_pairs: 1.try_into()?,
+            phases: 3.try_into()?,
+            layers: 1.try_into()?,
+            coil_group_turns: vec![1.try_into()?, 1.try_into()?],
+            double_zone_span: false,
+        }
+        .try_into()
+        .unwrap();
+
+        let core = LinCore::from_winding(&winding);
+        let side_length = SideLength::Long(600);
+
+        let mut core_drawable: Drawable = core.drawable().into();
+        core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
+
+        let drawables = winding
+            .zone_drawables(core.as_core_ref(), &zone_config)
+            .map(|(mut z, _)| {
+                z.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                z
+            });
+
+        let bb = core.shape().bounding_box();
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.002 * w,
+            bb.xmax() + 0.002 * w,
+            -bb.ymax() - 0.01 * h,
+            -bb.ymin() + 0.01 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("docs/img/table_dtc_normal_zone_span.svg");
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+
+            core_drawable.draw(cr)?;
+
+            for d in drawables {
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
+    }
+    {
+        let winding: DistributedToothCoilWinding = DistributedToothCoilMinimalBuilder {
+            base_winding_count: 1.try_into()?,
+            pole_pairs: 1.try_into()?,
+            phases: 3.try_into()?,
+            layers: 1.try_into()?,
+            coil_group_turns: vec![1.try_into()?, 1.try_into()?, 1.try_into()?, 1.try_into()?],
+            double_zone_span: true,
+        }
+        .try_into()
+        .unwrap();
+
+        let core = LinCore::from_winding(&winding);
+        let side_length = SideLength::Long(600);
+
+        let mut core_drawable: Drawable = core.drawable().into();
+        core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
+
+        let drawables = winding
+            .zone_drawables(core.as_core_ref(), &zone_config)
+            .map(|(mut z, _)| {
+                z.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                z
+            });
+
+        let bb = core.shape().bounding_box();
+        let w = bb.width();
+        let h = bb.height();
+        let bb = BoundingBox::new(
+            bb.xmin() - 0.002 * w,
+            bb.xmax() + 0.002 * w,
+            -bb.ymax() - 0.01 * h,
+            -bb.ymin() + 0.01 * h,
+        );
+
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("docs/img/table_dtc_double_zone_span.svg");
+        let view = Viewport::from_bounding_box(&bb, side_length);
+        view.write_to_file(&fp, |cr| {
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.paint()?;
+
+            core_drawable.draw(cr)?;
+
+            for d in drawables {
+                d.draw(cr)?;
+            }
+
+            return Ok(());
+        })?;
     }
 
     return Ok(());

@@ -105,7 +105,7 @@ impl<W: Winding> FromWinding<W> for RotCore {
                 slots: winding.slots(),
                 starts_in_slot_middle: false,
                 carter_factor_model: CarterFactorModel::MVP08,
-                slot: Box::new(slot),
+                slot: Arc::new(slot),
             }),
             flux_barrier: None,
         }
@@ -159,7 +159,7 @@ impl<W: Winding> FromWinding<W> for LinCore {
                 slots: winding.slots(),
                 starts_in_slot_middle: false,
                 carter_factor_model: CarterFactorModel::MVP08,
-                slot: Box::new(slot),
+                slot: Arc::new(slot),
             }),
             flux_barrier: None,
         }
@@ -537,7 +537,7 @@ impl<'a> CoilProperties<'a> {
     ///     parallel_paths: 1.try_into().expect("not zero"),
     ///     connection: Connection::Star,
     ///     end_winding_leakage_coefficient: 0.0,
-    ///     wire: Box::new(SffWire::new(
+    ///     wire: Arc::new(SffWire::new(
     ///         copper,
     ///         0.5, // slot_fill_factor_conductor
     ///         0.6, // slot_fill_factor_overall

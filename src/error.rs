@@ -18,15 +18,15 @@ pub enum Error {
     InvalidF64(Comparison<f64>),
     CoilInsertionFailed(InsertionError<(Vec<Zone>, Coil)>),
     /// If a [`Coil`] requires specifying multiple [`Zone`]s it occupies in a
-    /// [`WindingTable`], those zones must not be equal. This error variant is
-    /// returned if they are.
+    /// [`WindingTable`](crate::winding_table::WindingTable), those zones must
+    /// not be equal. This error variant is returned if they are.
     EqualCoilZones(Zone),
     WindingTableConstructionError(WindingTableConstructionError),
     /// Must be a divisor of the maximum number of parallel paths. For symmetric
     /// windings, see
-    /// [`max_parallel_paths_symmetric`](Winding::winding::max_parallel_paths_symmetric)
+    /// [`max_parallel_paths_symmetric`](crate::winding::max_parallel_paths_symmetric)
     InvalidNumberParallelPaths,
-    InvalidPolePairNumber,
+    PolePairNumberNotAnHarmonic,
     OddNumberOfTurnsPerSlot,
     /// All coils of a coil group must be positioned next to each other and have
     /// the same polarity inside a slot.

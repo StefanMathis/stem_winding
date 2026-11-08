@@ -483,8 +483,9 @@ where
 ///
 /// It is a specialized implementation of [`Winding::base_winding_count`] with
 /// O(1) time and O(1) space complexity and is used by the symmetric winding
-/// types provided by stem_winding, such as [`DistributedWinding`]. The generic
-/// implementation of [`Winding::base_winding_count`] uses
+/// types provided by stem_winding, such as
+/// [`DistributedWinding`](crate::winding::distributed::DistributedWinding). The
+/// generic implementation of [`Winding::base_winding_count`] uses
 /// [`repeating_pattern_count`], which has O(n) time and O(1) space complexity.
 ///
 /// # Literature
