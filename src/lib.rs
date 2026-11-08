@@ -6,7 +6,7 @@ Winding definition for stem – a Simulation Toolbox for Electric Motors. The
 guide to the framework, while this crate's documentation describes its API.
  */
 #![doc = include_str!("../docs/main.md")]
-// #![deny(missing_docs)]
+#![deny(missing_docs)]
 
 pub mod coils;
 pub mod error;

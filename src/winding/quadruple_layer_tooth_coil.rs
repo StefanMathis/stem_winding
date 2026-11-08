@@ -25,9 +25,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     coils::{Coil, Coils, FullCoil},
-    error::{Error, WindingTableConstructionError},
+    error::Error,
     winding::{Connection, Winding, base_winding_count_symmetric, hole_number},
-    winding_table::{WindingTable, WindingTableConstructor},
+    winding_table::{WindingTable, WindingTableConstructionError, WindingTableConstructor},
 };
 
 // Shorter aliases
@@ -842,10 +842,12 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
             builder.pole_pairs,
             builder.phases,
             NonZeroU16::new(4).expect("not zero"),
-        )
-        .get();
-        if max_par_paths % builder.parallel_paths.get() != 0 {
-            return Err(Error::InvalidNumberParallelPaths);
+        );
+        if max_par_paths.get() % builder.parallel_paths.get() != 0 {
+            return Err(Error::InvalidNumberParallelPaths {
+                maximum: max_par_paths,
+                given: builder.parallel_paths,
+            });
         }
 
         let upper_layer_shift = builder.turns_upper_layer_coils.len();
@@ -961,7 +963,7 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
                         first_coil_group = false;
                         phase_counter = 1;
                     } else {
-                        return Err(Error::CoilsOfCoilGroupNotNextToEachOther);
+                        return Err(WindingTableConstructionError::NotSymmetric.into());
                     }
                 }
             }

@@ -22,9 +22,9 @@ use crate::core_support::*;
 
 use crate::{
     coils::{Coil, CoilExt, Coils, FullCoil},
-    error::{Error, WindingTableConstructionError},
+    error::Error,
     winding::{Connection, Winding, base_winding_count_symmetric},
-    winding_table::{WindingTable, WindingTableConstructor},
+    winding_table::{WindingTable, WindingTableConstructionError, WindingTableConstructor},
 };
 
 /**
@@ -606,10 +606,12 @@ impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
             builder.pole_pairs,
             builder.phases,
             builder.layers,
-        )
-        .get();
-        if max_par_paths % builder.parallel_paths.get() != 0 {
-            return Err(Error::InvalidNumberParallelPaths);
+        );
+        if max_par_paths.get() % builder.parallel_paths.get() != 0 {
+            return Err(Error::InvalidNumberParallelPaths {
+                maximum: max_par_paths,
+                given: builder.parallel_paths,
+            });
         }
 
         // Calculate the basic winding parameters

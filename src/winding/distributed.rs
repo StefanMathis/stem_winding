@@ -25,9 +25,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     coils::{Coil, CoilExt, Coils, FullCoil},
-    error::{Error, WindingTableConstructionError},
+    error::Error,
     winding::{Connection, Winding, base_winding_count_symmetric, hole_number},
-    winding_table::{WindingTable, WindingTableConstructor},
+    winding_table::{WindingTable, WindingTableConstructionError, WindingTableConstructor},
 };
 
 /**
@@ -949,9 +949,7 @@ impl DistributedWinding {
         for (zone, _) in winding_table.iter_slot_major() {
             // Check if the zone is already occupied
             if !self.coils.occupied(zone) {
-                return Err(
-                    crate::error::WindingTableConstructionError::EmptyZone(Some(zone)).into(),
-                );
+                return Err(WindingTableConstructionError::EmptyZone(Some(zone)).into());
             }
         }
         return Ok(());
@@ -1342,10 +1340,12 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
             builder.pole_pairs,
             builder.phases,
             builder.layers,
-        )
-        .get();
-        if max_par_paths % builder.parallel_paths.get() != 0 {
-            return Err(Error::InvalidNumberParallelPaths);
+        );
+        if max_par_paths.get() % builder.parallel_paths.get() != 0 {
+            return Err(Error::InvalidNumberParallelPaths {
+                maximum: max_par_paths,
+                given: builder.parallel_paths,
+            });
         }
 
         // Calculate the basic winding parameters
@@ -1563,13 +1563,9 @@ impl TryFrom<DistributedDoubleZoneSpanBuilder> for DistributedWinding {
     fn try_from(builder: DistributedDoubleZoneSpanBuilder) -> Result<Self, Self::Error> {
         // Check if an integer slot winding can be constructed from the input
         let hn = hole_number(builder.slots, builder.pole_pairs, builder.phases);
-        let g = hn.trunc().numer().clone();
-        let n = hn.denom().clone();
-        let zone_shift = if n == 1 {
-            g
-        } else {
-            return Err(Error::NeedsIntegerSlot);
-        };
+        let zone_shift = hn.trunc().numer().clone();
+        let denominator_hole_number = hn.denom().clone();
+        compare_variables!(denominator_hole_number == 1)?;
 
         DistributedBuilder {
             slots: builder.slots,

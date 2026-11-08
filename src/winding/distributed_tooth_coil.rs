@@ -25,10 +25,28 @@ use crate::core_support::*;
 
 use crate::{
     coils::{Coil, Coils, FullCoil},
-    error::{Error, WindingTableConstructionError},
+    error::Error,
     winding::{Connection, Winding},
-    winding_table::{WindingTable, WindingTableConstructor},
+    winding_table::{WindingTable, WindingTableConstructionError, WindingTableConstructor},
 };
+
+/// An error which is returned from a [`DistributedToothCoilBuilder`] if the
+/// given pole pair number is not an harmonic of the resulting winding (see also
+/// [`Winding::is_harmonic`]).
+#[derive(Debug, Copy, Clone)]
+pub struct PolePairNumberNotAnHarmonic(NonZeroU16);
+
+impl std::fmt::Display for PolePairNumberNotAnHarmonic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "given pole pair {} is not a nonzero harmonic of the winding",
+            self.0.get()
+        )
+    }
+}
+
+impl std::error::Error for PolePairNumberNotAnHarmonic {}
 
 /**
 Data for a coil of a [`DistributedToothCoilWinding`].
@@ -993,10 +1011,12 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
             builder.pole_pairs,
             builder.phases,
             builder.layers,
-        )
-        .get();
-        if max_par_paths % builder.parallel_paths.get() != 0 {
-            return Err(Error::InvalidNumberParallelPaths);
+        );
+        if max_par_paths.get() % builder.parallel_paths.get() != 0 {
+            return Err(Error::InvalidNumberParallelPaths {
+                maximum: max_par_paths,
+                given: builder.parallel_paths,
+            });
         }
 
         let mut winding_table = distributed_tooth_coil_assembly(
@@ -1054,7 +1074,9 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
                 winding_table.shift_layers(2 * coils_per_group as i32);
             }
         } else {
-            return Err(Error::PolePairNumberNotAnHarmonic);
+            return Err(Error::Other(Box::new(PolePairNumberNotAnHarmonic(
+                winding.pole_pairs(),
+            ))));
         }
 
         // Recreate the coils from the adjusted zone plan

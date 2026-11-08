@@ -9,9 +9,7 @@
 use std::sync::Arc;
 
 use num::Complex;
-use realfft::{RealFftPlanner, RealToComplex};
-
-use crate::error::Error;
+use realfft::{FftError, RealFftPlanner, RealToComplex};
 
 use super::*;
 
@@ -74,6 +72,39 @@ pub fn sample_fec_values<T: Clone, I: ExactSizeIterator<Item = T>>(
         }
     }
 }
+
+/// An error which occurred during [`FecSpectralAnalysis::analyze`].
+#[derive(Debug)]
+pub enum FecAnalysisError {
+    /// A given [`usize`] is not within its allowed value range.
+    InvalidUsize(compare_variables::Comparison<usize>),
+    /// An [`FftError`] has been returned from the realfft crate used by
+    /// [`FecSpectralAnalysis`]
+    FftError(FftError),
+}
+
+impl From<compare_variables::Comparison<usize>> for FecAnalysisError {
+    fn from(value: compare_variables::Comparison<usize>) -> Self {
+        Self::InvalidUsize(value)
+    }
+}
+
+impl From<FftError> for FecAnalysisError {
+    fn from(value: FftError) -> Self {
+        Self::FftError(value)
+    }
+}
+
+impl std::fmt::Display for FecAnalysisError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FecAnalysisError::InvalidUsize(comparison) => comparison.fmt(f),
+            FecAnalysisError::FftError(fft_error) => fft_error.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for FecAnalysisError {}
 
 /**
 Computes the complex Fourier coefficients of the field excitation curve (FEC)
@@ -263,7 +294,7 @@ impl FecSpectralAnalysis {
         &mut self,
         winding: &W,
         currents: &[f64],
-    ) -> Result<&[Complex<f64>], Error> {
+    ) -> Result<&[Complex<f64>], FecAnalysisError> {
         self.fec_values.resize(winding.slots().get().into(), 0.0);
 
         // Calculate the field excitation curve (FEC)
@@ -273,7 +304,7 @@ impl FecSpectralAnalysis {
         self.analyze_priv()
     }
 
-    fn analyze_priv(&mut self) -> Result<&[Complex<f64>], Error> {
+    fn analyze_priv(&mut self) -> Result<&[Complex<f64>], FecAnalysisError> {
         // Upsample the FEC
         sample_fec_values(self.fec_values.iter().cloned(), &mut self.sampled_fec);
 

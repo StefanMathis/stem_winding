@@ -4,8 +4,6 @@
 //! winding and provides functionality for constructing, inspecting, and
 //! manipulating winding tables.
 
-use crate::error::WindingTableConstructionError;
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -674,7 +672,7 @@ impl WindingTable {
             // Check if there is the same number of positive and negative zones for a phase
             if counter != 0 {
                 return Err(WindingTableConstructionError::InequalPositiveNegativeZones(
-                    phase as u16,
+                    NonZeroU16::new(phase as u16).expect("not zero"),
                 ));
             }
         }
@@ -975,6 +973,150 @@ impl<'a> Iterator for LayerMajorIterMut<'a> {
 }
 
 impl<'a> ExactSizeIterator for LayerMajorIterMut<'a> {}
+
+/// An enum representing error states when attempting to build a
+/// [`WindingTable`].
+#[derive(Debug)]
+pub enum WindingTableConstructionError {
+    /// The resulting winding table does not result in a symmetric winding, even
+    /// though the winding type requires it.
+    ///
+    /// See [`Winding::is_symmetric`](crate::winding::Winding::is_symmetric) for
+    /// details.
+    NotSymmetric,
+    /// An odd number of slots was specified for a single-layer winding.
+    ///
+    /// For a winding type which is made up from
+    /// [`FullCoil`](crate::coils::FullCoil)s, this would result in empty zones,
+    /// which is not permitted for a lot of winding types.
+    SingleLayerOddSlotNumber,
+    /// A zone of the table did not get filled.
+    ///
+    /// An empty zone indicates a failure for a lot of
+    /// [`WindingTableConstructor`]s
+    EmptyZone(Option<Zone>),
+    /// The number of positive and negative zones is not equal for the given
+    /// phase.
+    ///
+    /// For a winding type which is made up from
+    /// [`FullCoil`](crate::coils::FullCoil)s, this would result in empty zones,
+    /// which is not permitted for a lot of winding types.
+    InequalPositiveNegativeZones(NonZeroU16),
+    /// The [`WindingTableConstructor::Tingley`] algorithm only works for two-
+    /// or three-phase windings, but the specified number of phases was given.
+    TingleyInvalidNumberPhases(NonZeroU16),
+    /// The [`WindingTableConstructor::CoilSide`] algorithm only works for
+    /// single-layer windings, but the specified number of layers was given.
+    CoilSideInvalidNumberLayers(NonZeroU16),
+    /// The [`WindingTableConstructor::CoilSide`] algorithm failed to distribute
+    /// the coils for all phases.
+    CoilSideCouldNotDistribute,
+    /// The [`WindingTableConstructor::Algebraic`] algorithm only works for odd
+    /// phases > 1, but the specified number of phases was given.
+    AlgebraicInvalidNumberPhases(NonZeroU16),
+    /// Internal error of the [`WindingTableConstructor::Algebraic`] algorithm:
+    /// Failed to calculate the step between two electrically neighboring slots.
+    AlgebraicInvalidStep,
+    /// The [`WindingTableConstructor::StarOfSlots`] algorithm only works for
+    /// odd phases, but the specified number of phases was given.
+    StarOfSlotsInvalidNumberPhases(NonZeroU16),
+    /// The [`WindingTableConstructor::StarOfSlots`] algorithm only works for
+    /// single- or double-layer windings, but the specified number of layers was
+    /// given.
+    StarOfSlotsInvalidNumberLayers(NonZeroU16),
+    /// The [`WindingTableConstructor::DistributionTable`] algorithm only works
+    /// for single- or double-layer windings, but the specified number of
+    /// layers was given.
+    DistributionTableInvalidNumberLayers(NonZeroU16),
+}
+
+impl std::fmt::Display for WindingTableConstructionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotSymmetric => {
+                write!(
+                    f,
+                    "The resulting winding table does not represent a symmetric winding."
+                )
+            }
+            Self::SingleLayerOddSlotNumber => {
+                write!(
+                    f,
+                    "An odd number of slots was specified for a single-layer winding."
+                )
+            }
+            Self::EmptyZone(zone) => {
+                if let Some(zone) = zone {
+                    write!(
+                        f,
+                        "Winding table construction failed because zone {zone:?} is empty."
+                    )
+                } else {
+                    write!(
+                        f,
+                        "Winding table construction failed because a zone is empty."
+                    )
+                }
+            }
+            Self::InequalPositiveNegativeZones(phase) => {
+                write!(
+                    f,
+                    "The number of positive and negative zones is not equal for phase {phase}."
+                )
+            }
+            Self::TingleyInvalidNumberPhases(phases) => {
+                write!(
+                    f,
+                    "The Tingley algorithm only supports two or three phases, but {phases} phases were specified."
+                )
+            }
+            Self::CoilSideInvalidNumberLayers(layers) => {
+                write!(
+                    f,
+                    "The CoilSide algorithm only supports single-layer windings, but {layers} layers were specified."
+                )
+            }
+            Self::CoilSideCouldNotDistribute => {
+                write!(
+                    f,
+                    "The CoilSide algorithm failed to distribute the coils across all phases."
+                )
+            }
+            Self::AlgebraicInvalidNumberPhases(phases) => {
+                write!(
+                    f,
+                    "The Algebraic algorithm only supports odd phase numbers greater than one, but {phases} phases were specified."
+                )
+            }
+            Self::AlgebraicInvalidStep => {
+                write!(
+                    f,
+                    "The Algebraic algorithm failed to calculate the step between electrically neighboring slots."
+                )
+            }
+            Self::StarOfSlotsInvalidNumberPhases(phases) => {
+                write!(
+                    f,
+                    "The StarOfSlots algorithm only supports odd phase numbers, but {phases} phases were specified."
+                )
+            }
+            Self::StarOfSlotsInvalidNumberLayers(layers) => {
+                write!(
+                    f,
+                    "The StarOfSlots algorithm only supports single- or double-layer windings, but {layers} layers were specified."
+                )
+            }
+            Self::DistributionTableInvalidNumberLayers(layers) => {
+                write!(
+                    f,
+                    "The DistributionTable algorithm only supports single- or double-layer windings, but {layers} layers were specified."
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for WindingTableConstructionError {}
 
 #[cfg(test)]
 mod tests {

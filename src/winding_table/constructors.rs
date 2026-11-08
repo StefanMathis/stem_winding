@@ -13,10 +13,7 @@ use serde::{Deserialize, Serialize};
 use num::Integer;
 use stem_types::Zone;
 
-use crate::{
-    error::WindingTableConstructionError,
-    winding::{PhaseSequence, hole_number},
-};
+use crate::winding::{PhaseSequence, hole_number};
 
 use super::*;
 
@@ -616,7 +613,9 @@ impl WindingTable {
 
         // The Tingley pattern only works for two- and three-phase AC windings
         if phases_num != 2 && phases_num != 3 {
-            return Err(WindingTableConstructionError::TingleyInvalidNumberPhases);
+            return Err(WindingTableConstructionError::TingleyInvalidNumberPhases(
+                phases,
+            ));
         }
 
         // Winding must be symmetric (e.g. no empty slots)
@@ -746,7 +745,9 @@ impl WindingTable {
 
         // Can only be applied to single-layer windings
         if layers_num != 1 {
-            return Err(WindingTableConstructionError::CoilSideInvalidNumberLayers);
+            return Err(WindingTableConstructionError::CoilSideInvalidNumberLayers(
+                layers,
+            ));
         }
 
         // Winding must be symmetric (e.g. no empty slots)
@@ -888,7 +889,9 @@ impl WindingTable {
 
         // Number of phases must be greater than two, only works for odd phases
         if phases_num <= 2 || phases_num.is_even() {
-            return Err(WindingTableConstructionError::AlgebraicInvalidNumberPhases);
+            return Err(WindingTableConstructionError::AlgebraicInvalidNumberPhases(
+                phases,
+            ));
         }
 
         // Calculate the number of steps between two electrically neighboring slots
@@ -1023,11 +1026,11 @@ impl WindingTable {
 
         // Only works for odd phases
         if phases_num.is_even() {
-            return Err(WindingTableConstructionError::StarOfSlotsInvalidNumberPhases);
+            return Err(WindingTableConstructionError::StarOfSlotsInvalidNumberPhases(phases));
         }
 
         if layers_num != 1 && layers_num != 2 {
-            return Err(WindingTableConstructionError::StarOfSlotsInvalidNumberLayers);
+            return Err(WindingTableConstructionError::StarOfSlotsInvalidNumberLayers(layers));
         }
 
         // Winding must be symmetric (e.g. no empty slots)
@@ -1125,7 +1128,9 @@ impl WindingTable {
         let pole_pairs_num = u16::from(pole_pairs);
 
         if layers_num != 1 && layers_num != 2 {
-            return Err(WindingTableConstructionError::DistributionTableInvalidNumberLayers);
+            return Err(
+                WindingTableConstructionError::DistributionTableInvalidNumberLayers(layers),
+            );
         }
 
         // Winding must be symmetric (e.g. no empty slots)
