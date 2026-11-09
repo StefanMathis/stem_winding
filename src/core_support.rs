@@ -47,7 +47,7 @@ impl<W: Winding> FromWinding<W> for RotCore {
         use uom::typenum::P2;
 
         let mut yoke_radius = Length::new::<millimeter>(20.0);
-        let opening_width = Length::new::<millimeter>(2.0);
+        let mut opening_width = Length::new::<millimeter>(2.0);
         let opening_height = Length::new::<millimeter>(1.0);
 
         // Ratio between the angle covered by a tooth and by a slot bottom
@@ -73,6 +73,12 @@ impl<W: Winding> FromWinding<W> for RotCore {
         let height = yoke_radius
             - yoke_height
             - 0.5 * (4.0 * air_gap_radius.powi(P2::new()) - opening_width.powi(P2::new())).sqrt();
+
+        let side_height = height - opening_height;
+        let top_width = bottom_width - 2.0 * side_height * (slot_angle / 2.0).tan();
+        if top_width < opening_width {
+            opening_width = 0.5 * top_width;
+        }
 
         // Raise yoke_radius
         yoke_radius = yoke_radius + Length::new::<millimeter>(5.0);

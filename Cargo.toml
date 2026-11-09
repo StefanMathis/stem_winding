@@ -49,5 +49,5 @@ serde_yaml = "0.8"
 stem_winding = { path = ".", features = ["cairo", "serde", "stem_core"] }
 
 [package.metadata.docs.rs]
-features = ["serde", "cairo", "doc-images"]
+features = ["serde", "cairo", "doc-images", "stem_core"]
 rustdoc-args = ["--cfg", "docsrs"]

@@ -743,10 +743,10 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     .unwrap();
 
     // 30 = number of poles × number of phases = 10 × 3
-    assert_eq!(winding.lowest_torque_ripple_order(), 30);
+    assert_eq!(winding.lowest_ripple_torque_order(), 30);
     ```
     */
-    fn lowest_torque_ripple_order(&self) -> usize {
+    fn lowest_ripple_torque_order(&self) -> usize {
         // In [1], the lowest-order pulsation frequency is stated as
         // 2 * phases * stator_frequency for a single pole pair. To get the
         // order over all pole pairs, we need to multiply by self.pole_pairs.
@@ -758,7 +758,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     between the rotor and the stator.
 
     The cogging-torque order has the same meaning as the
-    [`lowest_torque_ripple_order`](Winding::lowest_torque_ripple_order): it is
+    [`lowest_ripple_torque_order`](Winding::lowest_ripple_torque_order): it is
     the number of complete cogging-torque cycles occurring during one full
     mechanical revolution of the rotor. Higher-order components may occur as
     well.
@@ -1841,7 +1841,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///     end_winding_half_turn_length_override: None,
     /// }
     /// .try_into()
-    /// .expect("valid winding core");
+    /// .expect("given values create a symmetric, valid winding");
     ///
     /// // Assumed air gap (needed for the tooth-tip leakage)
     /// let air_gap = Length::new::<millimeter>(1.0);

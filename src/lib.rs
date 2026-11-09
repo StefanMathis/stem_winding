@@ -1,10 +1,32 @@
 /*!
-[`Wire`]: crate::wire::Wire
+[`Winding`]: crate::winding::Winding
+[`Winding::zone_drawables`]: crate::winding::Winding::zone_drawables
+[`Winding::coil_drawables`]: crate::winding::Winding::coil_drawables
+[`SquirrelCageWinding`]: crate::winding::squirrel_cage::SquirrelCageWinding
+[`DistributedWinding`]: crate::winding::distributed::DistributedWinding
+[`DistributedToothCoilWinding`]: crate::winding::distributed_tooth_coil::DistributedToothCoilWinding
+[`ToothCoilWinding`]: crate::winding::tooth_coil::ToothCoilWinding
+[`QuadrupleLayerToothCoilWinding`]: crate::winding::quadruple_layer_tooth_coil::QuadrupleLayerToothCoilWinding
+[`CoilAssembly`]: crate::winding::coil_assembly::CoilAssembly
+[`Coil`]: crate::coils::Coil
+[`WindingTable`]: crate::winding_table::WindingTable
+
+[stem_core]: https://crates.io/crates/stem_core
 
 Winding definition for stem – a Simulation Toolbox for Electric Motors. The
 [stem book](https://stefanmathis.github.io/stem_book/) provides a comprehensive
 guide to the framework, while this crate's documentation describes its API.
  */
+#![cfg_attr(feature = "doc-images",
+cfg_attr(all(),
+doc = ::embed_doc_image::embed_image!("phd_stator.svg", "docs/img/phd_stator.svg"),
+doc = ::embed_doc_image::embed_image!("table_tooth_coil_winding.svg", "docs/img/table_tooth_coil_winding.svg"),
+doc = ::embed_doc_image::embed_image!("coils_tooth_coil_winding.svg", "docs/img/coils_tooth_coil_winding.svg"),
+))]
+#![cfg_attr(
+    not(feature = "doc-images"),
+    doc = "**Doc images not enabled**. Compile docs with `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+)]
 #![doc = include_str!("../docs/main.md")]
 #![deny(missing_docs)]
 
