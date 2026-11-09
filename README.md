@@ -5,17 +5,17 @@ stem_winding
 docs/main.md and (if available docs/end.md). Do not modify this file, instead
 modify the components. -->
 
-[`Winding`]: https://docs.rs/stem_winding/0.0.1/stem_winding/winding/trait.Winding.html
-[`Winding::zone_drawables`]: https://docs.rs/stem_winding/0.0.1/stem_winding/winding/trait.Winding.html#method.zone_drawables
-[`Winding::coil_drawables`]: https://docs.rs/stem_winding/0.0.1/stem_winding/winding/trait.Winding.html#method.coil_drawables
-[`SquirrelCageWinding`]: https://docs.rs/stem_winding/0.0.1/stem_winding/winding/squirrel_cage/struct.SquirrelCageWinding.html
-[`DistributedWinding`]: https://docs.rs/stem_winding/0.0.1/stem_winding/winding/distributed/struct.DistributedWinding.html
-[`DistributedToothCoilWinding`]: https://docs.rs/stem_winding/0.0.1/stem_winding/winding/distributed_tooth_coil/struct.DistributedToothCoilWinding.html
-[`ToothCoilWinding`]: https://docs.rs/stem_winding/0.0.1/stem_winding/winding/tooth_coil/struct.ToothCoilWinding.html
-[`QuadrupleLayerToothCoilWinding`]: https://docs.rs/stem_winding/0.0.1/stem_winding/winding/quadruple_layer_tooth_coil/struct.QuadrupleLayerToothCoilWinding.html
-[`CoilAssembly`]: https://docs.rs/stem_winding/0.0.1/stem_winding/winding/coil_assembly/struct.CoilAssembly.html
-[`Coil`]: https://docs.rs/stem_winding/0.0.1/stem_winding/coils/enum.Coil.html
-[`WindingTable`]: https://docs.rs/stem_winding/0.0.1/stem_winding/winding_table/struct.WindingTable.html
+[`Winding`]: https://docs.rs/stem_winding/0.1.0/stem_winding/winding/trait.Winding.html
+[`Winding::zone_drawables`]: https://docs.rs/stem_winding/0.1.0/stem_winding/winding/trait.Winding.html#method.zone_drawables
+[`Winding::coil_drawables`]: https://docs.rs/stem_winding/0.1.0/stem_winding/winding/trait.Winding.html#method.coil_drawables
+[`SquirrelCageWinding`]: https://docs.rs/stem_winding/0.1.0/stem_winding/winding/squirrel_cage/struct.SquirrelCageWinding.html
+[`DistributedWinding`]: https://docs.rs/stem_winding/0.1.0/stem_winding/winding/distributed/struct.DistributedWinding.html
+[`DistributedToothCoilWinding`]: https://docs.rs/stem_winding/0.1.0/stem_winding/winding/distributed_tooth_coil/struct.DistributedToothCoilWinding.html
+[`ToothCoilWinding`]: https://docs.rs/stem_winding/0.1.0/stem_winding/winding/tooth_coil/struct.ToothCoilWinding.html
+[`QuadrupleLayerToothCoilWinding`]: https://docs.rs/stem_winding/0.1.0/stem_winding/winding/quadruple_layer_tooth_coil/struct.QuadrupleLayerToothCoilWinding.html
+[`CoilAssembly`]: https://docs.rs/stem_winding/0.1.0/stem_winding/winding/coil_assembly/struct.CoilAssembly.html
+[`Coil`]: https://docs.rs/stem_winding/0.1.0/stem_winding/coils/enum.Coil.html
+[`WindingTable`]: https://docs.rs/stem_winding/0.1.0/stem_winding/winding_table/struct.WindingTable.html
 
 [phd_stator.svg]: https://raw.githubusercontent.com/StefanMathis/stem_winding/refs/heads/main/docs/img/phd_stator.svg
 [table_tooth_coil_winding.svg]: https://raw.githubusercontent.com/StefanMathis/stem_winding/refs/heads/main/docs/img/table_tooth_coil_winding.svg
@@ -29,7 +29,7 @@ Winding definition for stem – a Simulation Toolbox for Electric Motors. The
 [stem book](https://stefanmathis.github.io/stem_book/) provides a comprehensive
 guide to the framework, while this crate's documentation describes its API.
 
-The full API documentation is available at <https://docs.rs/stem_winding/0.0.1/stem_winding>.
+The full API documentation is available at <https://docs.rs/stem_winding/0.1.0/stem_winding>.
 
 > **Feedback welcome!**  
 > Found a bug, missing docs, or have a feature request?  
@@ -188,10 +188,10 @@ let phase = NonZeroU16::new(1).expect("not zero");
 let resistance = winding.resistance(core.as_core_ref(), phase);
 
 let conditions = &[ThermodynamicTemperature::new::<degree_celsius>(20.0).into()];
-assert_abs_diff_eq!(resistance.eval(conditions).get::<ohm>(), 4.138, epsilon = 1e-3);
+assert_abs_diff_eq!(resistance.eval(conditions).get::<ohm>(), 4.141, epsilon = 1e-3);
 
 let conditions = &[ThermodynamicTemperature::new::<degree_celsius>(120.0).into()];
-assert_abs_diff_eq!(resistance.eval(conditions).get::<ohm>(), 5.793, epsilon = 1e-3);
+assert_abs_diff_eq!(resistance.eval(conditions).get::<ohm>(), 5.798, epsilon = 1e-3);
 
 // Get the slot leakage inductance for the fundamental spatial order
 // (see also the documentation of the stem_slot crate).
@@ -202,7 +202,7 @@ let slot_leakage_inductance = winding.slot_leakage_inductance(
     phase,
     air_gap,
 ).eval(&[]);
-assert_abs_diff_eq!(slot_leakage_inductance.get::<millihenry>(), 0.228, epsilon = 1e-3);
+assert_abs_diff_eq!(slot_leakage_inductance.get::<millihenry>(), 0.332, epsilon = 1e-3);
 
 // Get the total phase inductance (all leakage inductances + main inductance)
 // for the fundamental (pole pair) spatial order.
@@ -212,57 +212,61 @@ let inductance = winding.inductance(
     SpatialOrder::Electrical(1),
     air_gap,
 ).eval(&[]);
-assert_abs_diff_eq!(inductance.get::<millihenry>(), 7.521, epsilon = 1e-3);
+assert_abs_diff_eq!(inductance.get::<millihenry>(), 7.652, epsilon = 1e-3);
 
 // Calculate the total mass of all coils
 let mass: Mass = winding
     .coil_properties_iter(core.as_core_ref())
     .map(|cp| cp.volume() * cp.material().mass_density().eval(&[])).sum();
-assert_abs_diff_eq!(mass.get::<gram>(), 6.051, epsilon = 0.001);
+assert_abs_diff_eq!(mass.get::<gram>(), 6.055, epsilon = 0.001);
 ```
 
-# Visualization
+## Visualization
 
-This crate offers two different options for visualizing a winding. The first
-option is to show the coil sides as a winding table inside a core, as
-demonstrated by the previous images. This is done using the
-[`Winding::zone_drawables`] method.
+If the `cairo` feature is enabled, this crate provides two ways to visualize a
+winding. The first shows the coil sides arranged in a winding table within the
+machine core, as demonstrated in the previous examples. This representation is
+provided by [`Winding::zone_drawables`].
 
-Alternatively, it is also possible to show the coils as seen from the air gap
-via the [`Winding::coil_drawables`] method. This can be useful to examine the
-end windings (i.e. to see which coils are overlapping). The following image
+Alternatively, [`Winding::coil_drawables`] visualizes the coils as seen from
+the air gap. This is particularly useful for examining the end windings and
+their overlap.
+
+The following image shows the coils of the 12-slot, 10-pole double-layer
+tooth-coil winding from the first example.
 
 ![Coils of a 12-slot, 10-pole double-layer tooth-coil winding][coils_tooth_coil_winding.svg]
 
-The /examples/winding_plots.rs executable provides examples for both methods.
+The executable example at [`examples/winding_plots.rs`] demonstrates both
+visualization methods.
 
-# Predefined winding types
+## Predefined winding types
 
-In addition to the [`Winding`] trait, this crate provides a couple of predefined
+In addition to the [`Winding`] trait, this crate provides several predefined
 winding types implementing this trait:
 
-- [`DistributedWinding`]: The coils of each phase are distributed / span
-  multiple slots / teeth and overlap each other. Offers smooth torque and a
-  sinusoidal back-EMF, but has intricate end windings geometries resulting in
-  higher manufacturing complexity.
-- [`ToothCoilWinding`]: Each coil is wound around a single tooth and has a
-  simple and short end winding, therefore the manufacturing process can be
-  easily automated. Back-EMF has a lot of unwanted harmonics and the torque is
-  usually not as smooth as that of a comparable [`DistributedWinding`].
-- [`QuadrupleLayerToothCoilWinding`]: A special variant of the
-  [`ToothCoilWinding`] where two coils are wound around each coils (four coil
-  sides per slot). This arrangement offers additional degrees of freedom for
-  designing the electromagnetic properties of the winding.
-- [`DistributedToothCoilWinding`]: A hybrid of a [`DistributedWinding`] and a
-  [`ToothCoilWinding`] which combines the sinusoidal back-EMF with the short and
-  simple end windings; but has comparably low winding factors.
-- [`SquirrelCageWinding`]: Usually found in the rotors of induction motors, this
-  winding type generates its current system from induced voltage rather than
-  being fed by external sources such as a power grid.
-- [`CoilAssembly`]: A collection of [`Coil`]s which allows defining arbitrary
-  windings (i.e. non-symmetric ones for evaluating manufacturing influences).
-  All other windings are essentially special cases of a [`CoilAssembly`] with
-  additional domain knowledge.
+- [`DistributedWinding`]: The coils of each phase span multiple slots or teeth
+  and overlap one another. Distributed windings typically offer a relatively
+  sinusoidal back-EMF and smooth torque, but require more intricate end-winding
+  geometries, increasing manufacturing complexity.
+- [`ToothCoilWinding`]: Each coil is wound around a single tooth, resulting in
+  short and simple end windings that are well suited to automated manufacturing.
+  However, tooth-coil windings can exhibit significant back-EMF harmonics and
+  less smooth torque than comparable distributed windings.
+- [`QuadrupleLayerToothCoilWinding`]: A variant of the
+  [`ToothCoilWinding`] with two coils per tooth and four coil sides per slot.
+  This arrangement provides additional degrees of freedom when designing the
+  electromagnetic properties of the winding.
+- [`DistributedToothCoilWinding`]: A hybrid of [`DistributedWinding`] and
+  [`ToothCoilWinding`] that combines distributed coil arrangements with short
+  and simple end windings. This comes at the expense of comparatively low
+  winding factors.
+- [`SquirrelCageWinding`]: Typically used in induction motor rotors, this
+  winding type generates its current system through electromagnetic induction
+  rather than being supplied directly by an external source.
+- [`CoilAssembly`]: A low-level representation consisting of individual
+  [`Coil`]s. It allows arbitrary coil configurations, including asymmetric
+  windings for investigating the effects of manufacturing deviations.
 
 # Implementing your own winding
 

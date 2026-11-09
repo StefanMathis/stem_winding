@@ -155,10 +155,10 @@ let phase = NonZeroU16::new(1).expect("not zero");
 let resistance = winding.resistance(core.as_core_ref(), phase);
 
 let conditions = &[ThermodynamicTemperature::new::<degree_celsius>(20.0).into()];
-assert_abs_diff_eq!(resistance.eval(conditions).get::<ohm>(), 4.138, epsilon = 1e-3);
+assert_abs_diff_eq!(resistance.eval(conditions).get::<ohm>(), 4.141, epsilon = 1e-3);
 
 let conditions = &[ThermodynamicTemperature::new::<degree_celsius>(120.0).into()];
-assert_abs_diff_eq!(resistance.eval(conditions).get::<ohm>(), 5.793, epsilon = 1e-3);
+assert_abs_diff_eq!(resistance.eval(conditions).get::<ohm>(), 5.798, epsilon = 1e-3);
 
 // Get the slot leakage inductance for the fundamental spatial order
 // (see also the documentation of the stem_slot crate).
@@ -169,7 +169,7 @@ let slot_leakage_inductance = winding.slot_leakage_inductance(
     phase,
     air_gap,
 ).eval(&[]);
-assert_abs_diff_eq!(slot_leakage_inductance.get::<millihenry>(), 0.228, epsilon = 1e-3);
+assert_abs_diff_eq!(slot_leakage_inductance.get::<millihenry>(), 0.332, epsilon = 1e-3);
 
 // Get the total phase inductance (all leakage inductances + main inductance)
 // for the fundamental (pole pair) spatial order.
@@ -179,13 +179,13 @@ let inductance = winding.inductance(
     SpatialOrder::Electrical(1),
     air_gap,
 ).eval(&[]);
-assert_abs_diff_eq!(inductance.get::<millihenry>(), 7.521, epsilon = 1e-3);
+assert_abs_diff_eq!(inductance.get::<millihenry>(), 7.652, epsilon = 1e-3);
 
 // Calculate the total mass of all coils
 let mass: Mass = winding
     .coil_properties_iter(core.as_core_ref())
     .map(|cp| cp.volume() * cp.material().mass_density().eval(&[])).sum();
-assert_abs_diff_eq!(mass.get::<gram>(), 6.051, epsilon = 0.001);
+assert_abs_diff_eq!(mass.get::<gram>(), 6.055, epsilon = 0.001);
 ```
 
 ## Visualization
