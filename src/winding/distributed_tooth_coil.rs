@@ -11,8 +11,8 @@ use std::{
 
 use compare_variables::compare_variables;
 
-use stem_types::{CoilLayout, Zone};
-use stem_wire::{sff::SffWire, wire::Wire};
+use stem_types::{CoilLayout, SpatialOrder, Zone};
+use stem_wire::prelude::*;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -924,8 +924,8 @@ pub struct DistributedToothCoilBuilder {
     /// of the resulting winding, as it is treated as the fundamental harmonic
     /// of the winding (e.g. for [`SpatialOrder::Electrical`]). During the
     /// build process, this is checked using [`Winding::is_harmonic`]. If the
-    /// value is not an harmonic, an [`Error::PolePairNumberNotAnHarmonic`] is
-    /// returned from [`new`](DistributedToothCoilWinding::new) /
+    /// value is not an harmonic, an [`Error`] is returned from
+    /// [`new`](DistributedToothCoilWinding::new) /
     /// [`try_from`](DistributedToothCoilWinding::try_from).
     pub pole_pairs: NonZeroU16,
     /// Number of phases. Corresponds to [`Winding::phases`] in the final

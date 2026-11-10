@@ -11,8 +11,9 @@ use std::{
 
 use compare_variables::{Comparison, compare_variables};
 use num::Integer;
-use stem_types::{CoilLayout, Zone};
-use stem_wire::{sff::SffWire, wire::Wire};
+
+use stem_types::*;
+use stem_wire::prelude::*;
 
 #[cfg(feature = "stem_core")]
 use stem_core::prelude::*;

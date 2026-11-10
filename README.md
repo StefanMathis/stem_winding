@@ -16,24 +16,27 @@ modify the components. -->
 [`CoilAssembly`]: https://docs.rs/stem_winding/0.1.0/stem_winding/winding/coil_assembly/struct.CoilAssembly.html
 [`Coil`]: https://docs.rs/stem_winding/0.1.0/stem_winding/coils/enum.Coil.html
 [`WindingTable`]: https://docs.rs/stem_winding/0.1.0/stem_winding/winding_table/struct.WindingTable.html
+[`Connection`]: https://docs.rs/stem_winding/0.1.0/stem_winding/winding/support/enum.Connection.html
 
 [phd_stator.svg]: https://raw.githubusercontent.com/StefanMathis/stem_winding/refs/heads/main/docs/img/phd_stator.svg
 [table_tooth_coil_winding.svg]: https://raw.githubusercontent.com/StefanMathis/stem_winding/refs/heads/main/docs/img/table_tooth_coil_winding.svg
 [coils_tooth_coil_winding.svg]: https://raw.githubusercontent.com/StefanMathis/stem_winding/refs/heads/main/docs/img/coils_tooth_coil_winding.svg
 
-[stem_core]: https://crates.io/crates/stem_core
-
 [![Documentation](https://docs.rs/stem_winding/badge.svg)](https://docs.rs/stem_winding)
 
 Winding definition for stem – a Simulation Toolbox for Electric Motors. The
-[stem book](https://stefanmathis.github.io/stem_book/) provides a comprehensive
+[stem book] provides a comprehensive
 guide to the framework, while this crate's documentation describes its API.
 
 The full API documentation is available at <https://docs.rs/stem_winding/0.1.0/stem_winding>.
 
+[serialization and deserialization]: https://stefanmathis.github.io/stem_book/serialization_and_deserialization.html
+[stem book]: https://stefanmathis.github.io/stem_book/
+[stem_core]: https://crates.io/crates/stem_core
+
 > **Feedback welcome!**  
 > Found a bug, missing docs, or have a feature request?  
-> Please open an issue on [GitHub](https://github.com/StefanMathis/stem_slot.git).
+> Please open an issue on [GitHub](https://github.com/StefanMathis/stem_winding.git).
 
 ![Integer-slot distributed winding on a rotary core][phd_stator.svg]
 
@@ -46,22 +49,22 @@ The crate offers three levels of functionality:
 
 - **Machine theory analysis:** Define winding topologies using [`Coil`]s,
   generate [`WindingTable`]s, and evaluate properties such as winding factors,
-  harmonic content, air gap leakage factors, and cogging and ripple torque
+  harmonic content, air-gap leakage factors, and cogging and ripple torque
   orders.
 - **Physical properties** (requires the `stem_core` feature): Calculate
-  quantities such as phase resistance and inductance, and determine coil
-  extents within a machine core.
+  quantities such as phase resistance and inductance, and determine the coil
+  geometry within a machine core.
 - **Visualization** (requires the `cairo` feature): Visualize winding tables and
-  coil layouts within the actual machine geometry.
+  coil layouts within machine geometry.
 
 # Machine theory analysis
 
 The following example defines a 12-slot, 10-pole, three-phase double-layer
-tooth-coil winding using the predefined [`ToothCoilWinding`] which implements
-[`Winding`]. The corresponding winding table is shown below. It was generated
-using this crate with the `stem_core` and `cairo` features enabled.
+tooth-coil winding using the predefined [`ToothCoilWinding`]. The corresponding
+winding table is shown below. It was generated using this crate with the
+`stem_core` and `cairo` features enabled.
 
-![12-slot, 10-pole double-layer tooth-coil winding table][phd_statable_tooth_coil_windingtor.svg]
+![12-slot, 10-pole double-layer tooth-coil winding table][table_tooth_coil_winding.svg]
 
 ```rust
 use std::num::NonZeroU16;
@@ -94,7 +97,7 @@ let mut harmonics = winding.harmonics();
 assert_eq!(harmonics.next().unwrap().spatial_order, SpatialOrder::Mechanical(1));
 
 // Fundamental harmonic (one sinusoidal wave per pole pair).
-// This one generates the constant part of the torque
+// Its interaction with the corresponding rotor field contributes to the average torque.
 assert_eq!(harmonics.next().unwrap().spatial_order, SpatialOrder::Mechanical(5));
 
 // Calculate the winding factors of phase 1 for these harmonics
@@ -108,7 +111,7 @@ assert_abs_diff_eq!(winding.winding_factor(phase, SpatialOrder::Mechanical(5)), 
 assert_abs_diff_eq!(winding.air_gap_leakage_factor(phase), 0.968, epsilon = 1e-3);
 
 // Determine the lowest spatial order for the cogging and the ripple torque.
-// The higher these values, the smoother the torque will generally be.
+// Higher values are generally desirable, as they tend to result in smoother torque.
 assert_eq!(winding.lowest_cogging_torque_order(), 60);
 assert_eq!(winding.lowest_ripple_torque_order(), 30);
 ```
@@ -119,8 +122,8 @@ therefore available for any type implementing it.
 # Physical properties
 
 When the `stem_core` feature is enabled, this crate integrates with
-[`stem_core`] to account for the geometry of the machine core when calculating
-physical quantities like phase resistance, inductance, or coil mass. These
+[stem_core] to account for the geometry of the machine core when calculating
+physical quantities such as phase resistance, inductance, or coil mass. These
 calculations provide the physical parameters needed for machine simulations.
 
 The following example demonstrates this for a 36-slot, four-pole, single-layer
@@ -182,8 +185,7 @@ assert!(winding.is_symmetric(core.as_core_ref()));
 
 // Calculate the phase resistance. Since the winding is symmetric, it
 // suffices to evaluate one phase. The returned VarQuantity can be evaluated
-// under different environmental conditions, such as the operating
-// temperature.
+// under different conditions, such as different operating temperatures.
 let phase = NonZeroU16::new(1).expect("not zero");
 let resistance = winding.resistance(core.as_core_ref(), phase);
 
@@ -214,7 +216,11 @@ let inductance = winding.inductance(
 ).eval(&[]);
 assert_abs_diff_eq!(inductance.get::<millihenry>(), 7.652, epsilon = 1e-3);
 
-// Calculate the total mass of all coils
+// Get the volume of one particular coil.
+let coil_props = winding.coil_properties_at(core.as_core_ref(), Zone::new(0, 0)).expect("coil at this location");
+assert_abs_diff_eq!(coil_props.volume().get::<cubic_centimeter>(), 0.336, epsilon = 0.001);
+
+// Calculate the total mass of all coils.
 let mass: Mass = winding
     .coil_properties_iter(core.as_core_ref())
     .map(|cp| cp.volume() * cp.material().mass_density().eval(&[])).sum();
@@ -228,7 +234,7 @@ winding. The first shows the coil sides arranged in a winding table within the
 machine core, as demonstrated in the previous examples. This representation is
 provided by [`Winding::zone_drawables`].
 
-Alternatively, [`Winding::coil_drawables`] visualizes the coils as seen from
+Alternatively, [`Winding::coil_drawables`] visualizes the coils as viewed from
 the air gap. This is particularly useful for examining the end windings and
 their overlap.
 
@@ -237,7 +243,7 @@ tooth-coil winding from the first example.
 
 ![Coils of a 12-slot, 10-pole double-layer tooth-coil winding][coils_tooth_coil_winding.svg]
 
-The executable example at [`examples/winding_plots.rs`] demonstrates both
+The executable example at `examples/winding_plots.rs` demonstrates both
 visualization methods.
 
 ## Predefined winding types
@@ -259,8 +265,7 @@ winding types implementing this trait:
   electromagnetic properties of the winding.
 - [`DistributedToothCoilWinding`]: A hybrid of [`DistributedWinding`] and
   [`ToothCoilWinding`] that combines distributed coil arrangements with short
-  and simple end windings. This comes at the expense of comparatively low
-  winding factors.
+  and simple end windings. A trade-off is its comparatively low winding factor.
 - [`SquirrelCageWinding`]: Typically used in induction motor rotors, this
   winding type generates its current system through electromagnetic induction
   rather than being supplied directly by an external source.
@@ -270,9 +275,109 @@ winding types implementing this trait:
 
 # Implementing your own winding
 
-TODO
+Extensibility is a core design principle of the `stem` ecosystem. To define a
+custom winding type, simply implement the [`Winding`] trait. The trait provides
+default implementations for many methods, giving custom types access to the
+same analysis interface as the predefined winding types. These implementations
+can be overridden whenever winding-specific behavior is required.
+
+The following example demonstrates this using a deliberately simple winding
+consisting of exactly one [`Coil`].
+
+```rust
+use std::sync::Arc;
+use std::num::NonZeroU16;
+use approxim::assert_abs_diff_eq;
+
+use serde::{Deserialize, Serialize};
+
+use stem_winding::prelude::*;
+
+// A winding consisting of exactly one coil. All windings must be cloneable.
+// The serde feature additionally requires Serialize and Deserialize.
+#[derive(Clone, Deserialize, Serialize)] 
+struct SingleCoilWinding(Coil);
+
+// Required for serializing trait objects when the serde feature is enabled.
+#[typetag::serde]
+impl Winding for SingleCoilWinding {
+    fn phases(&self) -> NonZeroU16 {
+        NonZeroU16::new(1).expect("not zero")
+    }
+
+    fn slots(&self) -> NonZeroU16 {
+        NonZeroU16::new(2).expect("not zero")
+    }
+
+    fn pole_pairs(&self) -> NonZeroU16 {
+        NonZeroU16::new(1).expect("not zero")
+    }
+
+    fn parallel_paths(&self, phase: NonZeroU16) -> NonZeroU16 {
+        let _ = phase;
+        NonZeroU16::new(1).expect("not zero")
+    }
+
+    fn connection(&self) -> Connection {
+        Connection::Star
+    }
+
+    fn coil_layout(&self) -> CoilLayout {
+        CoilLayout::Single
+    }
+
+    /// Returns the coil occupying the given [`Zone`], if any.
+    fn coil_at(&self, zone: Zone) -> Option<&Coil> {
+        for z in self.0.zones() {
+            if z == zone {
+                return Some(&self.0)
+            }
+        }
+        return None;
+    }
+
+    fn as_dyn(&self) -> &dyn Winding {
+        self
+    }
+}
+
+// A single coil occupying both slots of the winding
+let winding = SingleCoilWinding(FullCoil::new(
+    Zone { slot: 0, layer: 0 },
+    Zone { slot: 1, layer: 0 },
+    true,
+    1.try_into().expect("not zero"),
+    1.try_into().expect("not zero"),
+    Arc::new(SffWire::default()),
+)
+.unwrap().into());
+
+let phase = NonZeroU16::new(1).expect("not zero");
+
+// Expected winding factor is 1, since we have a winding over two slots with one pole pair
+assert_abs_diff_eq!(winding.winding_factor(phase, SpatialOrder::Mechanical(1)), 1.0, epsilon = 1e-3);
+
+// The air-gap leakage factor is relatively high for this simple winding topology.
+assert_abs_diff_eq!(winding.air_gap_leakage_factor(phase), 1.467, epsilon = 1e-3);
+```
+
+# Serialization and deserialization
+
+If the `serde` feature is enabled, all windings and their components (coils, 
+electrical [`Connection`] enums etc.) from this crate can be
+serialized and deserialized. During deserialization, the invariants are
+validated (e.g., to prevent malformed winding tables).
+
+Units and quantities can be deserialized from strings representing SI units via
+the [dyn_quantity](https://crates.io/crates/dyn_quantity) crate. Similarly, it
+is possible to serialize quantities as value-unit strings using the
+[serialize_with_units](https://docs.rs/dyn_quantity/latest/dyn_quantity/quantity/serde_impl/fn.serialize_with_units.html)
+function.
+
+See the chapter [serialization and deserialization] of the [stem book]
+for details.
   
 # Acknowledgments
 
-The technical drawings used in the docstrings have been created using 
+The technical drawings used in the documentation have been created using 
 LibreCAD (<https://librecad.org/>).

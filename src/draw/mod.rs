@@ -15,7 +15,7 @@ use stem_types::Zone;
 pub mod winding_zone_drawables;
 pub use winding_zone_drawables::*;
 
-mod end_winding_layouter;
+mod end_winding_layout;
 
 pub mod coil_drawables;
 pub use coil_drawables::*;

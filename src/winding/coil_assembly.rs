@@ -11,7 +11,8 @@ use std::{collections::HashMap, num::NonZeroU16};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use stem_types::{CoilLayout, Zone};
+use stem_types::*;
+use stem_wire::stem_material::prelude::*;
 
 #[cfg(feature = "stem_core")]
 use stem_core::prelude::*;

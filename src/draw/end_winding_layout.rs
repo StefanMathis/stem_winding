@@ -1,4 +1,4 @@
-//! This module contains the [`EndWindingLayouter`] which is used when using the
+//! This module contains the [`EndWindingLayout`] which is used when using the
 //! [`EndWindingStyle::Layered`](super::EndWindingStyle) variant for creating a
 //! [`CoilDrawablesConfig`](super::CoilDrawablesConfig).
 
@@ -34,7 +34,7 @@ This iterator returns all coils of a winding together with the respective layer
 of its winding head, starting with the coils in layer 0 and adding as many
 layers as needed.
  */
-pub(super) struct EndWindingLayouter<'a> {
+pub(super) struct EndWindingLayout<'a> {
     winding: &'a dyn Winding,
     layer: u16,
     slot: u16,
@@ -46,7 +46,7 @@ pub(super) struct EndWindingLayouter<'a> {
     treated_zones: Vec<bool>,
 }
 
-impl<'a> EndWindingLayouter<'a> {
+impl<'a> EndWindingLayout<'a> {
     pub(super) fn new(winding: &'a dyn Winding, cyclic: bool) -> Self {
         /*
         The start zone of the iterator is the left zone of the full coil with the shortest span.
@@ -103,7 +103,7 @@ impl<'a> EndWindingLayouter<'a> {
     }
 }
 
-impl<'a> Iterator for EndWindingLayouter<'a> {
+impl<'a> Iterator for EndWindingLayout<'a> {
     type Item = CoilAndRank<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -323,7 +323,7 @@ mod tests {
         .try_into()
         .unwrap();
 
-        let mut layouter = EndWindingLayouter::new(&winding, true);
+        let mut layouter = EndWindingLayout::new(&winding, true);
         {
             let item = layouter.next().unwrap();
             assert_eq!(item.winding_head_layer, 0);
@@ -414,7 +414,7 @@ mod tests {
         .unwrap();
         winding.set_concentric_coils(true);
 
-        let layouter = EndWindingLayouter::new(&winding, true);
+        let layouter = EndWindingLayout::new(&winding, true);
         let coils_and_rank: Vec<_> = layouter.collect();
         assert_eq!(coils_and_rank.len(), 18);
     }
@@ -434,7 +434,7 @@ mod tests {
         .unwrap();
         winding.set_concentric_coils(true);
 
-        let layouter = EndWindingLayouter::new(&winding, true);
+        let layouter = EndWindingLayout::new(&winding, true);
         let coils_and_rank: Vec<_> = layouter.collect();
         assert_eq!(coils_and_rank.len(), 36);
     }
@@ -454,7 +454,7 @@ mod tests {
         .unwrap();
         winding.set_concentric_coils(true);
 
-        let mut layouter = EndWindingLayouter::new(&winding, true);
+        let mut layouter = EndWindingLayout::new(&winding, true);
 
         {
             let item = layouter.next().unwrap();

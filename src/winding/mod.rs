@@ -27,8 +27,8 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "cairo")]
 use crate::draw::{CoilDrawables, CoilDrawablesConfig, WindingZoneDrawables, ZoneDrawablesConfig};
 
-use stem_types::{CoilLayout, Zone};
-use stem_wire::{stem_material::si::Length, wire::Wire};
+use stem_types::{CoilLayout, SpatialOrder, Zone};
+use stem_wire::prelude::*;
 
 use crate::{
     coils::{Coil, CoilExt},
@@ -115,7 +115,7 @@ as [`DistributedWinding`](crate::winding::distributed::DistributedWinding).
   overridden for performance reasons.
  */
 #[cfg_attr(feature = "serde", typetag::serde)]
-pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 'static {
+pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     /// Returns the number of phases in the winding.
     fn phases(&self) -> NonZeroU16;
 
@@ -1678,6 +1678,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// <a id="main_inductance_1">\[1\]</a>
     /// Binder, A.: Elektrische Maschinen und Antriebe, 1st edition, Springer
     /// Heidelberg, 2012
+    #[cfg(feature = "stem_core")]
     fn main_inductance(
         &self,
         core: CoreRef<'_>,
@@ -1717,6 +1718,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// <a id="air_gap_leakage_inductance_1">\[1\]</a>
     /// Müller, G., Vogt, K. and Ponick, B.: *Berechnung elektrischer
     /// Maschinen*, 6th edition, Wiley-VCH, 2008
+    #[cfg(feature = "stem_core")]
     fn air_gap_leakage_inductance(
         &self,
         core: CoreRef<'_>,
@@ -1893,6 +1895,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///
     /// This is the sum of [`Winding::main_inductance`] and
     /// [`Winding::air_gap_leakage_inductance`].
+    #[cfg(feature = "stem_core")]
     fn air_gap_inductance(
         &self,
         core: CoreRef<'_>,
@@ -1910,6 +1913,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// [`Winding::end_winding_leakage_inductance`] and
     /// [`Winding::slot_leakage_inductance`]. See their respective documentation
     /// for details on how each contribution is calculated.
+    #[cfg(feature = "stem_core")]
     fn leakage_inductance(
         &self,
         core: CoreRef<'_>,
@@ -1928,6 +1932,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// [`Winding::end_winding_leakage_inductance`] and
     /// [`Winding::slot_leakage_inductance`]. See their respective documentation
     /// for details on how each contribution is calculated.
+    #[cfg(feature = "stem_core")]
     fn inductance(
         &self,
         core: CoreRef<'_>,
@@ -2053,7 +2058,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     ///
     /// <a id="resistance_1">\[1\]</a>
     /// Mathis, S.: Permanentmagneterregte Line-Start-Antriebe in Ferrittechnik,
-    /// PhD thesis, Shaker, 2019
+    /// PhD thesis, Shaker, 2019, URL: https://kluedo.ub.rptu.de/frontdoor/index/index/docId/8192
     #[doc = ""]
     #[cfg_attr(
         feature = "doc-images",
@@ -2268,6 +2273,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + std::fmt::Debug + 's
     /// Mathis, S.: Permanentmagneterregte Line-Start-Antriebe in Ferrittechnik,
     /// PhD thesis, Shaker, 2019, URL:
     /// <https://kluedo.ub.rptu.de/frontdoor/index/index/docId/8192>
+    #[cfg(feature = "stem_core")]
     fn flux_linkage_per_air_gap_flux_density(
         &self,
         core: CoreRef<'_>,

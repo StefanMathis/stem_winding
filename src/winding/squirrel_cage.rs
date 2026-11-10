@@ -17,7 +17,7 @@ use std::{
 };
 
 use compare_variables::compare_variables;
-use stem_types::{CoilLayout, Zone};
+use stem_types::*;
 use stem_wire::prelude::*;
 
 use crate::{
@@ -44,6 +44,7 @@ use stem_core::prelude::*;
 /// leakage inductance. The product is returned from
 /// [`InductanceWithCurrentDisplacement::eval`].
 #[derive(PartialEq, Clone)]
+#[cfg(feature = "stem_core")]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct InductanceWithCurrentDisplacement {
     calculator: CurrentDisplacementCalculator,
@@ -52,6 +53,7 @@ pub struct InductanceWithCurrentDisplacement {
     inductance: Inductance,
 }
 
+#[cfg(feature = "stem_core")]
 #[cfg_attr(feature = "serde", typetag::serde)]
 impl QuantityFunction for InductanceWithCurrentDisplacement {
     fn eval(&self, conditions: &[DynQuantity<f64>]) -> DynQuantity<f64> {
@@ -91,6 +93,7 @@ impl QuantityFunction for InductanceWithCurrentDisplacement {
 /// resistance. The product is returned from
 /// [`ResistanceWithCurrentDisplacement::eval`].
 #[derive(PartialEq, Clone)]
+#[cfg(feature = "stem_core")]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ResistanceWithCurrentDisplacement {
     calculator: CurrentDisplacementCalculator,
@@ -102,6 +105,7 @@ pub struct ResistanceWithCurrentDisplacement {
 }
 
 #[cfg_attr(feature = "serde", typetag::serde)]
+#[cfg(feature = "stem_core")]
 impl QuantityFunction for ResistanceWithCurrentDisplacement {
     fn eval(&self, conditions: &[DynQuantity<f64>]) -> DynQuantity<f64> {
         let el_conductivity = 1.0 / self.el_resistivity.eval(conditions);
@@ -637,7 +641,7 @@ impl Winding for SquirrelCageWinding {
     /// # Literature
     /// <a id="end_winding_leakage_inductance_cage_1">\[1\]</a>
     /// Mathis, S.: Permanentmagneterregte Line-Start-Antriebe in Ferrittechnik,
-    /// PhD thesis, Shaker, 2019
+    /// PhD thesis, Shaker, 2019, URL: https://kluedo.ub.rptu.de/frontdoor/index/index/docId/8192
     #[cfg(feature = "stem_core")]
     fn end_winding_leakage_inductance(
         &self,
@@ -671,7 +675,7 @@ impl Winding for SquirrelCageWinding {
     /// # Literature
     /// <a id="end_winding_half_turn_length_1">\[1\]</a>
     /// Mathis, S.: Permanentmagneterregte Line-Start-Antriebe in Ferrittechnik,
-    /// PhD thesis, Shaker, 2019
+    /// PhD thesis, Shaker, 2019, URL: https://kluedo.ub.rptu.de/frontdoor/index/index/docId/8192
     #[cfg(feature = "stem_core")]
     fn end_winding_half_turn_length(&self, core: CoreRef<'_>, zone: Zone) -> Length {
         let _ = zone;

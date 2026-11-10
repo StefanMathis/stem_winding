@@ -36,7 +36,7 @@ use stem_core::prelude::*;
 
 use crate::{
     coils::{Coil, CoilExt},
-    draw::{DrawableKind, end_winding_layouter::EndWindingLayouter, phase_color},
+    draw::{DrawableKind, end_winding_layout::EndWindingLayout, phase_color},
     winding::{Winding, squirrel_cage::SquirrelCageWinding},
 };
 
@@ -53,7 +53,7 @@ const BLACK: Color = Color {
 /// This struct is created by the [`Winding::coil_drawables`] method, see its
 /// documentation for details and examples. The visual appearence of the teeth
 /// and coil is defined by the [`CoilDrawablesConfig`] used during the creation.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct CoilDrawables<'a> {
     winding: &'a dyn Winding,
     config: &'a CoilDrawablesConfig,
@@ -63,6 +63,20 @@ pub struct CoilDrawables<'a> {
     index: usize,
     zone: Zone,
     end_rings: [Option<Drawable>; 2],
+}
+
+impl<'a> std::fmt::Debug for CoilDrawables<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CoilDrawables")
+            .field("config", &self.config)
+            .field("layer_winding_head_map", &self.layer_winding_head_map)
+            .field("colors", &self.colors)
+            .field("drawables", &self.drawables)
+            .field("index", &self.index)
+            .field("zone", &self.zone)
+            .field("end_rings", &self.end_rings)
+            .finish()
+    }
 }
 
 impl<'a> CoilDrawables<'a> {
@@ -86,7 +100,7 @@ impl<'a> CoilDrawables<'a> {
         let mut layer_winding_head_map: Option<HashMap<Zone, usize>> = None;
         if config.end_winding_style == EndWindingStyle::Layered {
             let mut map = HashMap::with_capacity(winding.num_coils());
-            for coil_and_rank in EndWindingLayouter::new(winding, config.cyclic) {
+            for coil_and_rank in EndWindingLayout::new(winding, config.cyclic) {
                 map.insert(
                     coil_and_rank.coil.any_zone(),
                     coil_and_rank.winding_head_layer,
@@ -543,7 +557,7 @@ impl CoilDrawablesConfig {
             }
             EndWindingStyle::Layered => {
                 // Find the highest rank
-                let highest_rank = EndWindingLayouter::new(winding, self.cyclic)
+                let highest_rank = EndWindingLayout::new(winding, self.cyclic)
                     .fold(0usize, |acc, car| acc.max(car.winding_head_layer));
 
                 let layer_dist = self.slot_width / (layers.get() + 1) as f64;
@@ -805,7 +819,7 @@ impl CoilDrawablesConfig {
         };
 
         // If the end winding crosses the upper or lower limit (middle of first and last
-        // tooth respectively), separate the connection in two halfes.
+        // tooth respectively), separate the connection in two halves.
         let color = coil_style.line_color.clone();
 
         let mut drawables = [None, None, None, None, None, None];

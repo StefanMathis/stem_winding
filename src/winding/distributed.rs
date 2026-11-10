@@ -11,7 +11,7 @@ use compare_variables::{Comparison, compare_variables};
 
 use num::rational::Ratio;
 
-use stem_types::{CoilLayout, Zone};
+use stem_types::*;
 use stem_wire::prelude::*;
 
 #[cfg(feature = "stem_core")]

@@ -10,12 +10,11 @@
 [`CoilAssembly`]: crate::winding::coil_assembly::CoilAssembly
 [`Coil`]: crate::coils::Coil
 [`WindingTable`]: crate::winding_table::WindingTable
-
-[stem_core]: https://crates.io/crates/stem_core
+[`Connection`]: crate::winding::Connection
 
 Winding definition for stem – a Simulation Toolbox for Electric Motors. The
-[stem book](https://stefanmathis.github.io/stem_book/) provides a comprehensive
-guide to the framework, while this crate's documentation describes its API.
+[stem book] provides a comprehensive guide to the framework, while this crate's
+documentation describes its API.
  */
 #![cfg_attr(feature = "doc-images",
 cfg_attr(all(),

@@ -78,8 +78,9 @@ pub fn sample_fec_values<T: Clone, I: ExactSizeIterator<Item = T>>(
 pub enum FecAnalysisError {
     /// A given [`usize`] is not within its allowed value range.
     InvalidUsize(compare_variables::Comparison<usize>),
-    /// An [`FftError`] has been returned from the realfft crate used by
-    /// [`FecSpectralAnalysis`]
+    /// An [`FftError`] has been returned from the
+    /// [realfft](https://docs.rs/realfft/latest/realfft/) crate which is used
+    /// inside [`FecSpectralAnalysis`]
     FftError(FftError),
 }
 
@@ -194,9 +195,9 @@ induction amplitudes, use [`Winding::relative_induction_amplitude`].
 
 # Performance
 
-This implementation uses [`realfft`], which is based on
-[`rustfft`](https://crates.io/crates/rustfft). For best FFT performance, a
-power-of-two sample count is a good default; see the
+This implementation uses [realfft](https://crates.io/crates/realfft), which is
+based on [rustfft](https://crates.io/crates/rustfft). For best FFT performance,
+a power-of-two sample count is a good default; see the
 [RustFFT documentation](https://docs.rs/rustfft/latest/rustfft/) for further
 details.
 
