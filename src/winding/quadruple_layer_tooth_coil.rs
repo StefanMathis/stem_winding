@@ -528,13 +528,13 @@ impl QuadrupleLayerToothCoilWinding {
             // => Lower layer gets half of the number of turns per slot side (rounded up),
             // upper layer gets half of the number of turns per slot side (rounded down)
             if zone.layer == LL || zone.layer == LR {
-                return num::Integer::div_ceil(&self.turns_per_slot_side.get(), &2)
+                num::Integer::div_ceil(&self.turns_per_slot_side.get(), &2)
                     .try_into()
-                    .unwrap_or(NonZeroUsize::MIN);
+                    .unwrap_or(NonZeroUsize::MIN)
             } else {
-                return num::Integer::div_floor(&self.turns_per_slot_side.get(), &2)
+                num::Integer::div_floor(&self.turns_per_slot_side.get(), &2)
                     .try_into()
-                    .unwrap_or(NonZeroUsize::MIN);
+                    .unwrap_or(NonZeroUsize::MIN)
             }
         } else {
             let upper_layer_shift = self.upper_layer_shift() as u16;
@@ -611,7 +611,7 @@ impl QuadrupleLayerToothCoilWinding {
             }
         }
 
-        return Ok(());
+        Ok(())
     }
 
     fn create_single_coil(&self, zone: Zone, winding_table: &WindingTable) -> Option<Coil> {
@@ -655,7 +655,7 @@ impl QuadrupleLayerToothCoilWinding {
 
         let turns = self.calculated_turns_at(Zone::new(slot, layer), winding_table);
 
-        return FullCoil::new(
+        FullCoil::new(
             Zone::new(slot, layer),
             negative_zone,
             positive_slot_direction,
@@ -664,7 +664,7 @@ impl QuadrupleLayerToothCoilWinding {
             self.wire.clone(),
         )
         .ok()
-        .map(|coil| Coil::Full(coil));
+        .map(Coil::Full)
     }
 }
 
@@ -684,7 +684,7 @@ impl Winding for QuadrupleLayerToothCoilWinding {
 
     /// The number of winding layers is always 4 for a quadruple-layer winding
     fn layers(&self) -> NonZeroU16 {
-        return NonZeroU16::new(4).expect("not zero");
+        NonZeroU16::new(4).expect("not zero")
     }
 
     fn base_winding_count(&self) -> NonZeroU16 {
@@ -705,11 +705,11 @@ impl Winding for QuadrupleLayerToothCoilWinding {
     }
 
     fn series_turns_per_phase(&self, phase: NonZeroU16) -> num::rational::Ratio<usize> {
-        return num::rational::Ratio::new(
+        num::rational::Ratio::new(
             usize::from(self.layers().get() * self.slots().get()) * self.turns_per_slot_side.get()
                 / usize::from(2 * self.phases().get() * self.parallel_paths(phase).get()),
             1,
-        );
+        )
     }
 
     fn connection(&self) -> Connection {
@@ -844,7 +844,7 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
             builder.phases,
             NonZeroU16::new(4).expect("not zero"),
         );
-        if max_par_paths.get() % builder.parallel_paths.get() != 0 {
+        if !max_par_paths.get().is_multiple_of(builder.parallel_paths.get()) {
             return Err(Error::InvalidNumberParallelPaths {
                 maximum: max_par_paths,
                 given: builder.parallel_paths,
@@ -894,7 +894,7 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
             WindingTable::new(builder.slots, NonZeroU16::new(4).expect("not zero"));
         for slot in 0..winding_table_dl.slots().get() {
             for layer in 0..4 {
-                winding_table[Zone::new(slot.into(), layer.into())] =
+                winding_table[Zone::new(slot, layer)] =
                     winding_table_dl[Zone::new(slot, layer / 2)];
             }
         }
@@ -974,9 +974,9 @@ impl TryFrom<QuadrupleLayerToothCoilBuilder> for QuadrupleLayerToothCoilWinding 
         winding.create_coils(&winding_table, true)?;
 
         if winding.equal_winding_factors() {
-            return Ok(winding);
+            Ok(winding)
         } else {
-            return Err(WindingTableConstructionError::NotSymmetric.into());
+            Err(WindingTableConstructionError::NotSymmetric.into())
         }
     }
 }

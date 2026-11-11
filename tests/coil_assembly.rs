@@ -3,7 +3,6 @@ use std::{
     sync::Arc,
 };
 
-use approxim;
 use stem_winding::prelude::*;
 
 const ONE: NonZeroU16 = NonZeroU16::MIN;
@@ -349,7 +348,7 @@ mod stem_core_tests {
     use serde_mosaic::{DatabaseManager, SerdeYaml};
 
     fn create_dbm() -> DatabaseManager {
-        return DatabaseManager::open("tests", SerdeYaml).expect("must exist");
+        DatabaseManager::open("tests", SerdeYaml).expect("must exist")
     }
 
     fn create_core_trap() -> RotCore {
@@ -369,7 +368,7 @@ mod stem_core_tests {
         .try_into()
         .unwrap();
 
-        return RotCoreBuilder {
+        RotCoreBuilder {
             air_gap_radius: Length::new::<millimeter>(55.0),
             yoke_radius: Length::new::<millimeter>(85.0),
             axial_length: Length::new::<millimeter>(165.0),
@@ -387,7 +386,7 @@ mod stem_core_tests {
             flux_barrier: None,
         }
         .try_into()
-        .expect("valid magnetic core");
+        .expect("valid magnetic core")
     }
 
     #[test]

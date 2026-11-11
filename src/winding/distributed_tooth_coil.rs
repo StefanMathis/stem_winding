@@ -428,11 +428,11 @@ impl DistributedToothCoilWinding {
     /// [`DistributedToothCoilWinding::coil_data`] which access coil-specific
     /// information based on their index within the coil group.
     pub fn coils_per_coil_group(&self) -> NonZeroUsize {
-        return self
+        self
             .coil_data
             .len()
             .try_into()
-            .expect("constructor ensures there is at least one entry");
+            .expect("constructor ensures there is at least one entry")
     }
 
     /// Whether the winding has a doubled zone span or not.
@@ -525,8 +525,7 @@ impl DistributedToothCoilWinding {
     pub fn end_winding_half_turn_length_override(&self, n: usize) -> Option<Length> {
         self.coil_data
             .get(n)
-            .map(|d| d.end_winding_half_turn_length_override)
-            .flatten()
+            .and_then(|d| d.end_winding_half_turn_length_override)
     }
 
     /// Sets the end-winding half-turn length override.
@@ -604,7 +603,7 @@ impl DistributedToothCoilWinding {
         let coils_per_coil_group = coils_per_coil_group.get();
         let turns_per_slot = turns_per_slot.get();
 
-        let twice_turn_difference = 2 * turn_difference.abs() as usize;
+        let twice_turn_difference = 2 * turn_difference.unsigned_abs() as usize;
         compare_variables!(turns_per_slot > twice_turn_difference)?;
 
         // Create the turns per coil vector from coil_group_turns and
@@ -632,7 +631,7 @@ impl DistributedToothCoilWinding {
                 coil_group_turns[hole as usize] = turns;
             }
         }
-        return Ok(coil_group_turns);
+        Ok(coil_group_turns)
     }
 
     /// Returns the coil group index n of the coil at the specified zone.
@@ -717,7 +716,7 @@ impl DistributedToothCoilWinding {
             }
         }
 
-        return Ok(());
+        Ok(())
     }
 
     fn create_single_coil(&self, zone: Zone, winding_table: &WindingTable) -> Option<Coil> {
@@ -767,11 +766,11 @@ impl DistributedToothCoilWinding {
             Some(return_slot) => {
                 let positive_slot_direction = positive_slot_direction.unwrap();
                 let index = index.unwrap();
-                let phase_abs = NonZeroU16::new(phase.abs() as u16)
+                let phase_abs = NonZeroU16::new(phase.unsigned_abs() as u16)
                     .expect("phase cannot be zero for this winding type");
                 let wire = self.coil_data[index as usize].wire.clone();
                 if phase > 0 {
-                    return FullCoil::new(
+                    FullCoil::new(
                         Zone::new(slot, layer),
                         Zone::new(return_slot, layer),
                         positive_slot_direction,
@@ -780,9 +779,9 @@ impl DistributedToothCoilWinding {
                         wire,
                     )
                     .ok()
-                    .map(|coil| Coil::Full(coil));
+                    .map(Coil::Full)
                 } else {
-                    return FullCoil::new(
+                    FullCoil::new(
                         Zone::new(return_slot, layer),
                         Zone::new(slot, layer),
                         !positive_slot_direction,
@@ -791,10 +790,10 @@ impl DistributedToothCoilWinding {
                         wire,
                     )
                     .ok()
-                    .map(|coil| Coil::Full(coil));
+                    .map(Coil::Full)
                 }
             }
-            None => return None,
+            None => None,
         }
     }
 }
@@ -823,14 +822,14 @@ impl Winding for DistributedToothCoilWinding {
 
     fn coil_layout(&self) -> CoilLayout {
         if self.layers().get() == 1 {
-            return CoilLayout::Single;
+            CoilLayout::Single
         } else {
-            return CoilLayout::DoubleVertical;
+            CoilLayout::DoubleVertical
         }
     }
 
     fn hole_number(&self) -> num::rational::Ratio<u16> {
-        return num::rational::Ratio::new(2 * self.coils_per_coil_group().get() as u16, 1);
+        num::rational::Ratio::new(2 * self.coils_per_coil_group().get() as u16, 1)
     }
 
     fn connection(&self) -> Connection {
@@ -842,7 +841,7 @@ impl Winding for DistributedToothCoilWinding {
     }
 
     fn coil_at(&self, zone: Zone) -> Option<&Coil> {
-        return self.coils.get(zone);
+        self.coils.get(zone)
     }
 
     fn as_dyn(&self) -> &dyn Winding {
@@ -1012,7 +1011,7 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
             builder.phases,
             builder.layers,
         );
-        if max_par_paths.get() % builder.parallel_paths.get() != 0 {
+        if !max_par_paths.get().is_multiple_of(builder.parallel_paths.get()) {
             return Err(Error::InvalidNumberParallelPaths {
                 maximum: max_par_paths,
                 given: builder.parallel_paths,
@@ -1083,9 +1082,9 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
         winding.create_coils(&winding_table)?;
 
         if winding.equal_winding_factors() {
-            return Ok(winding);
+            Ok(winding)
         } else {
-            return Err(WindingTableConstructionError::NotSymmetric.into());
+            Err(WindingTableConstructionError::NotSymmetric.into())
         }
     }
 }
@@ -1246,7 +1245,7 @@ fn distributed_tooth_coil_assembly(
         }
         winding_table
     };
-    return Ok(winding_table);
+    Ok(winding_table)
 }
 
 #[cfg(feature = "serde")]

@@ -25,11 +25,11 @@ mod cairo_tests {
         let view = Viewport::from_bounded_entity(&drawable, SideLength::Long(500));
         let path = std::path::Path::new("tests/img/rot_slotted_from_winding.png");
         let callback = move |path: &std::path::Path| {
-            return view.write_to_file(path, |cr| {
+            view.write_to_file(path, |cr| {
                 cr.set_source_rgb(1.0, 1.0, 1.0);
                 cr.paint()?;
                 drawable.draw(cr)
-            });
+            })
         };
         assert!(compare_or_create(path, &callback, 0.99).is_ok());
     }
@@ -59,7 +59,7 @@ mod cairo_tests {
         let path = std::path::Path::new("tests/img/rot_sl_arrow.png");
 
         let callback = |path: &std::path::Path| {
-            return view.write_to_file(path, |cr| {
+            view.write_to_file(path, |cr| {
                 cr.set_source_rgb(1.0, 1.0, 1.0);
                 cr.paint()?;
 
@@ -68,10 +68,10 @@ mod cairo_tests {
                 for (drawable, _) in winding.zone_drawables(core.as_core_ref(), &zone_config) {
                     drawable.draw(cr)?;
                 }
-                return Ok(());
-            });
+                Ok(())
+            })
         };
-        assert!(compare_or_create(path, &callback, 0.99).is_ok());
+        assert!(compare_or_create(path, callback, 0.99).is_ok());
     }
 
     #[test]
@@ -99,7 +99,7 @@ mod cairo_tests {
         let path = std::path::Path::new("tests/img/rot_sl_ampere_turns.png");
 
         let callback = |path: &std::path::Path| {
-            return view.write_to_file(path, |cr| {
+            view.write_to_file(path, |cr| {
                 cr.set_source_rgb(1.0, 1.0, 1.0);
                 cr.paint()?;
 
@@ -108,10 +108,10 @@ mod cairo_tests {
                 for (drawable, _) in winding.zone_drawables(core.as_core_ref(), &zone_config) {
                     drawable.draw(cr)?;
                 }
-                return Ok(());
-            });
+                Ok(())
+            })
         };
-        assert!(compare_or_create(path, &callback, 0.99).is_ok());
+        assert!(compare_or_create(path, callback, 0.99).is_ok());
     }
 
     #[test]
@@ -140,7 +140,7 @@ mod cairo_tests {
             let path = std::path::Path::new("tests/img/rot_quadruple_layer_single_shift.png");
 
             let callback = |path: &std::path::Path| {
-                return view.write_to_file(path, |cr| {
+                view.write_to_file(path, |cr| {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
@@ -149,10 +149,10 @@ mod cairo_tests {
                     for (drawable, _) in winding.zone_drawables(core.as_core_ref(), &zone_config) {
                         drawable.draw(cr)?;
                     }
-                    return Ok(());
-                });
+                    Ok(())
+                })
             };
-            assert!(compare_or_create(path, &callback, 0.99).is_ok());
+            assert!(compare_or_create(path, callback, 0.99).is_ok());
         }
         {
             // Double shift
@@ -181,7 +181,7 @@ mod cairo_tests {
             let path = std::path::Path::new("tests/img/rot_quadruple_layer_double_shift.png");
 
             let callback = |path: &std::path::Path| {
-                return view.write_to_file(path, |cr| {
+                view.write_to_file(path, |cr| {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
@@ -190,10 +190,10 @@ mod cairo_tests {
                     for (drawable, _) in winding.zone_drawables(core.as_core_ref(), &zone_config) {
                         drawable.draw(cr)?;
                     }
-                    return Ok(());
-                });
+                    Ok(())
+                })
             };
-            assert!(compare_or_create(path, &callback, 0.99).is_ok());
+            assert!(compare_or_create(path, callback, 0.99).is_ok());
         }
     }
 
@@ -223,7 +223,7 @@ mod cairo_tests {
             let path = std::path::Path::new("tests/img/rot_quadruple_layer_ampere_turns.png");
 
             let callback = |path: &std::path::Path| {
-                return view.write_to_file(path, |cr| {
+                view.write_to_file(path, |cr| {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
@@ -232,10 +232,10 @@ mod cairo_tests {
                     for (drawable, _) in winding.zone_drawables(core.as_core_ref(), &zone_config) {
                         drawable.draw(cr)?;
                     }
-                    return Ok(());
-                });
+                    Ok(())
+                })
             };
-            assert!(compare_or_create(path, &callback, 0.95).is_ok());
+            assert!(compare_or_create(path, callback, 0.95).is_ok());
         }
     }
 
@@ -268,7 +268,7 @@ mod cairo_tests {
             let path = std::path::Path::new("tests/img/rot_quadruple_layer_currents.png");
 
             let callback = |path: &std::path::Path| {
-                return view.write_to_file(path, |cr| {
+                view.write_to_file(path, |cr| {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
@@ -277,10 +277,10 @@ mod cairo_tests {
                     for (drawable, _) in winding.zone_drawables(core.as_core_ref(), &zone_config) {
                         drawable.draw(cr)?;
                     }
-                    return Ok(());
-                });
+                    Ok(())
+                })
             };
-            assert!(compare_or_create(path, &callback, 0.99).is_ok());
+            assert!(compare_or_create(path, callback, 0.99).is_ok());
         }
         {
             let zone_config = ZoneDrawablesConfig::new(
@@ -297,7 +297,7 @@ mod cairo_tests {
             let path = std::path::Path::new("tests/img/rot_quadruple_layer_currents_no_bg.png");
 
             let callback = |path: &std::path::Path| {
-                return view.write_to_file(path, |cr| {
+                view.write_to_file(path, |cr| {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
@@ -306,10 +306,10 @@ mod cairo_tests {
                     for (drawable, _) in winding.zone_drawables(core.as_core_ref(), &zone_config) {
                         drawable.draw(cr)?;
                     }
-                    return Ok(());
-                });
+                    Ok(())
+                })
             };
-            assert!(compare_or_create(path, &callback, 0.99).is_ok());
+            assert!(compare_or_create(path, callback, 0.99).is_ok());
         }
     }
 }

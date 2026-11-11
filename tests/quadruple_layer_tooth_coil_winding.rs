@@ -1,6 +1,5 @@
 use std::num::{NonZeroU16, NonZeroUsize};
 
-use approxim;
 use stem_winding::prelude::*;
 
 const ONE: NonZeroU16 = NonZeroU16::MIN;

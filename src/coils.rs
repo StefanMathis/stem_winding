@@ -117,13 +117,13 @@ impl Coils {
     /// Creates a new [`Coils`] container. This doesn't allocate before a
     /// [`Coil`] is inserted.
     pub fn new() -> Self {
-        return Self(KeyringMap::new());
+        Self(KeyringMap::new())
     }
 
     /// Creates a new empty [`Coils`] container which preallocates space for the
     /// specified number of zones and coils.
     pub fn with_capacity(num_zones: usize, num_coils: usize) -> Self {
-        return Self(KeyringMap::with_capacity(num_zones, num_coils));
+        Self(KeyringMap::with_capacity(num_zones, num_coils))
     }
 
     /// Returns the number of zones stored in the map.
@@ -219,7 +219,7 @@ impl Coils {
     /// ```
     pub fn insert(&mut self, coil: Coil) -> Result<(), InsertionError<(Vec<Zone>, Coil)>> {
         let zones: Vec<Zone> = coil.zones().collect();
-        return self.0.insert_many(zones, coil);
+        self.0.insert_many(zones, coil)
     }
 
     /// Removes the [`Coil`] occupying the given `zone` and all of its zones
@@ -471,7 +471,7 @@ impl Coil {
     /// assert_eq!(zones.next(), None);
     /// ```
     pub fn zones<'a>(&'a self) -> ZoneIterator<'a> {
-        return ZoneIterator::new(self);
+        ZoneIterator::new(self)
     }
 
     /// Returns an iterator over all [`Zone`]s occupied by the coil and their
@@ -525,7 +525,7 @@ impl Coil {
     /// }));
     /// ```
     pub fn zones_and_polarities<'a>(&'a self) -> ZoneAndPolarityIterator<'a> {
-        return ZoneAndPolarityIterator::new(self);
+        ZoneAndPolarityIterator::new(self)
     }
 
     /// Returns a reference to the wrapped [`FullCoil`], if the enum variant is
@@ -943,13 +943,13 @@ impl CoilExt for Coil {
 
 impl From<FullCoil> for Coil {
     fn from(value: FullCoil) -> Self {
-        return Self::Full(value);
+        Self::Full(value)
     }
 }
 
 impl From<HalfCoil> for Coil {
     fn from(value: HalfCoil) -> Self {
-        return Self::Half(value);
+        Self::Half(value)
     }
 }
 
@@ -1030,14 +1030,14 @@ impl FullCoil {
             return Err(Error::EqualCoilZones(positive_zone));
         }
 
-        return Ok(FullCoil {
+        Ok(FullCoil {
             positive_zone,
             negative_zone,
             positive_slot_direction,
             turns,
             phase,
             wire,
-        });
+        })
     }
 
     /// Returns if the slot indices increase when moving along the coil end
@@ -1083,7 +1083,7 @@ impl FullCoil {
             * f64::from(pole_pairs.get())
             * order
             * TAU;
-        return Complex::from_polar(self.turns().get() as f64, slot_angle);
+        Complex::from_polar(self.turns().get() as f64, slot_angle)
     }
 
     /// Returns the voltage phasor for the
@@ -1103,7 +1103,7 @@ impl FullCoil {
             * order
             * TAU
             + PI;
-        return Complex::from_polar(self.turns().get() as f64, slot_angle);
+        Complex::from_polar(self.turns().get() as f64, slot_angle)
     }
 
     /**
@@ -1148,13 +1148,13 @@ impl FullCoil {
     ```
      */
     pub fn covered_slots(&self, slots: Option<NonZeroU16>) -> CoveredSlots {
-        return CoveredSlots {
+        CoveredSlots {
             second_slot: self.negative_zone.slot,
             slots,
             slot: self.positive_zone.slot,
             positive_slot_direction: self.positive_slot_direction,
             exhausted: false,
-        };
+        }
     }
 }
 
@@ -1208,7 +1208,7 @@ impl Iterator for CoveredSlots {
         }
         if self.slot == self.second_slot {
             self.exhausted = true;
-            return Some(self.slot);
+            Some(self.slot)
         } else {
             // Linear or rotary core?
             match self.slots {
@@ -1225,7 +1225,7 @@ impl Iterator for CoveredSlots {
                             None => self.slot = slots.get() - 1,
                         }
                     }
-                    return Some(returned_slot);
+                    Some(returned_slot)
                 }
                 None => {
                     let slot = self.slot;
@@ -1234,7 +1234,7 @@ impl Iterator for CoveredSlots {
                     } else {
                         self.slot -= 1;
                     }
-                    return Some(slot);
+                    Some(slot)
                 }
             }
         }
@@ -1245,7 +1245,7 @@ impl private::Sealed for FullCoil {}
 
 impl CoilExt for FullCoil {
     fn turns(&self) -> NonZeroUsize {
-        return self.turns;
+        self.turns
     }
 
     fn set_turns(&mut self, turns: NonZeroUsize) {
@@ -1253,7 +1253,7 @@ impl CoilExt for FullCoil {
     }
 
     fn phase(&self) -> NonZeroU16 {
-        return self.phase;
+        self.phase
     }
 
     fn set_phase(&mut self, phase: NonZeroU16) {
@@ -1266,8 +1266,8 @@ impl CoilExt for FullCoil {
         pole_pairs: NonZeroU16,
         order: f64,
     ) -> Complex<f64> {
-        return self.voltage_phasor_positive_zone(slots, pole_pairs, order)
-            + self.voltage_phasor_negative_zone(slots, pole_pairs, order);
+        self.voltage_phasor_positive_zone(slots, pole_pairs, order)
+            + self.voltage_phasor_negative_zone(slots, pole_pairs, order)
     }
 
     fn any_zone(&self) -> Zone {
@@ -1275,7 +1275,7 @@ impl CoilExt for FullCoil {
     }
 
     fn wire(&self) -> &Arc<dyn Wire> {
-        return &self.wire;
+        &self.wire
     }
 
     fn set_wire(&mut self, wire: Arc<dyn Wire>) {
@@ -1283,7 +1283,7 @@ impl CoilExt for FullCoil {
     }
 
     fn into_wire(self) -> Arc<dyn Wire> {
-        return self.wire;
+        self.wire
     }
 
     fn throw(&self, slots: Option<NonZeroU16>) -> u16 {
@@ -1330,19 +1330,17 @@ impl CoilExt for FullCoil {
         order: f64,
     ) -> Complex<f64> {
         if self.positive_zone() == zone {
-            return self.voltage_phasor_positive_zone(slots, pole_pairs, order);
+            self.voltage_phasor_positive_zone(slots, pole_pairs, order)
         } else if self.negative_zone() == zone {
-            return self.voltage_phasor_negative_zone(slots, pole_pairs, order);
+            self.voltage_phasor_negative_zone(slots, pole_pairs, order)
         } else {
-            return Complex::new(0.0, 0.0);
+            Complex::new(0.0, 0.0)
         }
     }
 
     fn invert(&mut self) {
         self.positive_slot_direction = !self.positive_slot_direction;
-        let tmp = self.positive_zone;
-        self.positive_zone = self.negative_zone;
-        self.negative_zone = tmp;
+        std::mem::swap(&mut self.positive_zone, &mut self.negative_zone);
     }
 }
 
@@ -1403,7 +1401,7 @@ impl HalfCoil {
 
     /// Returns the zone occupied by `self`.
     pub fn zone(&self) -> Zone {
-        return self.zone;
+        self.zone
     }
 
     /// Returns whether `self` has positive polarity. See [`ZoneAndPolarity`]
@@ -1417,7 +1415,7 @@ impl private::Sealed for HalfCoil {}
 
 impl CoilExt for HalfCoil {
     fn turns(&self) -> NonZeroUsize {
-        return self.turns;
+        self.turns
     }
 
     fn set_turns(&mut self, turns: NonZeroUsize) {
@@ -1425,7 +1423,7 @@ impl CoilExt for HalfCoil {
     }
 
     fn phase(&self) -> NonZeroU16 {
-        return self.phase;
+        self.phase
     }
 
     fn set_phase(&mut self, phase: NonZeroU16) {
@@ -1451,11 +1449,11 @@ impl CoilExt for HalfCoil {
         } else {
             -slot_angle
         };
-        return Complex::from_polar(self.turns().get() as f64, slot_angle);
+        Complex::from_polar(self.turns().get() as f64, slot_angle)
     }
 
     fn wire(&self) -> &Arc<dyn Wire> {
-        return &self.wire;
+        &self.wire
     }
 
     fn set_wire(&mut self, wire: Arc<dyn Wire>) {
@@ -1463,11 +1461,11 @@ impl CoilExt for HalfCoil {
     }
 
     fn into_wire(self) -> Arc<dyn Wire> {
-        return self.wire;
+        self.wire
     }
 
     fn throw(&self, _slots: Option<NonZeroU16>) -> u16 {
-        return 0;
+        0
     }
 
     fn voltage_phasor_at(
@@ -1478,9 +1476,9 @@ impl CoilExt for HalfCoil {
         order: f64,
     ) -> Complex<f64> {
         if self.zone == zone {
-            return self.voltage_phasor(slots, pole_pairs, order);
+            self.voltage_phasor(slots, pole_pairs, order)
         } else {
-            return Complex::new(0.0, 0.0);
+            Complex::new(0.0, 0.0)
         }
     }
 
@@ -1545,7 +1543,7 @@ pub struct ZoneAndPolarityIterator<'a> {
 impl<'a> ZoneAndPolarityIterator<'a> {
     /// Returns a new [`ZoneAndPolarityIterator`] for the given coil.
     pub fn new(coil: &'a Coil) -> Self {
-        return ZoneAndPolarityIterator { coil, counter: 0 };
+        ZoneAndPolarityIterator { coil, counter: 0 }
     }
 }
 
@@ -1556,27 +1554,27 @@ impl<'a> Iterator for ZoneAndPolarityIterator<'a> {
         match self.coil {
             Coil::Full(coil) => match self.counter {
                 1 => {
-                    return Some(ZoneAndPolarity {
+                    Some(ZoneAndPolarity {
                         zone: coil.positive_zone(),
                         is_positive: true,
-                    });
+                    })
                 }
                 2 => {
-                    return Some(ZoneAndPolarity {
+                    Some(ZoneAndPolarity {
                         zone: coil.negative_zone(),
                         is_positive: false,
-                    });
+                    })
                 }
-                _ => return None,
+                _ => None,
             },
             Coil::Half(coil) => match self.counter {
                 1 => {
-                    return Some(ZoneAndPolarity {
+                    Some(ZoneAndPolarity {
                         zone: coil.zone(),
                         is_positive: coil.is_positive(),
-                    });
+                    })
                 }
-                _ => return None,
+                _ => None,
             },
         }
     }
@@ -1589,7 +1587,7 @@ pub struct ZoneIterator<'a>(ZoneAndPolarityIterator<'a>);
 impl<'a> ZoneIterator<'a> {
     /// Returns a new [`ZoneIterator`] for the given coil.
     pub fn new(coil: &'a Coil) -> Self {
-        return ZoneIterator(ZoneAndPolarityIterator::new(coil));
+        ZoneIterator(ZoneAndPolarityIterator::new(coil))
     }
 }
 
@@ -1598,6 +1596,6 @@ impl<'a> Iterator for ZoneIterator<'a> {
 
     fn next(&mut self) -> Option<Zone> {
         let zone_and_polarity = self.0.next()?;
-        return Some(zone_and_polarity.zone);
+        Some(zone_and_polarity.zone)
     }
 }

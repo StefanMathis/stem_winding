@@ -311,12 +311,12 @@ impl SquirrelCageWinding {
 
     /// The end ring width in axial direction.
     pub fn end_ring_width(&self) -> Length {
-        return self.end_ring_width;
+        self.end_ring_width
     }
 
     /// The end ring height in radial direction.
     pub fn end_ring_height(&self) -> Length {
-        return self.end_ring_height;
+        self.end_ring_height
     }
 
     /// Whether the influence of current displacement is considered when
@@ -346,7 +346,7 @@ impl SquirrelCageWinding {
     /// material, the analytical model delivers inaccurate results and the
     /// current displacement consideration should therefore be set to false.
     pub fn consider_current_displacement(&self) -> bool {
-        return self.consider_current_displacement;
+        self.consider_current_displacement
     }
 
     /// Enables / disables the consideration of the current displacement
@@ -354,7 +354,7 @@ impl SquirrelCageWinding {
     /// and [`SquirrelCageWinding::slot_leakage_inductance`].
     ///
     /// See [`SquirrelCageWinding::consider_current_displacement`] for details.
-    pub fn set_consider_current_displacement(&mut self, consider: bool) -> () {
+    pub fn set_consider_current_displacement(&mut self, consider: bool) {
         self.consider_current_displacement = consider;
     }
 
@@ -363,7 +363,7 @@ impl SquirrelCageWinding {
     /// As stated in the struct documentation, all coils of a
     /// [`SquirrelCageWinding`] use the same wire by definition.
     pub fn wire(&self) -> &dyn Wire {
-        return &*self.wire;
+        &*self.wire
     }
 
     /// Returns the coefficient used for the
@@ -386,7 +386,7 @@ impl SquirrelCageWinding {
     pub fn set_pole_pairs(&mut self, pole_pairs: NonZeroU16) -> NonZeroU16 {
         let old = self.pole_pairs;
         self.pole_pairs = pole_pairs;
-        return old;
+        old
     }
 }
 
@@ -777,7 +777,7 @@ impl TryFrom<SquirrelCageBuilder> for SquirrelCageWinding {
             coils.insert(coil)?;
         }
 
-        return Ok(SquirrelCageWinding {
+        Ok(SquirrelCageWinding {
             slots: builder.slots,
             pole_pairs: builder.pole_pairs,
             end_winding_leakage_coefficient: builder.end_winding_leakage_coefficient,
@@ -786,7 +786,7 @@ impl TryFrom<SquirrelCageBuilder> for SquirrelCageWinding {
             end_ring_height: builder.end_ring_height,
             consider_current_displacement: builder.consider_current_displacement,
             coils,
-        });
+        })
     }
 }
 

@@ -39,7 +39,7 @@ pub fn sample_fec_values<T: Clone, I: ExactSizeIterator<Item = T>>(
     mut fec_values: I,
     buffer_samples: &mut [T],
 ) {
-    if buffer_samples.len() == 0 {
+    if buffer_samples.is_empty() {
         return;
     }
     let number_steps = fec_values.len();
@@ -235,13 +235,13 @@ impl FecSpectralAnalysis {
         let coefficients = fft_plan.make_output_vec();
         let fft_scratch_buffer = fft_plan.make_scratch_vec();
 
-        return Self {
+        Self {
             fec_values,
             sampled_fec,
             coefficients,
             fft_scratch_buffer,
             fft_plan,
-        };
+        }
     }
 
     /// Returns the field excitation curve from the most recent
@@ -323,7 +323,7 @@ impl FecSpectralAnalysis {
         self.coefficients[0] *= inverse;
 
         let end = self.coefficients.len();
-        let has_nyquist = self.sampled_fec.len() % 2 == 0;
+        let has_nyquist = self.sampled_fec.len().is_multiple_of(2);
         let ordinary_end = if has_nyquist { end - 1 } else { end };
 
         self.coefficients[1..ordinary_end]
@@ -336,8 +336,8 @@ impl FecSpectralAnalysis {
 
         // The first value equals the constant part and does not occur twice, but still
         // needs to be normalized
-        self.coefficients[0] = self.coefficients[0] * inverse;
+        self.coefficients[0] *= inverse;
 
-        return Ok(self.coefficients.as_slice());
+        Ok(self.coefficients.as_slice())
     }
 }

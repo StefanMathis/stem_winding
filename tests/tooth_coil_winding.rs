@@ -649,7 +649,7 @@ mod serde_tests {
     use serde_mosaic::{DatabaseManager, SerdeYaml};
 
     fn create_dbm() -> DatabaseManager {
-        return DatabaseManager::open("tests", SerdeYaml).expect("must exist");
+        DatabaseManager::open("tests", SerdeYaml).expect("must exist")
     }
 
     #[test]
@@ -794,7 +794,7 @@ mod stem_core_tests {
         .try_into()
         .unwrap();
 
-        return RotCoreBuilder {
+        RotCoreBuilder {
             air_gap_radius: Length::new::<millimeter>(37.5),
             yoke_radius: Length::new::<millimeter>(63.0),
             axial_length: Length::new::<millimeter>(60.0),
@@ -812,7 +812,7 @@ mod stem_core_tests {
             flux_barrier: None,
         }
         .try_into()
-        .expect("valid magnetic core");
+        .expect("valid magnetic core")
     }
 
     fn create_core_1210_sl() -> RotCore {
@@ -831,7 +831,7 @@ mod stem_core_tests {
         .try_into()
         .unwrap();
 
-        return RotCoreBuilder {
+        RotCoreBuilder {
             air_gap_radius: Length::new::<millimeter>(38.2),
             yoke_radius: Length::new::<millimeter>(63.0),
             axial_length: Length::new::<millimeter>(60.0),
@@ -849,7 +849,7 @@ mod stem_core_tests {
             flux_barrier: None,
         }
         .try_into()
-        .expect("valid magnetic core");
+        .expect("valid magnetic core")
     }
 
     fn create_winding_meas_servo() -> ToothCoilWinding {
@@ -895,7 +895,7 @@ mod stem_core_tests {
     }
 
     fn create_dbm() -> DatabaseManager {
-        return DatabaseManager::open("tests", SerdeYaml).expect("must exist");
+        DatabaseManager::open("tests", SerdeYaml).expect("must exist")
     }
 
     #[test]

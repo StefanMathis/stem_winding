@@ -93,31 +93,31 @@ impl From<InsertionError<(Vec<Zone>, Coil)>> for Error {
 
 impl From<Comparison<Length>> for Error {
     fn from(value: Comparison<Length>) -> Self {
-        return Error::InvalidLength(value);
+        Error::InvalidLength(value)
     }
 }
 
 impl From<Comparison<u16>> for Error {
     fn from(value: Comparison<u16>) -> Self {
-        return Error::InvalidU16(value);
+        Error::InvalidU16(value)
     }
 }
 
 impl From<Comparison<usize>> for Error {
     fn from(value: Comparison<usize>) -> Self {
-        return Error::InvalidUsize(value);
+        Error::InvalidUsize(value)
     }
 }
 
 impl From<Comparison<f64>> for Error {
     fn from(value: Comparison<f64>) -> Self {
-        return Error::InvalidF64(value);
+        Error::InvalidF64(value)
     }
 }
 
 impl From<WindingTableConstructionError> for Error {
     fn from(value: WindingTableConstructionError) -> Self {
-        return Error::WindingTableConstructionError(value);
+        Error::WindingTableConstructionError(value)
     }
 }
 

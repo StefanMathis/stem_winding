@@ -180,7 +180,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     /// override this method if possible, as the default implementation is O(n)
     /// with respect to the number of zones because it uses the
     /// [`repeating_pattern_count`] algorithm.
-    fn base_winding_count<'a>(&'a self) -> NonZeroU16 {
+    fn base_winding_count(&self) -> NonZeroU16 {
         // Wrapper structure which makes the winding indexable by an usize (slot-major)
         struct IndexWrapper<'a, W: ?Sized>(&'a W);
 
@@ -210,7 +210,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
         .get();
         // We don't need to worry about the as-cast, because values can at most be
         // "num_zones".
-        return NonZeroU16::new(value as u16).unwrap_or(NonZeroU16::MIN);
+        NonZeroU16::new(value as u16).unwrap_or(NonZeroU16::MIN)
     }
 
     /// Returns the number of series turns per phase.
@@ -250,11 +250,10 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
 
         for coil in self.coils_iter() {
             if coil.phase() == phase {
-                turns = turns
-                    + match coil {
-                        Coil::Full(_) => 2 * usize::from(coil.turns()),
-                        Coil::Half(_) => usize::from(coil.turns()),
-                    };
+                turns += match coil {
+                    Coil::Full(_) => 2 * usize::from(coil.turns()),
+                    Coil::Half(_) => usize::from(coil.turns()),
+                };
             }
         }
 
@@ -263,9 +262,9 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
         let gcd_turns_pp = gcd(turns, parallel_paths);
         let path_turns = turns / gcd_turns_pp;
         if path_turns % 2 == 0 {
-            return num::rational::Ratio::new(path_turns / 2, parallel_paths / gcd_turns_pp);
+            num::rational::Ratio::new(path_turns / 2, parallel_paths / gcd_turns_pp)
         } else {
-            return num::rational::Ratio::new(path_turns, 2 * parallel_paths / gcd_turns_pp);
+            num::rational::Ratio::new(path_turns, 2 * parallel_paths / gcd_turns_pp)
         }
     }
 
@@ -273,7 +272,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     /// as a floating-point number.
     fn series_turns_per_phase_float(&self, phase: NonZeroU16) -> f64 {
         let turns = self.series_turns_per_phase(phase);
-        return *turns.numer() as f64 / *turns.denom() as f64;
+        *turns.numer() as f64 / *turns.denom() as f64
     }
 
     /**
@@ -542,11 +541,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
             Coil::Half(coil) => coil.is_positive(),
         };
         let phase = i32::from(coil.phase().get());
-        if is_positive {
-            return phase;
-        } else {
-            return -phase;
-        }
+        if is_positive { phase } else { -phase }
     }
 
     /// Returns the number of [`Coil`]s in the winding.
@@ -630,7 +625,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
             }
         }
 
-        return winding_table;
+        winding_table
     }
 
     /// Returns the electrical angle between the phasors of two neighboring
@@ -667,7 +662,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     /// number.
     fn hole_number_float(&self) -> f64 {
         let hole_number = self.hole_number();
-        return f64::from(*hole_number.numer()) / f64::from(*hole_number.denom());
+        f64::from(*hole_number.numer()) / f64::from(*hole_number.denom())
     }
 
     /// Returns the total number of turns of the specified `slot`.
@@ -676,7 +671,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
         for layer in 0..self.layers().get() {
             turns += self.turns_at(Zone::new(slot, layer));
         }
-        return turns;
+        turns
     }
 
     /// Returns the lowest order of the radial force resulting from the winding
@@ -699,10 +694,10 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     /// Synchronmaschinen hoher Leistungsdichte*, 1st edition, Trauner Druck,
     /// 2012
     fn lowest_radial_force_order(&self) -> usize {
-        return num::integer::gcd(
+        num::integer::gcd(
             2 * self.pole_pairs().get(),
             self.slots().get() / self.phases().get(),
-        ) as usize;
+        ) as usize
     }
 
     /**
@@ -804,7 +799,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     ```
     */
     fn lowest_cogging_torque_order(&self) -> usize {
-        return num::integer::lcm(2 * self.pole_pairs().get(), self.slots().get()) as usize;
+        num::integer::lcm(2 * self.pole_pairs().get(), self.slots().get()) as usize
     }
 
     /// Returns the winding factor of the specified `spatial_order` for the
@@ -928,7 +923,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
         // Sum up the phasors and get the absolute value, which equals the resulting
         // phasor length. Calculate winding factor as quotient of the absolute sum of
         // all phasors and the geometrical sum of all phasors.
-        return phasor_sum_geo.norm() / (phasor_sum_abs as f64);
+        phasor_sum_geo.norm() / (phasor_sum_abs as f64)
     }
 
     /// Checks whether all phases have the same winding factor at the
@@ -948,7 +943,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
                 return false;
             }
         }
-        return true;
+        true
     }
 
     /// Returns the vertices of the Görges polygon.
@@ -995,11 +990,12 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
                         // Add the magnetic voltage to the current polygon node
                         let phase = self.phase_at(zone);
                         let turns = self.turns_at(zone);
-                        let phase_angle = if let Ok(ph) = NonZeroU16::try_from(phase.abs() as u16) {
-                            self.phase_angle(ph)
-                        } else {
-                            0.0
-                        };
+                        let phase_angle =
+                            if let Ok(ph) = NonZeroU16::try_from(phase.unsigned_abs() as u16) {
+                                self.phase_angle(ph)
+                            } else {
+                                0.0
+                            };
 
                         (turns as f64 * f64::from(phase.signum()))
                             * (Complex::new(0.0, phase_angle)).exp()
@@ -1012,10 +1008,10 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
         // Calculate the focal point and center the polygon
         let focal_point = sum / vertices.len() as f64;
         vertices.iter_mut().for_each(|v| {
-            *v = *v - focal_point;
+            *v -= focal_point;
         });
 
-        return vertices;
+        vertices
     }
 
     /// Returns the air gap leakage factor for the specifid `phase`.
@@ -1127,7 +1123,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
         // For the magnetic slot voltage, the following holds true:
         // Θ_n = obj.layers*Θ_sp,
         // which means that the inertia radius has to be corrected accordingly here
-        rg2 = rg2 / ((slots * self.layers().get().pow(2)) as f64);
+        rg2 /= (slots * self.layers().get().pow(2)) as f64;
 
         // Calculate the "Trägheitsradius der Hauptwelle" squared according to [1],
         // eq. (1.2.86). Current is arbitrarily set to 1 A (as it is in
@@ -1138,7 +1134,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
             .powi(2);
 
         // [1], eq. (1.2.87)
-        return rg2 / rp2 - 1.0;
+        rg2 / rp2 - 1.0
     }
 
     /// Calculates the field excitation curve (FEC) of this winding for the
@@ -1243,9 +1239,9 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
                         .expect("The current vector should have a value for each winding phase.");
                     let ampere_turns = usize::from(coil.turns()) as f64 * current;
                     if is_positive {
-                        *buffer = *buffer + ampere_turns;
+                        *buffer += ampere_turns;
                     } else {
-                        *buffer = *buffer - ampere_turns;
+                        *buffer -= ampere_turns;
                     }
                 }
             }
@@ -1268,9 +1264,9 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
          */
         let sum: f64 = buffer.iter().sum();
         let mean: f64 = sum / buffer.len() as f64;
-        buffer.iter_mut().for_each(|val| *val = *val - mean);
+        buffer.iter_mut().for_each(|val| *val -= mean);
 
-        return Ok(());
+        Ok(())
     }
 
     /**
@@ -1343,7 +1339,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     ```
      */
     fn harmonics(&self) -> WindingHarmonicsIterator<'_> {
-        return WindingHarmonicsIterator::new(self.as_dyn());
+        WindingHarmonicsIterator::new(self.as_dyn())
     }
 
     /**
@@ -1580,9 +1576,9 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
 
         if is_harmonic.is_some() {
             let p = self.pole_pairs();
-            return k_w * f64::from(p.get()) / f64::from(spatial_order.to_mechanical(p));
+            k_w * f64::from(p.get()) / f64::from(spatial_order.to_mechanical(p))
         } else {
-            return 0.0;
+            0.0
         }
     }
 
@@ -1637,7 +1633,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     /// assert_eq!(winding.coils_iter().count(), 2);
     /// ```
     fn coils_iter(&self) -> CoilsIterator<'_> {
-        return CoilsIterator::new(self.as_dyn());
+        CoilsIterator::new(self.as_dyn())
     }
 
     /// Returns the main inductance of the specified phase for the given spatial

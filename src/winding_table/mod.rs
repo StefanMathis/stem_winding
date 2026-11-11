@@ -132,7 +132,7 @@ impl WindingTable {
                 usize::from(self.layers().get()),
             ],
         )?;
-        return self.data.get(linear_index);
+        self.data.get(linear_index)
     }
 
     /// Returns a mutable reference to the value stored at the given [`Zone`],
@@ -145,7 +145,7 @@ impl WindingTable {
                 usize::from(self.layers().get()),
             ],
         )?;
-        return self.data.get_mut(linear_index);
+        self.data.get_mut(linear_index)
     }
 
     /// Sets the value at the given [`Zone`] and returns the previous value.
@@ -176,7 +176,7 @@ impl WindingTable {
             ],
         )?;
         std::mem::swap(&mut phase, &mut self.data[linear_index]);
-        return Some(phase);
+        Some(phase)
     }
 
     /// Returns a reference to the value stored at the given [`Zone`].
@@ -204,9 +204,8 @@ impl WindingTable {
     pub fn get_cyclic(&self, zone: Zone) -> &i32 {
         let slot = zone.slot % self.slots();
         let layer = zone.layer % self.layers();
-        return self
-            .get(Zone { slot, layer })
-            .expect("zone exists in winding table");
+        self.get(Zone { slot, layer })
+            .expect("zone exists in winding table")
     }
 
     /// Returns a mutable reference to the value stored at the given [`Zone`].
@@ -232,9 +231,8 @@ impl WindingTable {
     pub fn get_cyclic_mut(&mut self, zone: Zone) -> &mut i32 {
         let slot = zone.slot % self.slots();
         let layer = zone.layer % self.layers();
-        return self
-            .get_mut(Zone { slot, layer })
-            .expect("zone exists in winding table");
+        self.get_mut(Zone { slot, layer })
+            .expect("zone exists in winding table")
     }
 
     /// Returns the number of slots in the winding table.
@@ -247,7 +245,7 @@ impl WindingTable {
 
     /// Returns the number of layers in the winding table.
     pub fn layers(&self) -> NonZeroU16 {
-        return self.layers.into();
+        self.layers
     }
 
     /**
@@ -428,7 +426,7 @@ impl WindingTable {
             .for_each(|((_, phase_this), phase_iter)| {
                 *phase_this = phase_iter;
             });
-        return this;
+        this
     }
 
     /// Constructs a [`WindingTable`] from data in layer-major order.
@@ -469,7 +467,7 @@ impl WindingTable {
             .for_each(|((_, phase_this), phase_iter)| {
                 *phase_this = phase_iter;
             });
-        return this;
+        this
     }
 
     /**
@@ -547,8 +545,7 @@ impl WindingTable {
 
         for layer in 0..self.layers().get() {
             for slot in 0..slots {
-                let new_slot = (i32::from(u16::from(slot)) + shift)
-                    .rem_euclid(i32::from(u16::from(slots))) as u16;
+                let new_slot = (i32::from(slot) + shift).rem_euclid(i32::from(slots)) as u16;
                 let phase = winding_table_ref[Zone::new(slot, layer)];
 
                 // Expand positive zones in the lower layer
@@ -615,7 +612,7 @@ impl WindingTable {
         // Swap with the Triple reversal algorithm: https://en.wikipedia.org/wiki/Block_swap_algorithms
 
         let slots = self.slots().get();
-        let shift = shift.rem_euclid(i32::from(u16::from(slots))) as usize;
+        let shift = shift.rem_euclid(i32::from(slots)) as usize;
 
         if shift == 0 {
             return;
@@ -654,7 +651,7 @@ impl WindingTable {
     /// Checks if the table fulfills the following invariants:
     ///
     /// - For each phase, the number of zones with positive polarity is equal to
-    /// that of the zones with negative polarity
+    ///   that of the zones with negative polarity
     /// - There are no empty zones (value of 0) in the table.
     fn check(self, phases: NonZeroU16) -> Result<Self, WindingTableConstructionError> {
         for phase in 1..(i32::from(u16::from(phases)) + 1) {
@@ -676,7 +673,7 @@ impl WindingTable {
                 ));
             }
         }
-        return Ok(self);
+        Ok(self)
     }
 }
 
@@ -742,13 +739,13 @@ impl std::ops::Index<Zone> for WindingTable {
     type Output = i32;
 
     fn index(&self, index: Zone) -> &Self::Output {
-        return self.get(index).expect("index out of bounds");
+        self.get(index).expect("index out of bounds")
     }
 }
 
 impl std::ops::IndexMut<Zone> for WindingTable {
     fn index_mut(&mut self, index: Zone) -> &mut Self::Output {
-        return self.get_mut(index).expect("index out of bounds");
+        self.get_mut(index).expect("index out of bounds")
     }
 }
 
@@ -792,7 +789,7 @@ impl<'a> Iterator for SlotMajorIter<'a> {
         };
         self.idx += 1;
         let phase = self.winding_table.get(zone)?;
-        return Some((zone, phase));
+        Some((zone, phase))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -845,7 +842,7 @@ impl<'a> Iterator for SlotMajorIterMut<'a> {
         self.idx += 1;
 
         // SAFETY: cart_lin::lin_to_cart performs the bounds check for us.
-        let phase = unsafe { &mut *self.ptr.add(physical_index.into()) };
+        let phase = unsafe { &mut *self.ptr.add(physical_index) };
         Some((
             Zone {
                 slot: slot as u16,
@@ -903,7 +900,7 @@ impl<'a> Iterator for LayerMajorIter<'a> {
         };
         self.idx += 1;
         let phase = self.winding_table.get(zone)?;
-        return Some((zone, phase));
+        Some((zone, phase))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -956,7 +953,7 @@ impl<'a> Iterator for LayerMajorIterMut<'a> {
         self.idx += 1;
 
         // SAFETY: cart_lin::lin_to_cart performs the bounds check for us.
-        let phase = unsafe { &mut *self.ptr.add(physical_index.into()) };
+        let phase = unsafe { &mut *self.ptr.add(physical_index) };
         Some((
             Zone {
                 slot: slot as u16,

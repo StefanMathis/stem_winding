@@ -265,7 +265,7 @@ impl ToothCoilWinding {
         for coil in self.coils.iter_coils_mut() {
             coil.set_turns(turns);
         }
-        return old;
+        old
     }
 
     /// Returns the [`Wire`] used by all coils of `self`.
@@ -292,7 +292,7 @@ impl ToothCoilWinding {
     /// [`Winding::end_winding_leakage_inductance`]. This is the value passed
     /// into that function.
     pub fn end_winding_leakage_coefficient(&self) -> f64 {
-        return self.end_winding_leakage_coefficient;
+        self.end_winding_leakage_coefficient
     }
 
     /// Returns the override for the end-winding half-turn length, if one was
@@ -356,7 +356,7 @@ impl ToothCoilWinding {
             }
         }
 
-        return Ok(());
+        Ok(())
     }
 
     fn create_single_coil(&self, zone: Zone, winding_table: &WindingTable) -> Option<Coil> {
@@ -399,7 +399,7 @@ impl ToothCoilWinding {
                         self.wire.clone(),
                     )
                     .ok()
-                    .map(|coil| Coil::Full(coil));
+                    .map(Coil::Full);
                 }
                 counter += 1;
             }
@@ -413,7 +413,7 @@ impl ToothCoilWinding {
                 Zone::new((slot + 1).rem_euclid(self.slots().get()), 0)
             };
 
-            return FullCoil::new(
+            FullCoil::new(
                 Zone::new(slot, layer),
                 negative_zone,
                 layer == 1,
@@ -422,7 +422,7 @@ impl ToothCoilWinding {
                 self.wire.clone(),
             )
             .ok()
-            .map(|coil| Coil::Full(coil));
+            .map(Coil::Full)
         }
     }
 }
@@ -456,18 +456,18 @@ impl Winding for ToothCoilWinding {
 
     fn coil_layout(&self) -> CoilLayout {
         if self.layers().get() == 1 {
-            return CoilLayout::Single;
+            CoilLayout::Single
         } else {
-            return CoilLayout::DoubleHorizontal;
+            CoilLayout::DoubleHorizontal
         }
     }
 
     fn series_turns_per_phase(&self, phase: NonZeroU16) -> num::rational::Ratio<usize> {
-        return num::rational::Ratio::new_raw(
+        num::rational::Ratio::new_raw(
             (usize::from(self.layers().get() * self.slots().get())) * self.turns_per_coil.get()
                 / usize::from(2 * self.phases().get() * self.parallel_paths(phase).get()),
             1,
-        );
+        )
     }
 
     fn parallel_paths(&self, _phase: NonZeroU16) -> NonZeroU16 {
@@ -475,15 +475,15 @@ impl Winding for ToothCoilWinding {
     }
 
     fn connection(&self) -> Connection {
-        return self.connection;
+        self.connection
     }
 
     fn coil_at(&self, zone: Zone) -> Option<&Coil> {
-        return self.coils.get(zone);
+        self.coils.get(zone)
     }
 
     fn num_coils(&self) -> usize {
-        return (self.slots().get() * self.layers().get() / 2).into();
+        (self.slots().get() * self.layers().get() / 2).into()
     }
 
     fn as_dyn(&self) -> &dyn Winding {
@@ -609,7 +609,7 @@ impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
             builder.phases,
             builder.layers,
         );
-        if max_par_paths.get() % builder.parallel_paths.get() != 0 {
+        if !max_par_paths.get().is_multiple_of(builder.parallel_paths.get()) {
             return Err(Error::InvalidNumberParallelPaths {
                 maximum: max_par_paths,
                 given: builder.parallel_paths,
@@ -659,9 +659,9 @@ impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
         winding.create_coils(&winding_table, true)?;
 
         if winding.equal_winding_factors() {
-            return Ok(winding);
+            Ok(winding)
         } else {
-            return Err(WindingTableConstructionError::NotSymmetric.into());
+            Err(WindingTableConstructionError::NotSymmetric.into())
         }
     }
 }

@@ -469,11 +469,11 @@ impl WindingTableConstructor {
     ///   [`WindingTableConstructor::DistributionTable`]
     pub fn as_str(&self) -> &str {
         match self {
-            WindingTableConstructor::Tingley => return "Tingley",
-            WindingTableConstructor::CoilSide => return "Coil side",
-            WindingTableConstructor::Algebraic => return "Algebraic",
-            WindingTableConstructor::StarOfSlots => return "Star of slots",
-            WindingTableConstructor::DistributionTable => return "Distribution table",
+            WindingTableConstructor::Tingley => "Tingley",
+            WindingTableConstructor::CoilSide => "Coil side",
+            WindingTableConstructor::Algebraic => "Algebraic",
+            WindingTableConstructor::StarOfSlots => "Star of slots",
+            WindingTableConstructor::DistributionTable => "Distribution table",
         }
     }
 
@@ -483,27 +483,27 @@ impl WindingTableConstructor {
     /// [`WindingTableConstructor::as_str`] for the names of all variants.
     pub fn from_str(string: &str) -> Option<Self> {
         match string {
-            "Tingley" => return Some(WindingTableConstructor::Tingley),
-            "Coil side" => return Some(WindingTableConstructor::CoilSide),
-            "Algebraic" => return Some(WindingTableConstructor::Algebraic),
-            "Star of slots" => return Some(WindingTableConstructor::StarOfSlots),
+            "Tingley" => Some(WindingTableConstructor::Tingley),
+            "Coil side" => Some(WindingTableConstructor::CoilSide),
+            "Algebraic" => Some(WindingTableConstructor::Algebraic),
+            "Star of slots" => Some(WindingTableConstructor::StarOfSlots),
             "Distribution table" => {
-                return Some(WindingTableConstructor::DistributionTable);
+                Some(WindingTableConstructor::DistributionTable)
             }
-            _ => return None,
+            _ => None,
         }
     }
 
     /// Returns an iterator over all variants of [`Self`].
     pub fn iter() -> impl Iterator<Item = WindingTableConstructor> {
-        return [
+        [
             Self::Tingley,
             Self::CoilSide,
             Self::Algebraic,
             Self::StarOfSlots,
             Self::DistributionTable,
         ]
-        .into_iter();
+        .into_iter()
     }
 }
 
@@ -533,7 +533,7 @@ impl WindingTable {
         phases: NonZeroU16,
         span: i32,
     ) -> Result<Self, WindingTableConstructionError> {
-        return match winding_table_constructor {
+        match winding_table_constructor {
             WindingTableConstructor::Tingley => {
                 if u16::from(layers) == 1 && span.abs() == 1 {
                     Self::tingley_single_layer_tooth_coil(slots, pole_pairs, phases)
@@ -553,7 +553,7 @@ impl WindingTable {
             WindingTableConstructor::DistributionTable => {
                 Self::distribution_table(slots, layers, pole_pairs, phases, span)
             }
-        };
+        }
     }
 
     /// Returns a zone plan created with the tingley pattern for a single-layer
@@ -576,24 +576,22 @@ impl WindingTable {
         // This works because a single-layer winding needs an even number of slots.
         // Create the zone plan with the adjusted slots (with the Tingley-pattern)
         if let Some(halfed_slots) = NonZeroU16::new(slots_num / 2) {
-            match Self::tingley(
+            {
+                let mut winding_table_dl = Self::tingley(
                 halfed_slots,
                 NonZeroU16::new(2).expect("is not zero"),
                 pole_pairs,
                 phases,
                 1,
-            ) {
-                Ok(mut winding_table_dl) => {
-                    // "Flatten" the tingley pattern, doubling the number of
-                    // slots and halfing the number of layers in the process
-                    // This compensates the aforementioned halfing of the slots.
-                    winding_table_dl.layers = NonZeroU16::MIN;
-                    return winding_table_dl.check(phases);
-                }
-                Err(msg) => return Err(msg),
+            )?;
+                // "Flatten" the tingley pattern, doubling the number of
+                // slots and halfing the number of layers in the process
+                // This compensates the aforementioned halfing of the slots.
+                winding_table_dl.layers = NonZeroU16::MIN;
+                winding_table_dl.check(phases)
             }
         } else {
-            return Err(WindingTableConstructionError::EmptyZone(None));
+            Err(WindingTableConstructionError::EmptyZone(None))
         }
     }
 
@@ -701,12 +699,12 @@ impl WindingTable {
                     }
 
                     // Increase the slot counter
-                    slot = slot + 1;
+                    slot += 1;
                 }
 
                 // Increase the square counter and reset it, if square_counter equals
                 // num_squares
-                square_counter = square_counter + 1;
+                square_counter += 1;
                 if square_counter == num_squares {
                     square_counter = 0;
                 }
@@ -722,10 +720,10 @@ impl WindingTable {
             // Add the return conductors
             for slot in 0..slots_num {
                 let return_slot = (slot as i32 + span).rem_euclid(slots_num as i32) as u16;
-                winding_table[Zone::new(return_slot, 0)] = -1 * winding_table[Zone::new(slot, 1)];
+                winding_table[Zone::new(return_slot, 0)] = -winding_table[Zone::new(slot, 1)];
             }
         }
-        return winding_table.check(phases);
+        winding_table.check(phases)
     }
 
     /// Returns a zone plan created with the coil side pattern
@@ -757,9 +755,9 @@ impl WindingTable {
 
         // Calculate the number of slots per pole and phase
         let ratio = hole_number(slots, pole_pairs, phases);
-        let g = ratio.trunc().numer().clone();
-        let z = ratio.fract().numer().clone();
-        let n = ratio.denom().clone();
+        let g = *ratio.trunc().numer();
+        let z = *ratio.fract().numer();
+        let n = *ratio.denom();
 
         // *********************************************************************
         // Distribute q1 and q2 along a vector qk which has n entries.
@@ -841,7 +839,7 @@ impl WindingTable {
 
         return_conductor_slots.rotate_right(phases_num as usize);
         for ii in 0..phase_sequence_vector.len() {
-            coil_distribution[ii] = coil_distribution[ii] + return_conductor_slots[ii];
+            coil_distribution[ii] += return_conductor_slots[ii];
         }
 
         // *********************************************************************
@@ -863,10 +861,10 @@ impl WindingTable {
                 }
             }
             // Raise the slot counter
-            counter_filled_slots = counter_filled_slots + k;
+            counter_filled_slots += k;
         }
 
-        return winding_table.check(phases);
+        winding_table.check(phases)
     }
 
     /// Returns a zone plan created with the algebraic algorithm
@@ -918,7 +916,7 @@ impl WindingTable {
 
         // Double Y_k for single-layer windings
         if layers_num == 1 {
-            yk = 2 * yk
+            yk *= 2
         }
 
         // The "first winding zone under positive poles" has q_1 coils. The
@@ -929,14 +927,14 @@ impl WindingTable {
         // q_1 = q_2 (N' being even) or q_1 = q_2+1 (N' being odd).
         let q12 = slots_num * layers_num / (2 * phases_num); // q_12 = q_1+q_2
         let q1: u16;
-        let q2: u16;
-        if q12.is_even() {
+        
+        let q2: u16 = if q12.is_even() {
             q1 = q12 / 2; // q_1 + q_2 = 2*q_1 = q_12
-            q2 = q1;
+            q1
         } else {
-            q1 = (q12 + 1) / 2; // q_1 + q_2 = 2*q_1 - 1 = q_12
-            q2 = q1 - 1;
-        }
+            q1 = q12.div_ceil(2); // q_1 + q_2 = 2*q_1 - 1 = q_12
+            q1 - 1
+        };
 
         // Initialize empty zone plan
         let mut winding_table = WindingTable::new(slots, layers);
@@ -952,10 +950,10 @@ impl WindingTable {
                 winding_table[Zone::new(zone_1, 0)] = phase as i32;
 
                 // Populate zone 2, which goes from 0 <= g <= q_2-1
-                if g + 1 <= q2 {
+                if g < q2 {
                     let zone_2: u16 = ((q1 + q2) * yk * (phase - 1)
                         + g * yk
-                        + ((phases_num + 1) / 2 * q1 + (phases_num - 1) / 2 * q2) * yk)
+                        + (phases_num.div_ceil(2) * q1 + (phases_num - 1) / 2 * q2) * yk)
                         .rem_euclid(slots_num);
                     winding_table[Zone::new(zone_2, 0)] = -(phase as i32);
                 }
@@ -985,9 +983,9 @@ impl WindingTable {
                 )
                 .collect();
             if span > 0 {
-                right_coil_side.rotate_right(cp.abs() as usize);
+                right_coil_side.rotate_right(cp.unsigned_abs() as usize);
             } else {
-                right_coil_side.rotate_left(cp.abs() as usize);
+                right_coil_side.rotate_left(cp.unsigned_abs() as usize);
             }
             for slot in 0..winding_table.slots().get() {
                 if winding_table[Zone::new(slot, 0)] == 0 {
@@ -1007,7 +1005,7 @@ impl WindingTable {
             }
         }
 
-        return winding_table.check(phases);
+        winding_table.check(phases)
     }
 
     fn star_of_slots(
@@ -1083,9 +1081,9 @@ impl WindingTable {
                     sl_winding_table[Zone::new(slot, 0)] = winding_table[Zone::new(slot, 0)];
                 }
             }
-            return sl_winding_table.check(phases);
+            sl_winding_table.check(phases)
         } else {
-            return winding_table.check(phases);
+            winding_table.check(phases)
         }
     }
 
@@ -1102,12 +1100,12 @@ impl WindingTable {
             slot: u16,
             number_rows: usize,
             num_elements: usize,
-        ) -> () {
+        ) {
             // Check if the WDT is fully populated. This is the case when WDT does not
             // contains any zeros anymore. In this case, idx is increased until it is
             // equal to the number of elements in the WDT.
             if index == num_elements {
-                return ();
+                return ;
             }
 
             let row = index.rem_euclid(number_rows);
@@ -1116,7 +1114,6 @@ impl WindingTable {
             // Recursive filling of the next free slot
             if wdt[phase][row] == -1 {
                 wdt[phase][row] = slot as i32;
-                return ();
             } else {
                 wdt_fill_next_slot(wdt, index + 1, slot, number_rows, num_elements)
             }
@@ -1170,15 +1167,15 @@ impl WindingTable {
         // TODO: empty slots are currently not implemented, this code is kept in case
         // empty slots will be implemented later.
         let empty_slots = 0;
-        let halfpoint;
-        if empty_slots == 0 {
-            halfpoint = number_rows / 2;
+        
+        let halfpoint = if empty_slots == 0 {
+            number_rows / 2
 
         // In table 7 of Carusos paper, it can be seen that the border rows
         // belongs to the second half if empty slots occurr
         } else {
-            halfpoint = number_rows / 2;
-        }
+            number_rows / 2
+        };
 
         // In case of a reduced system, swap quadrant 1 and 3 according to figure 4 in
         // Carusos paper
@@ -1245,7 +1242,7 @@ impl WindingTable {
 
                 // Empty slots are marked by a -1
                 if slot != -1 {
-                    let phase = if row_idx + 1 <= usize::from(number_rows - halfpoint) {
+                    let phase = if row_idx < usize::from(number_rows - halfpoint) {
                         phase_idx as i32 + 1
                     } else {
                         -(phase_idx as i32 + 1)
@@ -1268,6 +1265,6 @@ impl WindingTable {
             }
         }
 
-        return winding_table.check(phases);
+        winding_table.check(phases)
     }
 }

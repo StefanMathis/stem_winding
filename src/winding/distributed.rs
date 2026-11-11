@@ -280,7 +280,7 @@ impl DistributedWinding {
         for coil in self.coils.iter_coils_mut() {
             coil.set_turns(turns);
         }
-        return old;
+        old
     }
 
     /// Returns a decomposition of the
@@ -377,7 +377,7 @@ impl DistributedWinding {
         // pitch to zero.
         let coil_throw_reduction = self.coil_throw_reduction();
         if self.layers().get() == 1 || coil_throw_reduction == 0 {
-            return [self.winding_factor(phase, spatial_order), 1.0];
+            [self.winding_factor(phase, spatial_order), 1.0]
         } else {
             // Create a copy of this winding, but without the short pitch. We use
             // the DistributionTable here, since it can deal with all slot / pole
@@ -402,7 +402,7 @@ impl DistributedWinding {
             // The pitch factor is calculated as the quotient of factor_w_chording and
             // factor_wo_chording
             let k_p = k_w_chorded / k_d;
-            return [k_d, k_p];
+            [k_d, k_p]
         }
     }
 
@@ -832,7 +832,7 @@ impl DistributedWinding {
     /// can (slightly) change the quantitative parameters such as the
     /// resistance.
     pub fn concentric_coils(&self) -> bool {
-        return self.concentric_coils;
+        self.concentric_coils
     }
 
     /// Sets the [`DistributedWinding::concentric_coils`] parameter.
@@ -843,7 +843,7 @@ impl DistributedWinding {
     pub fn set_concentric_coils(&mut self, concentric_coils: bool) {
         // Do nothing if the layout already equals the desired layout.
         if concentric_coils == self.concentric_coils() {
-            return ();
+            return;
         }
 
         self.concentric_coils = concentric_coils;
@@ -890,55 +890,53 @@ impl DistributedWinding {
                     &self.coils,
                     zone,
                     self.slots().get(),
-                ) {
-                    if let Some((partner_group, found_partner_while_ascending)) = seed_group
-                        .find_partner(winding_table, &self.coils, self.slots().get(), return_layer)
-                    {
-                        let (pos, neg, positive_slot_direction) = if seed_group.phase > 0 {
-                            (seed_group, partner_group, found_partner_while_ascending)
-                        } else {
-                            (partner_group, seed_group, !found_partner_while_ascending)
-                        };
-                        if self.concentric_coils {
-                            // Connect pos.start to neg.stop
-                            for (pos_slot, neg_slot) in (pos.start..(pos.start + pos.len + 1))
-                                .into_iter()
-                                .zip((neg.start..(neg.start + neg.len + 1)).into_iter().rev())
-                            {
-                                let positive_zone =
-                                    Zone::new(pos_slot.rem_euclid(self.slots().get()), pos.layer);
-                                let negative_zone =
-                                    Zone::new(neg_slot.rem_euclid(self.slots().get()), neg.layer);
-                                let coil = FullCoil::new(
-                                    positive_zone,
-                                    negative_zone,
-                                    positive_slot_direction,
-                                    self.turns_per_coil,
-                                    NonZeroU16::new(pos.phase as u16).expect("cannot be zero"),
-                                    self.wire.clone(),
-                                )?;
-                                self.coils.insert(Coil::Full(coil))?;
-                            }
-                        } else {
-                            // Connect pos.start to neg.start and pos.stop to neg.stop
-                            for (pos_slot, neg_slot) in (pos.start..(pos.start + pos.len + 1))
-                                .into_iter()
-                                .zip((neg.start..(neg.start + neg.len + 1)).into_iter())
-                            {
-                                let positive_zone =
-                                    Zone::new(pos_slot.rem_euclid(self.slots().get()), pos.layer);
-                                let negative_zone =
-                                    Zone::new(neg_slot.rem_euclid(self.slots().get()), neg.layer);
-                                let coil = FullCoil::new(
-                                    positive_zone,
-                                    negative_zone,
-                                    positive_slot_direction,
-                                    self.turns_per_coil,
-                                    NonZeroU16::new(pos.phase as u16).expect("cannot be zero"),
-                                    self.wire.clone(),
-                                )?;
-                                self.coils.insert(Coil::Full(coil))?;
-                            }
+                ) && let Some((partner_group, found_partner_while_ascending)) = seed_group
+                    .find_partner(winding_table, &self.coils, self.slots().get(), return_layer)
+                {
+                    let (pos, neg, positive_slot_direction) = if seed_group.phase > 0 {
+                        (seed_group, partner_group, found_partner_while_ascending)
+                    } else {
+                        (partner_group, seed_group, !found_partner_while_ascending)
+                    };
+                    if self.concentric_coils {
+                        // Connect pos.start to neg.stop
+                        for (pos_slot, neg_slot) in (pos.start..(pos.start + pos.len + 1))
+                            .into_iter()
+                            .zip((neg.start..(neg.start + neg.len + 1)).into_iter().rev())
+                        {
+                            let positive_zone =
+                                Zone::new(pos_slot.rem_euclid(self.slots().get()), pos.layer);
+                            let negative_zone =
+                                Zone::new(neg_slot.rem_euclid(self.slots().get()), neg.layer);
+                            let coil = FullCoil::new(
+                                positive_zone,
+                                negative_zone,
+                                positive_slot_direction,
+                                self.turns_per_coil,
+                                NonZeroU16::new(pos.phase as u16).expect("cannot be zero"),
+                                self.wire.clone(),
+                            )?;
+                            self.coils.insert(Coil::Full(coil))?;
+                        }
+                    } else {
+                        // Connect pos.start to neg.start and pos.stop to neg.stop
+                        for (pos_slot, neg_slot) in (pos.start..(pos.start + pos.len + 1))
+                            .into_iter()
+                            .zip(neg.start..(neg.start + neg.len + 1))
+                        {
+                            let positive_zone =
+                                Zone::new(pos_slot.rem_euclid(self.slots().get()), pos.layer);
+                            let negative_zone =
+                                Zone::new(neg_slot.rem_euclid(self.slots().get()), neg.layer);
+                            let coil = FullCoil::new(
+                                positive_zone,
+                                negative_zone,
+                                positive_slot_direction,
+                                self.turns_per_coil,
+                                NonZeroU16::new(pos.phase as u16).expect("cannot be zero"),
+                                self.wire.clone(),
+                            )?;
+                            self.coils.insert(Coil::Full(coil))?;
                         }
                     }
                 }
@@ -952,7 +950,7 @@ impl DistributedWinding {
                 return Err(WindingTableConstructionError::EmptyZone(Some(zone)).into());
             }
         }
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -999,7 +997,7 @@ fn largest_span_slot(winding_table: &WindingTable, phase: i32) -> u16 {
         We only need to check layer 0, since in case of a double-layer winding layer 1
         is merely a shifted and mirrored version of layer 0.
          */
-        let current_phase = winding_table.get_cyclic(Zone::new(slot, 0)).clone();
+        let current_phase = *winding_table.get_cyclic(Zone::new(slot, 0));
         if current_phase.abs() == phase {
             if current_phase != last_phase {
                 let current_span = slot - span_start_slot;
@@ -1016,7 +1014,7 @@ fn largest_span_slot(winding_table: &WindingTable, phase: i32) -> u16 {
             span_start_slot = slot;
         }
     }
-    return positive_slot;
+    positive_slot
 }
 
 /// A helper struct for [`DistributedWinding::create_coils`].
@@ -1073,13 +1071,13 @@ impl AvailableSlotsForCoilGroup {
         }
         let len = (stop + slots - start).rem_euclid(slots);
 
-        return Some(AvailableSlotsForCoilGroup {
+        Some(AvailableSlotsForCoilGroup {
             start,
             stop,
             len,
             phase: *phase,
             layer: zone.layer,
-        });
+        })
     }
 
     /**
@@ -1098,80 +1096,79 @@ impl AvailableSlotsForCoilGroup {
             let slot_des = (self.start + slots - delta).rem_euclid(slots);
             for (is_des, search_slot) in [slot_asc, slot_des].into_iter().enumerate() {
                 let search_zone = Zone::new(search_slot, search_layer);
-                if *winding_table.get_cyclic(search_zone) == -self.phase {
-                    if let Some(potential_partner) =
+                if *winding_table.get_cyclic(search_zone) == -self.phase
+                    && let Some(potential_partner) =
                         Self::new(winding_table, coils, search_zone, slots)
-                    {
-                        if potential_partner.len >= self.len {
-                            return Some((potential_partner, is_des == 0));
-                        } else {
-                            return None;
-                        }
+                {
+                    if potential_partner.len >= self.len {
+                        return Some((potential_partner, is_des == 0));
+                    } else {
+                        return None;
                     }
                 }
             }
         }
-        return None;
+        None
     }
 }
 
 #[cfg_attr(feature = "serde", typetag::serde)]
 impl Winding for DistributedWinding {
     fn phases(&self) -> NonZeroU16 {
-        return self.phases;
+        self.phases
     }
 
     fn slots(&self) -> NonZeroU16 {
-        return self.slots;
+        self.slots
     }
 
     fn pole_pairs(&self) -> NonZeroU16 {
-        return self.pole_pairs;
+        self.pole_pairs
     }
 
     fn layers(&self) -> NonZeroU16 {
-        return self.layers;
+        self.layers
     }
 
     fn base_winding_count(&self) -> NonZeroU16 {
-        return base_winding_count_symmetric(
+        base_winding_count_symmetric(
             self.slots(),
             self.pole_pairs(),
             self.phases(),
             self.layers(),
-        );
+        )
     }
 
     fn turns_at(&self, _zone: Zone) -> usize {
-        return self.turns_per_coil.get();
+        self.turns_per_coil.get()
     }
 
     fn coil_layout(&self) -> CoilLayout {
         if self.layers().get() == 1 {
-            return CoilLayout::Single;
+            CoilLayout::Single
         } else {
-            return CoilLayout::DoubleVertical;
+            CoilLayout::DoubleVertical
         }
     }
 
     fn series_turns_per_phase(&self, phase: NonZeroU16) -> Ratio<usize> {
-        return Ratio::new_raw(
+        Ratio::new_raw(
             usize::from(self.layers().get() * self.slots().get()) * self.turns_per_coil.get()
                 / usize::from(2 * self.phases().get() * self.parallel_paths(phase).get()),
             1,
-        );
+        )
     }
 
     fn parallel_paths(&self, _phase: NonZeroU16) -> NonZeroU16 {
-        return self.parallel_paths;
+        self.parallel_paths
     }
 
     fn connection(&self) -> Connection {
-        return self.connection;
+        self.connection
     }
 
     fn coil_at(&self, zone: Zone) -> Option<&Coil> {
-        return self.coils.get(zone);
+        self.coils.get(zone)
     }
 
     fn as_dyn(&self) -> &dyn Winding {
@@ -1341,7 +1338,10 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
             builder.phases,
             builder.layers,
         );
-        if max_par_paths.get() % builder.parallel_paths.get() != 0 {
+        if !max_par_paths
+            .get()
+            .is_multiple_of(builder.parallel_paths.get())
+        {
             return Err(Error::InvalidNumberParallelPaths {
                 maximum: max_par_paths,
                 given: builder.parallel_paths,
@@ -1399,9 +1399,9 @@ impl TryFrom<DistributedBuilder> for DistributedWinding {
         winding.create_coils(&winding_table)?;
 
         if winding.equal_winding_factors() {
-            return Ok(winding);
+            Ok(winding)
         } else {
-            return Err(WindingTableConstructionError::NotSymmetric.into());
+            Err(WindingTableConstructionError::NotSymmetric.into())
         }
     }
 }
@@ -1563,8 +1563,8 @@ impl TryFrom<DistributedDoubleZoneSpanBuilder> for DistributedWinding {
     fn try_from(builder: DistributedDoubleZoneSpanBuilder) -> Result<Self, Self::Error> {
         // Check if an integer slot winding can be constructed from the input
         let hn = hole_number(builder.slots, builder.pole_pairs, builder.phases);
-        let zone_shift = hn.trunc().numer().clone();
-        let denominator_hole_number = hn.denom().clone();
+        let zone_shift = *hn.trunc().numer();
+        let denominator_hole_number = *hn.denom();
         compare_variables!(denominator_hole_number == 1)?;
 
         DistributedBuilder {
@@ -1635,7 +1635,7 @@ impl TryFrom<DistributedMinimalBuilder> for DistributedWinding {
     type Error = Error;
 
     fn try_from(builder: DistributedMinimalBuilder) -> Result<Self, Self::Error> {
-        return DistributedBuilder {
+        DistributedBuilder {
             slots: builder.slots,
             pole_pairs: builder.pole_pairs,
             phases: builder.phases,
@@ -1651,7 +1651,7 @@ impl TryFrom<DistributedMinimalBuilder> for DistributedWinding {
             concentric_coils: false,
             end_winding_half_turn_length_override: None,
         }
-        .try_into();
+        .try_into()
     }
 }
 

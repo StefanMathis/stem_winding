@@ -652,7 +652,7 @@ impl CoilAssembly {
             compare_variables::compare_variables!(zone.layer < winding_layers)?;
         }
 
-        return self.coils.insert(coil).map_err(Error::from);
+        self.coils.insert(coil).map_err(Error::from)
     }
 
     /// Removes the coil occupying the specified `zone` from the winding.
@@ -700,7 +700,7 @@ impl CoilAssembly {
     /// assert!(winding.remove(Zone::new(0, 0)).is_some());
     /// assert_eq!(winding.num_coils(), 0);
     pub fn remove(&mut self, zone: Zone) -> Option<Coil> {
-        return self.coils.remove(zone);
+        self.coils.remove(zone)
     }
 
     /// Removes all coils from the assembly.
@@ -764,7 +764,7 @@ impl CoilAssembly {
     pub fn set_pole_pairs(&mut self, pole_pairs: NonZeroU16) -> NonZeroU16 {
         let old = self.pole_pairs;
         self.pole_pairs = pole_pairs;
-        return old;
+        old
     }
 
     /// Like [`Winding::coil_at`], but returns a mutable reference to the coil
@@ -793,7 +793,7 @@ impl Winding for CoilAssembly {
     }
 
     fn coil_at(&self, zone: Zone) -> Option<&Coil> {
-        return self.coils.get(zone);
+        self.coils.get(zone)
     }
 
     fn coil_layout(&self) -> CoilLayout {
@@ -928,7 +928,7 @@ impl<W: Winding + ?Sized> From<&W> for CoilAssembly {
             })
         }
 
-        return CoilAssembly {
+        CoilAssembly {
             slots: winding.slots(),
             pole_pairs: winding.pole_pairs(),
             coils,
@@ -936,7 +936,7 @@ impl<W: Winding + ?Sized> From<&W> for CoilAssembly {
             connection: winding.connection(),
             phase_data,
             end_winding_half_turn_length_overrides: Default::default(),
-        };
+        }
     }
 }
 
@@ -1022,6 +1022,6 @@ impl TryFrom<CoilAssemblyBuilder> for CoilAssembly {
         for coil in builder.coils.into_iter() {
             winding.insert(coil)?;
         }
-        return Ok(winding);
+        Ok(winding)
     }
 }

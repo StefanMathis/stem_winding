@@ -54,15 +54,15 @@ mod cairo_tests {
             .unwrap();
             let path = std::path::Path::new("tests/img/end_winding_coil_1.png");
             let callback = move |path: &std::path::Path| {
-                return view.write_to_file(path, |cr| {
+                view.write_to_file(path, |cr| {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
                     for drawable in drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.0)) {
                         drawable.draw(cr)?;
                     }
-                    return Ok(());
-                });
+                    Ok(())
+                })
             };
             assert!(compare_or_create(path, &callback, 0.99).is_ok());
         }
@@ -88,15 +88,15 @@ mod cairo_tests {
             .unwrap();
             let path = std::path::Path::new("tests/img/end_winding_coil_2.png");
             let callback = move |path: &std::path::Path| {
-                return view.write_to_file(path, |cr| {
+                view.write_to_file(path, |cr| {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
                     for drawable in drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.0)) {
                         drawable.draw(cr)?;
                     }
-                    return Ok(());
-                });
+                    Ok(())
+                })
             };
             assert!(compare_or_create(path, &callback, 0.99).is_ok());
         }
@@ -122,15 +122,15 @@ mod cairo_tests {
             .unwrap();
             let path = std::path::Path::new("tests/img/end_winding_coil_3.png");
             let callback = move |path: &std::path::Path| {
-                return view.write_to_file(path, |cr| {
+                view.write_to_file(path, |cr| {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
                     for drawable in drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.0)) {
                         drawable.draw(cr)?;
                     }
-                    return Ok(());
-                });
+                    Ok(())
+                })
             };
             assert!(compare_or_create(path, &callback, 0.99).is_ok());
         }
@@ -156,15 +156,15 @@ mod cairo_tests {
             .unwrap();
             let path = std::path::Path::new("tests/img/end_winding_coil_4.png");
             let callback = move |path: &std::path::Path| {
-                return view.write_to_file(path, |cr| {
+                view.write_to_file(path, |cr| {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
                     for drawable in drawables.iter().filter_map(|d| d.as_ref().map(|t| &t.0)) {
                         drawable.draw(cr)?;
                     }
-                    return Ok(());
-                });
+                    Ok(())
+                })
             };
             assert!(compare_or_create(path, &callback, 0.99).is_ok());
         }
@@ -172,11 +172,11 @@ mod cairo_tests {
 
     fn check<W: Winding>(winding: &W, params: &CoilDrawablesConfig, name: &str) {
         let mut drawables: Vec<Drawable> = Vec::new();
-        for d in winding.coil_drawables(&params).map(|t| t.0) {
+        for d in winding.coil_drawables(params).map(|t| t.0) {
             drawables.push(d);
         }
 
-        let bb1 = BoundingBox::from_bounded_entities(winding.coil_drawables(&params).filter_map(
+        let bb1 = BoundingBox::from_bounded_entities(winding.coil_drawables(params).filter_map(
             |(d, k)| match k {
                 stem_winding::draw::DrawableKind::Annotation(_) => None,
                 _ => Some(d.bounding_box()),
@@ -195,21 +195,21 @@ mod cairo_tests {
         let view = Viewport::from_bounding_box(&bb, SideLength::Long(2000));
         let path = std::path::Path::new(&name);
         let callback = |path: &std::path::Path| {
-            return view.write_to_file(path, |cr| {
+            view.write_to_file(path, |cr| {
                 cr.set_source_rgb(1.0, 1.0, 1.0);
                 cr.paint()?;
 
                 for drawable in drawables.iter() {
                     drawable.draw(cr)?;
                 }
-                return Ok(());
-            });
+                Ok(())
+            })
         };
-        assert!(compare_or_create(path, &callback, 0.99).is_ok());
+        assert!(compare_or_create(path, callback, 0.99).is_ok());
 
         // Test increasing zone index
         let mut current_zone = Zone { slot: 0, layer: 0 };
-        for (_, k) in winding.coil_drawables(&params) {
+        for (_, k) in winding.coil_drawables(params) {
             if let Some(zone) = k.zone() {
                 assert!(zone >= current_zone);
                 current_zone = zone;
@@ -567,8 +567,7 @@ mod cairo_tests {
             slots: 28.try_into().unwrap(),
             pole_pairs: 2.try_into().unwrap(),
         }
-        .try_into()
-        .unwrap();
+        .into();
 
         let mut bb = params.bounding_box(&winding);
         bb.try_set_ymin(bb.ymin() * 1.2);
@@ -591,17 +590,17 @@ mod cairo_tests {
             let view = Viewport::from_bounding_box(&bb, SideLength::Long(2000));
             let path = std::path::Path::new("tests/img/end_winding_squirrel_cage.png");
             let callback = |path: &std::path::Path| {
-                return view.write_to_file(path, |cr| {
+                view.write_to_file(path, |cr| {
                     cr.set_source_rgb(1.0, 1.0, 1.0);
                     cr.paint()?;
 
                     for drawable in drawables.iter() {
                         drawable.draw(cr)?;
                     }
-                    return Ok(());
-                });
+                    Ok(())
+                })
             };
-            assert!(compare_or_create(path, &callback, 0.99).is_ok());
+            assert!(compare_or_create(path, callback, 0.99).is_ok());
         }
     }
 }

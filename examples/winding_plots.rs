@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     quadruple_layer_tooth_coil_winding()?;
     distributed_tooth_coil_winding(&zone_config)?;
 
-    return Ok(());
+    Ok(())
 }
 
 fn winding_table_reference_img() -> Result<(), Box<dyn std::error::Error>> {
@@ -81,7 +81,7 @@ fn winding_table_reference_img() -> Result<(), Box<dyn std::error::Error>> {
     bb.scale(1.01);
 
     let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join(&format!("docs/img/winding_table_reference_img.svg"));
+        .join("docs/img/winding_table_reference_img.svg");
     let view = Viewport::from_bounding_box(&bb, SideLength::Long(800));
     view.write_to_file(&fp, |cr| {
         cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -91,9 +91,9 @@ fn winding_table_reference_img() -> Result<(), Box<dyn std::error::Error>> {
             d.draw(cr)?;
         }
 
-        return Ok(());
+        Ok(())
     })?;
-    return Ok(());
+    Ok(())
 }
 
 fn zone_polarity() -> Result<(), Box<dyn std::error::Error>> {
@@ -163,7 +163,7 @@ fn zone_polarity() -> Result<(), Box<dyn std::error::Error>> {
         BoundingBox::from_bounded_entities(drawables.iter()).expect("has at least one element");
     bb.scale(1.02);
 
-    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!("docs/img/coil_polarity.svg"));
+    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/coil_polarity.svg");
     let view = Viewport::from_bounding_box(&bb, SideLength::Long(800));
     view.write_to_file(&fp, |cr| {
         cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -173,9 +173,9 @@ fn zone_polarity() -> Result<(), Box<dyn std::error::Error>> {
             d.draw(cr)?;
         }
 
-        return Ok(());
+        Ok(())
     })?;
-    return Ok(());
+    Ok(())
 }
 
 fn phd_stator() -> Result<(), Box<dyn std::error::Error>> {
@@ -247,7 +247,7 @@ fn phd_stator() -> Result<(), Box<dyn std::error::Error>> {
         BoundingBox::from_bounded_entities(drawables.iter()).expect("has at least one element");
     bb.scale(1.02);
 
-    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!("docs/img/phd_stator.svg"));
+    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/phd_stator.svg");
     let view = Viewport::from_bounding_box(&bb, SideLength::Long(600));
     view.write_to_file(&fp, |cr| {
         cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -257,9 +257,9 @@ fn phd_stator() -> Result<(), Box<dyn std::error::Error>> {
             d.draw(cr)?;
         }
 
-        return Ok(());
+        Ok(())
     })?;
-    return Ok(());
+    Ok(())
 }
 
 fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
@@ -348,7 +348,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
             };
 
             let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join(&format!("docs/img/zone_drawables_config_{filename}.svg"));
+                .join(format!("docs/img/zone_drawables_config_{filename}.svg"));
             let view = Viewport::from_bounding_box(&bb, side_length);
             view.write_to_file(&fp, |cr| {
                 cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -358,7 +358,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
                     d.draw(cr)?;
                 }
 
-                return Ok(());
+                Ok(())
             })?;
         }
     }
@@ -394,7 +394,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
             };
 
             let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join(&format!("docs/img/zone_drawables_config_{filename}.svg"));
+                .join(format!("docs/img/zone_drawables_config_{filename}.svg"));
             let view = Viewport::from_bounding_box(&bb, side_length);
             view.write_to_file(&fp, |cr| {
                 cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -404,7 +404,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
                     d.draw(cr)?;
                 }
 
-                return Ok(());
+                Ok(())
             })?;
         }
     }
@@ -428,9 +428,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
             BoundingBox::from_bounded_entities(drawables.iter()).expect("has at least one element");
         bb.scale(1.02);
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!(
-            "docs/img/zone_drawables_config_no_zone_config.svg"
-        ));
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/zone_drawables_config_no_zone_config.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -440,7 +438,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
     {
@@ -464,7 +462,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
         bb.scale(1.02);
 
         let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join(&format!("docs/img/zone_drawables_config_ampere_turns.svg"));
+            .join("docs/img/zone_drawables_config_ampere_turns.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -474,7 +472,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
     {
@@ -501,9 +499,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
             BoundingBox::from_bounded_entities(drawables.iter()).expect("has at least one element");
         bb.scale(1.02);
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!(
-            "docs/img/zone_drawables_config_zone_arrow_color_by_phase.svg"
-        ));
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/zone_drawables_config_zone_arrow_color_by_phase.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -513,7 +509,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
     {
@@ -540,9 +536,7 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
             BoundingBox::from_bounded_entities(drawables.iter()).expect("has at least one element");
         bb.scale(1.02);
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!(
-            "docs/img/zone_drawables_config_zone_arrow_black_normalized_current.svg"
-        ));
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/zone_drawables_config_zone_arrow_black_normalized_current.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -552,11 +546,11 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
 
-    return Ok(());
+    Ok(())
 }
 
 fn zone_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
@@ -598,7 +592,7 @@ fn zone_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
     bb.scale(1.02);
 
     let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join(&format!("docs/img/zone_drawable_method_1.svg"));
+        .join("docs/img/zone_drawable_method_1.svg");
     let view = Viewport::from_bounding_box(&bb, side_length);
     view.write_to_file(&fp, |cr| {
         cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -608,7 +602,7 @@ fn zone_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
             d.draw(cr)?;
         }
 
-        return Ok(());
+        Ok(())
     })?;
 
     let config = ZoneDrawablesConfig {
@@ -631,7 +625,7 @@ fn zone_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
     bb.scale(1.02);
 
     let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join(&format!("docs/img/zone_drawable_method_2.svg"));
+        .join("docs/img/zone_drawable_method_2.svg");
     let view = Viewport::from_bounding_box(&bb, side_length);
     view.write_to_file(&fp, |cr| {
         cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -641,9 +635,9 @@ fn zone_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
             d.draw(cr)?;
         }
 
-        return Ok(());
+        Ok(())
     })?;
-    return Ok(());
+    Ok(())
 }
 
 fn coil_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
@@ -668,7 +662,7 @@ fn coil_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
     let drawables = winding.coil_drawables(&config).map(|z| z.0);
 
     let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join(&format!("docs/img/coil_drawable_method_1.svg"));
+        .join("docs/img/coil_drawable_method_1.svg");
     let view = Viewport::from_bounding_box(&bb, side_length);
     view.write_to_file(&fp, |cr| {
         cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -678,7 +672,7 @@ fn coil_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
             d.draw(cr)?;
         }
 
-        return Ok(());
+        Ok(())
     })?;
 
     config.end_winding_style = EndWindingStyle::Layered;
@@ -688,7 +682,7 @@ fn coil_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
     let drawables = winding.coil_drawables(&config).map(|z| z.0);
 
     let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join(&format!("docs/img/coil_drawable_method_2.svg"));
+        .join("docs/img/coil_drawable_method_2.svg");
     let view = Viewport::from_bounding_box(&bb, side_length);
     view.write_to_file(&fp, |cr| {
         cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -698,9 +692,9 @@ fn coil_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
             d.draw(cr)?;
         }
 
-        return Ok(());
+        Ok(())
     })?;
-    return Ok(());
+    Ok(())
 }
 
 fn tooth_coil_winding(zone_config: &ZoneDrawablesConfig) -> Result<(), Box<dyn std::error::Error>> {
@@ -733,7 +727,7 @@ fn tooth_coil_winding(zone_config: &ZoneDrawablesConfig) -> Result<(), Box<dyn s
         );
 
         let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join(&format!("docs/img/coils_tooth_coil_winding.svg"));
+            .join("docs/img/coils_tooth_coil_winding.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -746,14 +740,14 @@ fn tooth_coil_winding(zone_config: &ZoneDrawablesConfig) -> Result<(), Box<dyn s
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
     {
         let side_length = SideLength::Long(600);
 
         let drawables = winding
-            .zone_drawables(core.as_core_ref(), &zone_config)
+            .zone_drawables(core.as_core_ref(), zone_config)
             .map(|z| z.0);
         let bb = core.shape().bounding_box();
         let w = bb.width();
@@ -766,7 +760,7 @@ fn tooth_coil_winding(zone_config: &ZoneDrawablesConfig) -> Result<(), Box<dyn s
         );
 
         let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join(&format!("docs/img/table_tooth_coil_winding.svg"));
+            .join("docs/img/table_tooth_coil_winding.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -779,11 +773,11 @@ fn tooth_coil_winding(zone_config: &ZoneDrawablesConfig) -> Result<(), Box<dyn s
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
 
-    return Ok(());
+    Ok(())
 }
 
 fn distributed_winding(
@@ -820,7 +814,7 @@ fn distributed_winding(
         );
 
         let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join(&format!("docs/img/coils_distributed_winding.svg"));
+            .join("docs/img/coils_distributed_winding.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -833,14 +827,14 @@ fn distributed_winding(
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
     {
         let side_length = SideLength::Long(600);
 
         let drawables = winding
-            .zone_drawables(core.as_core_ref(), &zone_config)
+            .zone_drawables(core.as_core_ref(), zone_config)
             .map(|z| z.0);
         let bb = core.shape().bounding_box();
         let w = bb.width();
@@ -853,7 +847,7 @@ fn distributed_winding(
         );
 
         let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join(&format!("docs/img/table_distributed_winding.svg"));
+            .join("docs/img/table_distributed_winding.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -866,11 +860,11 @@ fn distributed_winding(
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
 
-    return Ok(());
+    Ok(())
 }
 
 fn distributed_winding_concentric() -> Result<(), Box<dyn std::error::Error>> {
@@ -904,9 +898,7 @@ fn distributed_winding_concentric() -> Result<(), Box<dyn std::error::Error>> {
             -bb.ymin() + 0.08 * h,
         );
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!(
-            "docs/img/coils_distributed_winding_concentric_false.svg"
-        ));
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/coils_distributed_winding_concentric_false.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -919,7 +911,7 @@ fn distributed_winding_concentric() -> Result<(), Box<dyn std::error::Error>> {
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
     {
@@ -941,9 +933,7 @@ fn distributed_winding_concentric() -> Result<(), Box<dyn std::error::Error>> {
             -bb.ymin() + 0.08 * h,
         );
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!(
-            "docs/img/coils_distributed_winding_concentric_true.svg"
-        ));
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/coils_distributed_winding_concentric_true.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -956,10 +946,10 @@ fn distributed_winding_concentric() -> Result<(), Box<dyn std::error::Error>> {
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
-    return Ok(());
+    Ok(())
 }
 
 fn distributed_winding_coil_throw_reduction(
@@ -982,7 +972,7 @@ fn distributed_winding_coil_throw_reduction(
         let side_length = SideLength::Long(600);
 
         let drawables = winding
-            .zone_drawables(core.as_core_ref(), &zone_config)
+            .zone_drawables(core.as_core_ref(), zone_config)
             .map(|z| z.0);
         let bb = core.shape().bounding_box();
         let w = bb.width();
@@ -995,7 +985,7 @@ fn distributed_winding_coil_throw_reduction(
         );
 
         let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join(&format!("docs/img/table_distributed_winding_red_0.svg"));
+            .join("docs/img/table_distributed_winding_red_0.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -1008,7 +998,7 @@ fn distributed_winding_coil_throw_reduction(
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
 
@@ -1027,7 +1017,7 @@ fn distributed_winding_coil_throw_reduction(
         let side_length = SideLength::Long(600);
 
         let drawables = winding
-            .zone_drawables(core.as_core_ref(), &zone_config)
+            .zone_drawables(core.as_core_ref(), zone_config)
             .map(|z| z.0);
         let bb = core.shape().bounding_box();
         let w = bb.width();
@@ -1040,7 +1030,7 @@ fn distributed_winding_coil_throw_reduction(
         );
 
         let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join(&format!("docs/img/table_distributed_winding_red_1.svg"));
+            .join("docs/img/table_distributed_winding_red_1.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -1053,10 +1043,10 @@ fn distributed_winding_coil_throw_reduction(
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
-    return Ok(());
+    Ok(())
 }
 
 fn distributed_winding_zone_shift(
@@ -1079,7 +1069,7 @@ fn distributed_winding_zone_shift(
         let side_length = SideLength::Long(600);
 
         let drawables = winding
-            .zone_drawables(core.as_core_ref(), &zone_config)
+            .zone_drawables(core.as_core_ref(), zone_config)
             .map(|z| z.0);
         let bb = core.shape().bounding_box();
         let w = bb.width();
@@ -1091,9 +1081,7 @@ fn distributed_winding_zone_shift(
             -bb.ymin() + 0.01 * h,
         );
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!(
-            "docs/img/table_distributed_winding_zone_shift_0.svg"
-        ));
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/table_distributed_winding_zone_shift_0.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -1106,7 +1094,7 @@ fn distributed_winding_zone_shift(
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
     {
@@ -1124,7 +1112,7 @@ fn distributed_winding_zone_shift(
         let side_length = SideLength::Long(600);
 
         let drawables = winding
-            .zone_drawables(core.as_core_ref(), &zone_config)
+            .zone_drawables(core.as_core_ref(), zone_config)
             .map(|z| z.0);
         let bb = core.shape().bounding_box();
         let w = bb.width();
@@ -1136,9 +1124,7 @@ fn distributed_winding_zone_shift(
             -bb.ymin() + 0.01 * h,
         );
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!(
-            "docs/img/table_distributed_winding_zone_shift_1.svg"
-        ));
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/table_distributed_winding_zone_shift_1.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -1151,7 +1137,7 @@ fn distributed_winding_zone_shift(
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
     {
@@ -1170,7 +1156,7 @@ fn distributed_winding_zone_shift(
         let side_length = SideLength::Long(600);
 
         let drawables = winding
-            .zone_drawables(core.as_core_ref(), &zone_config)
+            .zone_drawables(core.as_core_ref(), zone_config)
             .map(|z| z.0);
         let bb = core.shape().bounding_box();
         let w = bb.width();
@@ -1182,9 +1168,7 @@ fn distributed_winding_zone_shift(
             -bb.ymin() + 0.01 * h,
         );
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!(
-            "docs/img/table_distributed_winding_zone_shift_2.svg"
-        ));
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/table_distributed_winding_zone_shift_2.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -1197,10 +1181,10 @@ fn distributed_winding_zone_shift(
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
-    return Ok(());
+    Ok(())
 }
 
 fn squirrel_cage_winding() -> Result<(), Box<dyn std::error::Error>> {
@@ -1208,8 +1192,7 @@ fn squirrel_cage_winding() -> Result<(), Box<dyn std::error::Error>> {
         slots: 12.try_into()?,
         pole_pairs: 1.try_into()?,
     }
-    .try_into()
-    .unwrap();
+    .into();
     let core = LinCore::from_winding(&winding);
 
     {
@@ -1230,7 +1213,7 @@ fn squirrel_cage_winding() -> Result<(), Box<dyn std::error::Error>> {
         );
 
         let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join(&format!("docs/img/coils_squirrel_cage_winding.svg"));
+            .join("docs/img/coils_squirrel_cage_winding.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -1243,11 +1226,11 @@ fn squirrel_cage_winding() -> Result<(), Box<dyn std::error::Error>> {
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
 
-    return Ok(());
+    Ok(())
 }
 
 fn quadruple_layer_tooth_coil_winding() -> Result<(), Box<dyn std::error::Error>> {
@@ -1314,7 +1297,7 @@ fn quadruple_layer_tooth_coil_winding() -> Result<(), Box<dyn std::error::Error>
             -bb.ymin() + 0.01 * h,
         );
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(&format!(
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!(
             "docs/img/table_quadruple_layer_tooth_coil_winding_{idx}.svg"
         ));
         let view = Viewport::from_bounding_box(&bb, side_length);
@@ -1328,11 +1311,11 @@ fn quadruple_layer_tooth_coil_winding() -> Result<(), Box<dyn std::error::Error>
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
 
-    return Ok(());
+    Ok(())
 }
 
 fn distributed_tooth_coil_winding(
@@ -1358,7 +1341,7 @@ fn distributed_tooth_coil_winding(
         let side_length = SideLength::Long(600);
 
         let drawables = winding
-            .zone_drawables(core.as_core_ref(), &zone_config)
+            .zone_drawables(core.as_core_ref(), zone_config)
             .map(|(mut z, _)| {
                 z.line_reflection([0.0, 0.0], [1.0, 0.0]);
                 z
@@ -1386,7 +1369,7 @@ fn distributed_tooth_coil_winding(
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
     {
@@ -1409,7 +1392,7 @@ fn distributed_tooth_coil_winding(
         let side_length = SideLength::Long(600);
 
         let drawables = winding
-            .zone_drawables(core.as_core_ref(), &zone_config)
+            .zone_drawables(core.as_core_ref(), zone_config)
             .map(|(mut z, _)| {
                 z.line_reflection([0.0, 0.0], [1.0, 0.0]);
                 z
@@ -1437,7 +1420,7 @@ fn distributed_tooth_coil_winding(
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
     {
@@ -1460,7 +1443,7 @@ fn distributed_tooth_coil_winding(
             core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
 
             let drawables = winding
-                .zone_drawables(core.as_core_ref(), &zone_config)
+                .zone_drawables(core.as_core_ref(), zone_config)
                 .map(|(mut z, _)| {
                     z.line_reflection([0.0, 0.0], [1.0, 0.0]);
                     z
@@ -1489,7 +1472,7 @@ fn distributed_tooth_coil_winding(
                     d.draw(cr)?;
                 }
 
-                return Ok(());
+                Ok(())
             })?;
         }
         {
@@ -1532,7 +1515,7 @@ fn distributed_tooth_coil_winding(
                     d.draw(cr)?;
                 }
 
-                return Ok(());
+                Ok(())
             })?;
         }
 
@@ -1552,7 +1535,7 @@ fn distributed_tooth_coil_winding(
             );
 
             let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join(&format!("docs/img/coils_double_layer_dtc_winding_0.svg"));
+                .join("docs/img/coils_double_layer_dtc_winding_0.svg");
             let view = Viewport::from_bounding_box(&bb, side_length);
             view.write_to_file(&fp, |cr| {
                 cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -1565,7 +1548,7 @@ fn distributed_tooth_coil_winding(
                     d.draw(cr)?;
                 }
 
-                return Ok(());
+                Ok(())
             })?;
         }
     }
@@ -1589,7 +1572,7 @@ fn distributed_tooth_coil_winding(
         let side_length = SideLength::Long(600);
 
         let drawables = winding
-            .zone_drawables(core.as_core_ref(), &zone_config)
+            .zone_drawables(core.as_core_ref(), zone_config)
             .map(|(mut z, _)| {
                 z.line_reflection([0.0, 0.0], [1.0, 0.0]);
                 z
@@ -1617,7 +1600,7 @@ fn distributed_tooth_coil_winding(
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
     {
@@ -1640,7 +1623,7 @@ fn distributed_tooth_coil_winding(
             core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
 
             let drawables = winding
-                .zone_drawables(core.as_core_ref(), &zone_config)
+                .zone_drawables(core.as_core_ref(), zone_config)
                 .map(|(mut z, _)| {
                     z.line_reflection([0.0, 0.0], [1.0, 0.0]);
                     z
@@ -1669,7 +1652,7 @@ fn distributed_tooth_coil_winding(
                     d.draw(cr)?;
                 }
 
-                return Ok(());
+                Ok(())
             })?;
         }
         {
@@ -1712,7 +1695,7 @@ fn distributed_tooth_coil_winding(
                     d.draw(cr)?;
                 }
 
-                return Ok(());
+                Ok(())
             })?;
         }
     }
@@ -1735,7 +1718,7 @@ fn distributed_tooth_coil_winding(
         core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
 
         let drawables = winding
-            .zone_drawables(core.as_core_ref(), &zone_config)
+            .zone_drawables(core.as_core_ref(), zone_config)
             .map(|(mut z, _)| {
                 z.line_reflection([0.0, 0.0], [1.0, 0.0]);
                 z
@@ -1764,7 +1747,7 @@ fn distributed_tooth_coil_winding(
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
     {
@@ -1786,7 +1769,7 @@ fn distributed_tooth_coil_winding(
         core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
 
         let drawables = winding
-            .zone_drawables(core.as_core_ref(), &zone_config)
+            .zone_drawables(core.as_core_ref(), zone_config)
             .map(|(mut z, _)| {
                 z.line_reflection([0.0, 0.0], [1.0, 0.0]);
                 z
@@ -1815,9 +1798,9 @@ fn distributed_tooth_coil_winding(
                 d.draw(cr)?;
             }
 
-            return Ok(());
+            Ok(())
         })?;
     }
 
-    return Ok(());
+    Ok(())
 }

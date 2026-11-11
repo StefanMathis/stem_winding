@@ -1442,7 +1442,7 @@ mod stem_core_tests {
         let slot =
             RectangularSlot::new(width, opening_width, height, opening_height, true).unwrap();
 
-        return RotCoreBuilder {
+        RotCoreBuilder {
             air_gap_radius: Length::new::<millimeter>(55.0),
             yoke_radius: Length::new::<millimeter>(85.0),
             axial_length: Length::new::<millimeter>(165.0),
@@ -1460,7 +1460,7 @@ mod stem_core_tests {
             flux_barrier: None,
         }
         .try_into()
-        .expect("valid magnetic core");
+        .expect("valid magnetic core")
     }
 
     fn create_core_trap() -> RotCore {
@@ -1477,7 +1477,7 @@ mod stem_core_tests {
         }
         .try_into()
         .unwrap();
-        return RotCoreBuilder {
+        RotCoreBuilder {
             air_gap_radius: Length::new::<millimeter>(55.0),
             yoke_radius: Length::new::<millimeter>(85.0),
             axial_length: Length::new::<millimeter>(165.0),
@@ -1495,7 +1495,7 @@ mod stem_core_tests {
             flux_barrier: None,
         }
         .try_into()
-        .expect("valid magnetic core");
+        .expect("valid magnetic core")
     }
 
     fn create_skewed_core() -> RotCore {
@@ -1514,7 +1514,7 @@ mod stem_core_tests {
         }
         .try_into()
         .unwrap();
-        return RotCoreBuilder {
+        RotCoreBuilder {
             air_gap_radius: Length::new::<millimeter>(55.0),
             yoke_radius: Length::new::<millimeter>(85.0),
             axial_length: Length::new::<millimeter>(165.0),
@@ -1532,11 +1532,11 @@ mod stem_core_tests {
             flux_barrier: None,
         }
         .try_into()
-        .expect("valid magnetic core");
+        .expect("valid magnetic core")
     }
 
     fn create_dbm() -> DatabaseManager {
-        return DatabaseManager::open("tests", SerdeYaml).expect("must exist");
+        DatabaseManager::open("tests", SerdeYaml).expect("must exist")
     }
 
     #[test]
@@ -2053,8 +2053,8 @@ mod stem_core_tests {
         ) -> f64 {
             // [MVP08], eq. (3.7.15)
             let span = winding.pole_pitch() - winding.coil_throw_reduction() as f64;
-            return (1.0 - 9.0 / 16.0 * (1.0 - span as f64 / winding.pole_pitch())) * lambda_l
-                + (1.0 - 3.0 / 4.0 * (1.0 - span as f64 / winding.pole_pitch())) * lambda_res;
+            (1.0 - 9.0 / 16.0 * (1.0 - span / winding.pole_pitch())) * lambda_l
+                + (1.0 - 3.0 / 4.0 * (1.0 - span / winding.pole_pitch())) * lambda_res
         }
 
         let core = create_core_rect();

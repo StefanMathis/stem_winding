@@ -75,8 +75,8 @@ impl Connection {
         // Assumption of a symmetric grid
         let a = Complex::new(0.0, TAU / (phases.get() as f64)).exp();
         match self {
-            Connection::Star => return Complex::new(1.0, 0.0) / (Complex::new(1.0, 0.0) - a),
-            Connection::Delta => return Complex::new(1.0, 0.0),
+            Connection::Star => Complex::new(1.0, 0.0) / (Complex::new(1.0, 0.0) - a),
+            Connection::Delta => Complex::new(1.0, 0.0),
         }
     }
 
@@ -283,7 +283,7 @@ pub fn hole_number(
     // Calculate smallest integer numerator and denominator
     let n = (2 * pole_pairs.get() * phases.get()) / val;
     let z = slots.get() / val;
-    return num::rational::Ratio::new_raw(z, n);
+    num::rational::Ratio::new_raw(z, n)
 }
 
 /// Provides random access to the values of a collection.
@@ -417,14 +417,14 @@ where
 
         fn next(&mut self) -> Option<Self::Item> {
             while self.divisor > 0 {
-                if self.len.get() % self.divisor == 0 {
+                if self.len.get().is_multiple_of(self.divisor) {
                     let divisor = self.divisor;
                     self.divisor -= 1;
                     return Some(self.len.get() / divisor);
                 }
                 self.divisor -= 1;
             }
-            return None;
+            None
         }
     }
 
@@ -463,14 +463,14 @@ where
             }
 
             // We can jump ahead to the next multiple of the pattern_len_cand
-            c2 = ((c2 + pattern_len_cand - 1) / pattern_len_cand) * pattern_len_cand;
+            c2 = c2.div_ceil(pattern_len_cand) * pattern_len_cand;
 
             // We start checking the new pattern length from the beginning again
             c1 = 0;
         }
     }
 
-    return NonZeroUsize::new(c2 / pattern_len_cand).unwrap_or(NonZeroUsize::MIN);
+    NonZeroUsize::new(c2 / pattern_len_cand).unwrap_or(NonZeroUsize::MIN)
 }
 
 /// Returns the number of base windings for a symmetric winding.
@@ -526,29 +526,29 @@ pub fn base_winding_count_symmetric(
     let t = NonZeroU16::new(gcd(slots.get(), pole_pairs.get()))
         .expect("cannot be zero, because gcd inputs are not zero");
     let r = hole_number(slots, pole_pairs, phases);
-    let n = r.denom().clone();
+    let n = *r.denom();
 
     // Check if the winding is an integer slot winding
     if n == 1 {
-        return t;
+        t
 
     // Check whether the fractional slot winding is of first or of second grade
     } else {
         // First grade fractional slot winding
         if n.is_odd() {
-            return t;
+            t
         } else {
             // Single-layer winding
             if layers.get() == 1 {
                 if t.get().is_odd() {
-                    return t;
+                    t
                 } else {
-                    return NonZeroU16::new(t.get() / 2).unwrap_or(NonZeroU16::MIN);
+                    NonZeroU16::new(t.get() / 2).unwrap_or(NonZeroU16::MIN)
                 }
 
             // Multi-layer winding
             } else {
-                return t;
+                t
             }
         }
     }
@@ -604,12 +604,12 @@ pub fn max_parallel_paths_symmetric(
 ) -> NonZeroU16 {
     let t = base_winding_count_symmetric(slots, pole_pairs, phases, layers);
     let number_of_coils_in_base_winding = slots.get() * layers.get() / (t.get() * 2 * phases.get());
-    if number_of_coils_in_base_winding % 2 == 0 {
+    if number_of_coils_in_base_winding.is_multiple_of(2) {
         // Antiparallel coil groups are possible
-        return NonZeroU16::new(2 * t.get()).expect("t is not zero");
+        NonZeroU16::new(2 * t.get()).expect("t is not zero")
     } else {
         // Only parallel coil groups are possible
-        return t;
+        t
     }
 }
 
@@ -624,7 +624,7 @@ pub fn max_parallel_paths_symmetric(
 /// Design of Rotating Electrical Machines, 1st edition, John Wiley &
 /// Sons, 2008, eq. (2.66).
 pub fn phasor_angle(slots: NonZeroU16, pole_pairs: NonZeroU16) -> f64 {
-    return TAU * (pole_pairs.get() as f64) / (slots.get() as f64);
+    TAU * (pole_pairs.get() as f64) / (slots.get() as f64)
 }
 
 /// An iterator over the possible numbers of parallel paths.
@@ -655,10 +655,10 @@ pub struct ParallelPathIterator {
 impl ParallelPathIterator {
     /// Creates a new [`ParallelPathIterator`].
     pub fn new(max_parallel_paths: NonZeroU16) -> ParallelPathIterator {
-        return ParallelPathIterator {
+        ParallelPathIterator {
             max_parallel_paths,
             index: 0,
-        };
+        }
     }
 
     /// Creates a [`ParallelPathIterator`] from the topology parameters of a
@@ -708,15 +708,15 @@ impl Iterator for ParallelPathIterator {
     fn next(&mut self) -> Option<NonZeroU16> {
         if self.index <= self.max_parallel_paths.get() {
             for _ in self.index..(self.max_parallel_paths.get() + 1) {
-                self.index = self.index + 1;
-                if (self.max_parallel_paths.get()) % self.index == 0 {
+                self.index += 1;
+                if (self.max_parallel_paths.get()).is_multiple_of(self.index) {
                     return Some(
                         NonZeroU16::new(self.index).expect("has been incremented at least once"),
                     );
                 }
             }
         }
-        return None;
+        None
     }
 }
 
@@ -752,13 +752,13 @@ impl<'a> WindingHarmonicsIterator<'a> {
         let equal_winding_factors = winding.equal_winding_factors();
         let base_winding_count = winding.base_winding_count().get();
         let phases = winding.phases().get();
-        return WindingHarmonicsIterator {
+        WindingHarmonicsIterator {
             winding,
             phases,
             base_winding_count,
             equal_winding_factors,
             mech_order: 0,
-        };
+        }
     }
 }
 
@@ -772,7 +772,7 @@ impl<'a> Iterator for WindingHarmonicsIterator<'a> {
         }
 
         // Update v_star
-        self.mech_order = self.mech_order + 1;
+        self.mech_order += 1;
 
         let winding_factor_all_phases = if self.equal_winding_factors {
             Some(
@@ -858,13 +858,13 @@ pub struct CoilsIterator<'a> {
 impl<'a> CoilsIterator<'a> {
     /// Creates a new [`CoilsIterator`] for the given [`Winding`].
     pub fn new(winding: &'a dyn Winding) -> CoilsIterator<'a> {
-        return CoilsIterator {
+        CoilsIterator {
             winding,
             slots: winding.slots(),
             layers: winding.layers(),
             slot_counter: 0,
             layer_counter: 0,
-        };
+        }
     }
 
     fn increment(&mut self) {
@@ -873,9 +873,9 @@ impl<'a> CoilsIterator<'a> {
         if self.layer_counter + 1 == self.layers.get() {
             // Reset the layer counter
             self.layer_counter = 0;
-            self.slot_counter = self.slot_counter + 1;
+            self.slot_counter += 1;
         } else {
-            self.layer_counter = self.layer_counter + 1;
+            self.layer_counter += 1;
         }
     }
 }
@@ -903,15 +903,15 @@ impl<'a> Iterator for CoilsIterator<'a> {
                 };
                 if return_this {
                     self.increment();
-                    return Some(&coil);
+                    Some(coil)
                 } else {
                     self.increment();
-                    return self.next();
+                    self.next()
                 }
             }
             None => {
                 self.increment();
-                return self.next();
+                self.next()
             }
         }
     }
@@ -1060,7 +1060,7 @@ impl Iterator for PhaseSequence {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = (2 * self.phases - self.index).abs() as usize;
+        let len = (2 * self.phases - self.index).unsigned_abs() as usize;
         (len, Some(len))
     }
 }
@@ -1107,5 +1107,5 @@ pub fn current_to_electric_loading_conversion_factor(
     phases: u16,
     air_gap_length: Length,
 ) -> ReciprocalLength {
-    return 2.0 * series_turns_per_phase * f64::from(phases) / air_gap_length;
+    2.0 * series_turns_per_phase * f64::from(phases) / air_gap_length
 }
