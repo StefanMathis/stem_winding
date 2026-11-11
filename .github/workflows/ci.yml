@@ -51,7 +51,7 @@ jobs:
           if [ "$RUNNER_OS" = "Linux" ]; then
             cargo build --all-features
           else
-            cargo build --no-default-features --features stem_core serde
+            cargo build --no-default-features --features "stem_core,serde"
           fi
 
       - name: Test
@@ -60,7 +60,7 @@ jobs:
           if [ "$RUNNER_OS" = "Linux" ]; then
             cargo test --all-features
           else
-            cargo test --no-default-features --features stem_core serde
+            cargo test --no-default-features --features "stem_core,serde"
           fi
 
   quality:
