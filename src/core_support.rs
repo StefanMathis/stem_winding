@@ -1,4 +1,5 @@
-//! Helpers for calculating physical properties of a [`Winding`].
+//! Helpers for calculating physical properties of a [`Winding`]. This module is
+//! only available if the `stem_core` feature is enabled.
 //!
 //! This module provides implementations for some [`Winding`] methods gated
 //! behind the `stem_core` feature, as well as [`CoilProperties`] and
@@ -694,8 +695,9 @@ pub fn end_winding_leakage_inductance_distributed<W: Winding>(
         / f64::from(winding.pole_pairs().get())
 }
 
-/// Approximates the length of an end-winding half turn for a [`FullCoil`] at
-/// the specified `zone` with a semi-circle.
+/// Approximates the length of an end-winding half turn for a
+/// [`FullCoil`](crate::coils::FullCoil) at the specified `zone` with a
+/// semi-circle.
 #[doc = ""]
 #[cfg_attr(
     feature = "doc-images",
@@ -721,8 +723,9 @@ pub fn end_winding_leakage_inductance_distributed<W: Winding>(
 ///
 /// with `2 * bending_radius` being the distance between the centroids.
 ///
-/// If the coil at `zone` is not a [`FullCoil`], this function returns zero.
-/// The returned length corresponds to the centerline of the conductor path.
+/// If the coil at `zone` is not a [`FullCoil`](crate::coils::FullCoil), this
+/// function returns zero. The returned length corresponds to the centerline of
+/// the conductor path.
 pub fn end_winding_half_turn_length_semicircle<W: Winding + ?Sized>(
     winding: &W,
     core: CoreRef<'_>,
@@ -756,8 +759,9 @@ pub fn end_winding_half_turn_length_semicircle<W: Winding + ?Sized>(
     }
 }
 
-/// Approximates the length of an end-winding half turn for a [`FullCoil`] at
-/// the specified `zone` with a circular arc along the front side of the `core`.
+/// Approximates the length of an end-winding half turn for a
+/// [`FullCoil`](crate::coils::FullCoil) at the specified `zone` with a circular
+/// arc along the front side of the `core`.
 #[doc = ""]
 #[cfg_attr(
     feature = "doc-images",
@@ -792,8 +796,9 @@ pub fn end_winding_half_turn_length_semicircle<W: Winding + ?Sized>(
 /// The circular arc goes from the centroids centers and its readius is the mean
 /// radius of the two zones `eq_center_radius`.
 ///
-/// If the coil at `zone` is not a [`FullCoil`], this function returns zero.
-/// The returned length corresponds to the centerline of the conductor path.
+/// If the coil at `zone` is not a [`FullCoil`](crate::coils::FullCoil), this
+/// function returns zero. The returned length corresponds to the centerline of
+/// the conductor path.
 ///
 /// This function is the equivalent of [`end_winding_half_turn_length_straight`]
 /// for rotary cores.
@@ -894,9 +899,9 @@ pub fn end_winding_half_turn_length_circular_arc<W: Winding + ?Sized>(
     }
 }
 
-/// Approximates the length of an end-winding half turn for a [`FullCoil`] at
-/// the specified `zone` with a straight line along the front side of the
-/// `core`.
+/// Approximates the length of an end-winding half turn for a
+/// [`FullCoil`](crate::coils::FullCoil) at the specified `zone` with a straight
+/// line along the front side of the `core`.
 #[doc = ""]
 #[cfg_attr(
     feature = "doc-images",
@@ -928,8 +933,9 @@ pub fn end_winding_half_turn_length_circular_arc<W: Winding + ?Sized>(
 /// bending correspondingly also shortens the circular arc, so that the full
 /// contribution of a bending becomes `(π/2 - 1) * radius`.
 ///
-/// If the coil at `zone` is not a [`FullCoil`], this function returns zero.
-/// The returned length corresponds to the centerline of the conductor path.
+/// If the coil at `zone` is not a [`FullCoil`](crate::coils::FullCoil), this
+/// function returns zero. The returned length corresponds to the centerline of
+/// the conductor path.
 ///
 /// This function is the equivalent of
 /// [`end_winding_half_turn_length_circular_arc`] for linear cores.

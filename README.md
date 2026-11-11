@@ -227,7 +227,7 @@ let mass: Mass = winding
 assert_abs_diff_eq!(mass.get::<gram>(), 6.055, epsilon = 0.001);
 ```
 
-## Visualization
+# Visualization
 
 If the `cairo` feature is enabled, this crate provides two ways to visualize a
 winding. The first shows the coil sides arranged in a winding table within the
@@ -246,7 +246,7 @@ tooth-coil winding from the first example.
 The executable example at `examples/winding_plots.rs` demonstrates both
 visualization methods.
 
-## Predefined winding types
+# Predefined winding types
 
 In addition to the [`Winding`] trait, this crate provides several predefined
 winding types implementing this trait:

@@ -664,7 +664,7 @@ fn negative_current_arrow(diameter_arrow: f64, color: Color) -> Option<[Drawable
 fn arrow_diameters<I: Iterator<Item = Contour>>(contours: I, relative_diameter: f64) -> [f64; 2] {
     // Get the maximum arrow diameter by identifying the maximum circle which can be
     // fitted in the slot when its center equals the centroid.
-    let mut dia_arrow = std::f64::INFINITY;
+    let mut dia_arrow = f64::INFINITY;
 
     for contour in contours {
         let center = contour.centroid();
@@ -693,9 +693,9 @@ fn arrow_diameters<I: Iterator<Item = Contour>>(contours: I, relative_diameter: 
             (intersections_vertical[0].point[1] - intersections_vertical[1].point[1]).abs();
 
         let temp_dia_arrow = if width > heigth {
-            heigth * relative_diameter.clamp(0.0, std::f64::INFINITY)
+            heigth * relative_diameter.clamp(0.0, f64::INFINITY)
         } else {
-            width * relative_diameter.clamp(0.0, std::f64::INFINITY)
+            width * relative_diameter.clamp(0.0, f64::INFINITY)
         };
         if temp_dia_arrow < dia_arrow {
             dia_arrow = temp_dia_arrow;

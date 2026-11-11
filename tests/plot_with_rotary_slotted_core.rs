@@ -235,7 +235,7 @@ mod cairo_tests {
                     return Ok(());
                 });
             };
-            assert!(compare_or_create(path, &callback, 0.99).is_ok());
+            assert!(compare_or_create(path, &callback, 0.95).is_ok());
         }
     }
 

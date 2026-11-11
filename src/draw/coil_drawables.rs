@@ -24,10 +24,7 @@ doc = ::embed_doc_image::embed_image!("coil_drawable_method_1.svg", "docs/img/co
 
 use std::{
     collections::HashMap,
-    f64::{
-        INFINITY,
-        consts::{FRAC_PI_2, PI},
-    },
+    f64::consts::{FRAC_PI_2, PI},
     num::NonZeroU16,
 };
 
@@ -438,7 +435,7 @@ impl CoilDrawablesConfig {
     /// [`CoilDrawablesConfig`] to ensure sane behavior even for negative
     /// inputs.
     pub fn arrowhead_length_clamped(&self) -> f64 {
-        self.arrowhead_length.clamp(0.0, INFINITY)
+        self.arrowhead_length.clamp(0.0, f64::INFINITY)
     }
 
     /// Returns the [`CoilDrawablesConfig::arrow_head_height`] clamped to the [0
@@ -448,7 +445,7 @@ impl CoilDrawablesConfig {
     /// [`CoilDrawablesConfig`] to ensure sane behavior even for negative
     /// inputs.
     pub fn arrow_head_height_clamped(&self) -> f64 {
-        self.arrow_head_height.clamp(0.0, INFINITY)
+        self.arrow_head_height.clamp(0.0, f64::INFINITY)
     }
 
     /// Returns the [`CoilDrawablesConfig::line_width`] clamped to the [0 ...
@@ -458,7 +455,7 @@ impl CoilDrawablesConfig {
     /// [`CoilDrawablesConfig`] to ensure sane behavior even for negative
     /// inputs.
     pub fn line_width_clamped(&self) -> f64 {
-        self.line_width.clamp(0.0, INFINITY)
+        self.line_width.clamp(0.0, f64::INFINITY)
     }
 
     /// Returns the [`CoilDrawablesConfig::slot_width`] clamped to the [0 ...
@@ -468,7 +465,7 @@ impl CoilDrawablesConfig {
     /// [`CoilDrawablesConfig`] to ensure sane behavior even for negative
     /// inputs.
     pub fn slot_width_clamped(&self) -> f64 {
-        self.slot_width.clamp(0.0, INFINITY)
+        self.slot_width.clamp(0.0, f64::INFINITY)
     }
 
     /// Returns the [`CoilDrawablesConfig::tooth_width`] clamped to the [0 ...
@@ -478,7 +475,7 @@ impl CoilDrawablesConfig {
     /// [`CoilDrawablesConfig`] to ensure sane behavior even for negative
     /// inputs.
     pub fn tooth_width_clamped(&self) -> f64 {
-        self.tooth_width.clamp(0.0, INFINITY)
+        self.tooth_width.clamp(0.0, f64::INFINITY)
     }
 
     /// Returns the [`CoilDrawablesConfig::axial_length`] clamped to the [0 ...
@@ -488,7 +485,7 @@ impl CoilDrawablesConfig {
     /// [`CoilDrawablesConfig`] to ensure sane behavior even for negative
     /// inputs.
     pub fn axial_length_clamped(&self) -> f64 {
-        self.axial_length.clamp(0.0, INFINITY)
+        self.axial_length.clamp(0.0, f64::INFINITY)
     }
 
     /// Returns the [`CoilDrawablesConfig::axial_coil_overhang`] clamped to the
@@ -498,7 +495,7 @@ impl CoilDrawablesConfig {
     /// [`CoilDrawablesConfig`] to ensure sane behavior even for negative
     /// inputs.
     pub fn axial_coil_overhang_clamped(&self) -> f64 {
-        self.axial_coil_overhang.clamp(0.0, INFINITY)
+        self.axial_coil_overhang.clamp(0.0, f64::INFINITY)
     }
 
     /// Returns the [`CoilDrawablesConfig::delta_empty_zone`] clamped to the [0
@@ -508,7 +505,7 @@ impl CoilDrawablesConfig {
     /// [`CoilDrawablesConfig`] to ensure sane behavior even for negative
     /// inputs.
     pub fn delta_empty_zone_clamped(&self) -> f64 {
-        self.delta_empty_zone.clamp(0.0, INFINITY)
+        self.delta_empty_zone.clamp(0.0, f64::INFINITY)
     }
 
     /// Returns the maximum height of all coil drawables which would be produced
