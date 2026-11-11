@@ -487,9 +487,7 @@ impl WindingTableConstructor {
             "Coil side" => Some(WindingTableConstructor::CoilSide),
             "Algebraic" => Some(WindingTableConstructor::Algebraic),
             "Star of slots" => Some(WindingTableConstructor::StarOfSlots),
-            "Distribution table" => {
-                Some(WindingTableConstructor::DistributionTable)
-            }
+            "Distribution table" => Some(WindingTableConstructor::DistributionTable),
             _ => None,
         }
     }
@@ -578,12 +576,12 @@ impl WindingTable {
         if let Some(halfed_slots) = NonZeroU16::new(slots_num / 2) {
             {
                 let mut winding_table_dl = Self::tingley(
-                halfed_slots,
-                NonZeroU16::new(2).expect("is not zero"),
-                pole_pairs,
-                phases,
-                1,
-            )?;
+                    halfed_slots,
+                    NonZeroU16::new(2).expect("is not zero"),
+                    pole_pairs,
+                    phases,
+                    1,
+                )?;
                 // "Flatten" the tingley pattern, doubling the number of
                 // slots and halfing the number of layers in the process
                 // This compensates the aforementioned halfing of the slots.
@@ -927,7 +925,7 @@ impl WindingTable {
         // q_1 = q_2 (N' being even) or q_1 = q_2+1 (N' being odd).
         let q12 = slots_num * layers_num / (2 * phases_num); // q_12 = q_1+q_2
         let q1: u16;
-        
+
         let q2: u16 = if q12.is_even() {
             q1 = q12 / 2; // q_1 + q_2 = 2*q_1 = q_12
             q1
@@ -1105,7 +1103,7 @@ impl WindingTable {
             // contains any zeros anymore. In this case, idx is increased until it is
             // equal to the number of elements in the WDT.
             if index == num_elements {
-                return ;
+                return;
             }
 
             let row = index.rem_euclid(number_rows);
@@ -1167,7 +1165,7 @@ impl WindingTable {
         // TODO: empty slots are currently not implemented, this code is kept in case
         // empty slots will be implemented later.
         let empty_slots = 0;
-        
+
         let halfpoint = if empty_slots == 0 {
             number_rows / 2
 

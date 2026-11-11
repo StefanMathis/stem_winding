@@ -428,8 +428,7 @@ impl DistributedToothCoilWinding {
     /// [`DistributedToothCoilWinding::coil_data`] which access coil-specific
     /// information based on their index within the coil group.
     pub fn coils_per_coil_group(&self) -> NonZeroUsize {
-        self
-            .coil_data
+        self.coil_data
             .len()
             .try_into()
             .expect("constructor ensures there is at least one entry")
@@ -1011,7 +1010,10 @@ impl TryFrom<DistributedToothCoilBuilder> for DistributedToothCoilWinding {
             builder.phases,
             builder.layers,
         );
-        if !max_par_paths.get().is_multiple_of(builder.parallel_paths.get()) {
+        if !max_par_paths
+            .get()
+            .is_multiple_of(builder.parallel_paths.get())
+        {
             return Err(Error::InvalidNumberParallelPaths {
                 maximum: max_par_paths,
                 given: builder.parallel_paths,

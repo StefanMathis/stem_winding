@@ -609,7 +609,10 @@ impl TryFrom<ToothCoilBuilder> for ToothCoilWinding {
             builder.phases,
             builder.layers,
         );
-        if !max_par_paths.get().is_multiple_of(builder.parallel_paths.get()) {
+        if !max_par_paths
+            .get()
+            .is_multiple_of(builder.parallel_paths.get())
+        {
             return Err(Error::InvalidNumberParallelPaths {
                 maximum: max_par_paths,
                 given: builder.parallel_paths,
