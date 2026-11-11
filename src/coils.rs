@@ -295,11 +295,6 @@ impl Coils {
         self.0.values_mut()
     }
 
-    /// Consumes `self` and returns an iterator over all of its coils.
-    pub fn into_iter(self) -> impl Iterator<Item = Coil> {
-        self.0.into_values()
-    }
-
     /// Returns an iterator over all zones and the coils occupying them.
     ///
     /// Since multiple zones can point to the same coil, some cois can be
@@ -356,6 +351,16 @@ impl Coils {
     /// assert_eq!(coils.iter_zones().count(), 2);
     pub fn iter_zones(&self) -> impl Iterator<Item = &Zone> {
         self.0.keys()
+    }
+}
+
+impl IntoIterator for Coils {
+    type Item = Coil;
+
+    type IntoIter = keyring_map::IntoValues<Coil>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_values()
     }
 }
 

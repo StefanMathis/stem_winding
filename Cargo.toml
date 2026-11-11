@@ -15,7 +15,7 @@ compare_variables = { version = "0.3.0", features = ["proc_macro"] }
 deserialize_untagged_verbose_error = { version = "0.1.8", optional = true }
 dyn-clone = "1"
 embed-doc-image = { version = "0.1.4", optional = true }
-keyring_map = "0.1.1"
+keyring_map = "0.1.2"
 num = "0.4.0"
 rayon = "1.5"
 realfft = "3.5"

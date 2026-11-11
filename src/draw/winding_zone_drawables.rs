@@ -725,7 +725,7 @@ mod tests {
             },
         )
         .unwrap();
-        drawables.extend(arrow_pos.into_iter());
+        drawables.extend(arrow_pos);
 
         let mut arrow_neg = negative_current_arrow(
             2.0,
@@ -740,7 +740,7 @@ mod tests {
         for d in arrow_neg.iter_mut() {
             d.translate([3.0, 0.0]);
         }
-        drawables.extend(arrow_neg.into_iter());
+        drawables.extend(arrow_neg);
 
         let view =
             Viewport::from_bounded_entities(drawables.iter(), SideLength::Long(500)).unwrap();

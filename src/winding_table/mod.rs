@@ -1136,7 +1136,7 @@ mod tests {
         table[Zone { slot: 4, layer: 1 }] = -1;
         table[Zone { slot: 5, layer: 0 }] = -2;
         table[Zone { slot: 5, layer: 1 }] = 3;
-        return table;
+        table
     }
 
     #[test]
