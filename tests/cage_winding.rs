@@ -1,5 +1,4 @@
 use std::num::NonZeroU16;
-use std::str::FromStr;
 
 use stem_winding::prelude::*;
 
@@ -200,6 +199,7 @@ mod serde_tests {
 #[cfg(feature = "stem_core")]
 mod stem_core_tests {
 
+    use std::str::FromStr;
     use std::sync::Arc;
 
     use stem_winding::var_quantity::unary::FirstOrderTaylor;

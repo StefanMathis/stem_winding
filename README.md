@@ -131,6 +131,8 @@ distributed winding placed in a rotary core as shown in the opening
 illustration.
 
 ```rust
+# #[cfg(feature = "stem_core")]
+# {
 use std::str::FromStr;
 use std::sync::Arc;
 use std::num::{NonZeroU16, NonZeroUsize};
@@ -225,6 +227,7 @@ let mass: Mass = winding
     .coil_properties_iter(core.as_core_ref())
     .map(|cp| cp.volume() * cp.material().mass_density().eval(&[])).sum();
 assert_abs_diff_eq!(mass.get::<gram>(), 6.055, epsilon = 0.001);
+# }
 ```
 
 # Visualization
@@ -289,17 +292,19 @@ use std::sync::Arc;
 use std::num::NonZeroU16;
 use approxim::assert_abs_diff_eq;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use stem_winding::prelude::*;
 
 // A winding consisting of exactly one coil. All windings must be cloneable.
 // The serde feature additionally requires Serialize and Deserialize.
-#[derive(Clone, Deserialize, Serialize)] 
+#[derive(Clone)] 
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 struct SingleCoilWinding(Coil);
 
 // Required for serializing trait objects when the serde feature is enabled.
-#[typetag::serde]
+#[cfg_attr(feature = "serde", typetag::serde)]
 impl Winding for SingleCoilWinding {
     fn phases(&self) -> NonZeroU16 {
         NonZeroU16::new(1).expect("not zero")

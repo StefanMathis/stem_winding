@@ -80,8 +80,8 @@ fn winding_table_reference_img() -> Result<(), Box<dyn std::error::Error>> {
     bb.try_set_ymax(-ymin);
     bb.scale(1.01);
 
-    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("docs/img/winding_table_reference_img.svg");
+    let fp =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/winding_table_reference_img.svg");
     let view = Viewport::from_bounding_box(&bb, SideLength::Long(800));
     view.write_to_file(&fp, |cr| {
         cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -428,7 +428,8 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
             BoundingBox::from_bounded_entities(drawables.iter()).expect("has at least one element");
         bb.scale(1.02);
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/zone_drawables_config_no_zone_config.svg");
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("docs/img/zone_drawables_config_no_zone_config.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -499,7 +500,8 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
             BoundingBox::from_bounded_entities(drawables.iter()).expect("has at least one element");
         bb.scale(1.02);
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/zone_drawables_config_zone_arrow_color_by_phase.svg");
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("docs/img/zone_drawables_config_zone_arrow_color_by_phase.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -536,7 +538,8 @@ fn zone_drawables_config() -> Result<(), Box<dyn std::error::Error>> {
             BoundingBox::from_bounded_entities(drawables.iter()).expect("has at least one element");
         bb.scale(1.02);
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/zone_drawables_config_zone_arrow_black_normalized_current.svg");
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("docs/img/zone_drawables_config_zone_arrow_black_normalized_current.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -591,8 +594,7 @@ fn zone_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
         BoundingBox::from_bounded_entities(drawables.iter()).expect("has at least one element");
     bb.scale(1.02);
 
-    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("docs/img/zone_drawable_method_1.svg");
+    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/zone_drawable_method_1.svg");
     let view = Viewport::from_bounding_box(&bb, side_length);
     view.write_to_file(&fp, |cr| {
         cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -624,8 +626,7 @@ fn zone_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
         BoundingBox::from_bounded_entities(drawables.iter()).expect("has at least one element");
     bb.scale(1.02);
 
-    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("docs/img/zone_drawable_method_2.svg");
+    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/zone_drawable_method_2.svg");
     let view = Viewport::from_bounding_box(&bb, side_length);
     view.write_to_file(&fp, |cr| {
         cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -661,8 +662,7 @@ fn coil_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
 
     let drawables = winding.coil_drawables(&config).map(|z| z.0);
 
-    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("docs/img/coil_drawable_method_1.svg");
+    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/coil_drawable_method_1.svg");
     let view = Viewport::from_bounding_box(&bb, side_length);
     view.write_to_file(&fp, |cr| {
         cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -681,8 +681,7 @@ fn coil_drawables_method() -> Result<(), Box<dyn std::error::Error>> {
 
     let drawables = winding.coil_drawables(&config).map(|z| z.0);
 
-    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("docs/img/coil_drawable_method_2.svg");
+    let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/coil_drawable_method_2.svg");
     let view = Viewport::from_bounding_box(&bb, side_length);
     view.write_to_file(&fp, |cr| {
         cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -726,8 +725,8 @@ fn tooth_coil_winding(zone_config: &ZoneDrawablesConfig) -> Result<(), Box<dyn s
             -bb.ymin() + 0.08 * h,
         );
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("docs/img/coils_tooth_coil_winding.svg");
+        let fp =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/coils_tooth_coil_winding.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -759,8 +758,8 @@ fn tooth_coil_winding(zone_config: &ZoneDrawablesConfig) -> Result<(), Box<dyn s
             -bb.ymin() + 0.01 * h,
         );
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("docs/img/table_tooth_coil_winding.svg");
+        let fp =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/table_tooth_coil_winding.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -898,7 +897,8 @@ fn distributed_winding_concentric() -> Result<(), Box<dyn std::error::Error>> {
             -bb.ymin() + 0.08 * h,
         );
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/coils_distributed_winding_concentric_false.svg");
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("docs/img/coils_distributed_winding_concentric_false.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -933,7 +933,8 @@ fn distributed_winding_concentric() -> Result<(), Box<dyn std::error::Error>> {
             -bb.ymin() + 0.08 * h,
         );
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/coils_distributed_winding_concentric_true.svg");
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("docs/img/coils_distributed_winding_concentric_true.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -1081,7 +1082,8 @@ fn distributed_winding_zone_shift(
             -bb.ymin() + 0.01 * h,
         );
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/table_distributed_winding_zone_shift_0.svg");
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("docs/img/table_distributed_winding_zone_shift_0.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -1124,7 +1126,8 @@ fn distributed_winding_zone_shift(
             -bb.ymin() + 0.01 * h,
         );
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/table_distributed_winding_zone_shift_1.svg");
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("docs/img/table_distributed_winding_zone_shift_1.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -1168,7 +1171,8 @@ fn distributed_winding_zone_shift(
             -bb.ymin() + 0.01 * h,
         );
 
-        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("docs/img/table_distributed_winding_zone_shift_2.svg");
+        let fp = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("docs/img/table_distributed_winding_zone_shift_2.svg");
         let view = Viewport::from_bounding_box(&bb, side_length);
         view.write_to_file(&fp, |cr| {
             cr.set_source_rgb(1.0, 1.0, 1.0);
@@ -1340,12 +1344,13 @@ fn distributed_tooth_coil_winding(
 
         let side_length = SideLength::Long(600);
 
-        let drawables = winding
-            .zone_drawables(core.as_core_ref(), zone_config)
-            .map(|(mut z, _)| {
-                z.line_reflection([0.0, 0.0], [1.0, 0.0]);
-                z
-            });
+        let drawables =
+            winding
+                .zone_drawables(core.as_core_ref(), zone_config)
+                .map(|(mut z, _)| {
+                    z.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                    z
+                });
 
         let bb = core.shape().bounding_box();
         let w = bb.width();
@@ -1391,12 +1396,13 @@ fn distributed_tooth_coil_winding(
 
         let side_length = SideLength::Long(600);
 
-        let drawables = winding
-            .zone_drawables(core.as_core_ref(), zone_config)
-            .map(|(mut z, _)| {
-                z.line_reflection([0.0, 0.0], [1.0, 0.0]);
-                z
-            });
+        let drawables =
+            winding
+                .zone_drawables(core.as_core_ref(), zone_config)
+                .map(|(mut z, _)| {
+                    z.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                    z
+                });
 
         let bb = core.shape().bounding_box();
         let w = bb.width();
@@ -1442,12 +1448,13 @@ fn distributed_tooth_coil_winding(
             let mut core_drawable: Drawable = core.drawable().into();
             core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
 
-            let drawables = winding
-                .zone_drawables(core.as_core_ref(), zone_config)
-                .map(|(mut z, _)| {
-                    z.line_reflection([0.0, 0.0], [1.0, 0.0]);
-                    z
-                });
+            let drawables =
+                winding
+                    .zone_drawables(core.as_core_ref(), zone_config)
+                    .map(|(mut z, _)| {
+                        z.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                        z
+                    });
 
             let bb = core.shape().bounding_box();
             let w = bb.width();
@@ -1571,12 +1578,13 @@ fn distributed_tooth_coil_winding(
 
         let side_length = SideLength::Long(600);
 
-        let drawables = winding
-            .zone_drawables(core.as_core_ref(), zone_config)
-            .map(|(mut z, _)| {
-                z.line_reflection([0.0, 0.0], [1.0, 0.0]);
-                z
-            });
+        let drawables =
+            winding
+                .zone_drawables(core.as_core_ref(), zone_config)
+                .map(|(mut z, _)| {
+                    z.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                    z
+                });
 
         let bb = core.shape().bounding_box();
         let w = bb.width();
@@ -1622,12 +1630,13 @@ fn distributed_tooth_coil_winding(
             let mut core_drawable: Drawable = core.drawable().into();
             core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
 
-            let drawables = winding
-                .zone_drawables(core.as_core_ref(), zone_config)
-                .map(|(mut z, _)| {
-                    z.line_reflection([0.0, 0.0], [1.0, 0.0]);
-                    z
-                });
+            let drawables =
+                winding
+                    .zone_drawables(core.as_core_ref(), zone_config)
+                    .map(|(mut z, _)| {
+                        z.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                        z
+                    });
 
             let bb = core.shape().bounding_box();
             let w = bb.width();
@@ -1717,12 +1726,13 @@ fn distributed_tooth_coil_winding(
         let mut core_drawable: Drawable = core.drawable().into();
         core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
 
-        let drawables = winding
-            .zone_drawables(core.as_core_ref(), zone_config)
-            .map(|(mut z, _)| {
-                z.line_reflection([0.0, 0.0], [1.0, 0.0]);
-                z
-            });
+        let drawables =
+            winding
+                .zone_drawables(core.as_core_ref(), zone_config)
+                .map(|(mut z, _)| {
+                    z.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                    z
+                });
 
         let bb = core.shape().bounding_box();
         let w = bb.width();
@@ -1768,12 +1778,13 @@ fn distributed_tooth_coil_winding(
         let mut core_drawable: Drawable = core.drawable().into();
         core_drawable.line_reflection([0.0, 0.0], [1.0, 0.0]);
 
-        let drawables = winding
-            .zone_drawables(core.as_core_ref(), zone_config)
-            .map(|(mut z, _)| {
-                z.line_reflection([0.0, 0.0], [1.0, 0.0]);
-                z
-            });
+        let drawables =
+            winding
+                .zone_drawables(core.as_core_ref(), zone_config)
+                .map(|(mut z, _)| {
+                    z.line_reflection([0.0, 0.0], [1.0, 0.0]);
+                    z
+                });
 
         let bb = core.shape().bounding_box();
         let w = bb.width();

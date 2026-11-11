@@ -460,6 +460,8 @@ impl CoilAssembly {
     /// during construction. The third value is calculated.
     ///
     /// ```
+    /// # #[cfg(feature = "stem_core")]
+    /// # {
     /// use stem_winding::prelude::*;
     ///
     /// let phase_data = vec![
@@ -505,6 +507,7 @@ impl CoilAssembly {
     ///     winding.resistance(core.as_core_ref(), 3.try_into().expect("not zero")).eval(&[]).get::<ohm>(),
     ///     0.0
     /// );
+    /// # }
     /// ```
     pub fn phase_data(&self) -> &[PhaseData] {
         &self.phase_data
@@ -521,6 +524,8 @@ impl CoilAssembly {
     /// # Examples
     ///
     /// ```
+    /// # #[cfg(feature = "stem_core")]
+    /// # {
     /// use stem_winding::prelude::*;
     ///
     /// let mut winding = CoilAssembly::new(
@@ -553,6 +558,7 @@ impl CoilAssembly {
     ///     winding.resistance(core.as_core_ref(), 3.try_into().expect("not zero")).eval(&[]).get::<ohm>(),
     ///     1.5
     /// );
+    /// # }
     /// ```
     pub fn phase_data_mut(&mut self) -> &mut [PhaseData] {
         &mut self.phase_data

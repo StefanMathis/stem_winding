@@ -42,12 +42,17 @@ cairo = ["stem_core", "stem_core?/cairo", "dep:colorgrad"]
 doc-images = ["dep:embed-doc-image"]
 
 [dev-dependencies]
-cairo_viewport = { version = "0.3", features = ["image-compare"]}
 serde_mosaic = { version = "0.3", features = ["serde_yaml"] }
 indoc = "1.0"
 serde_yaml = "0.8"
-stem_winding = { path = ".", features = ["cairo", "serde", "stem_core"] }
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+cairo_viewport = { version = "0.3", features = ["image-compare"] }
 
 [package.metadata.docs.rs]
 features = ["serde", "cairo", "doc-images", "stem_core"]
 rustdoc-args = ["--cfg", "docsrs"]
+
+[[example]]
+name = "winding_plots"
+required-features = ["cairo"]

@@ -56,6 +56,8 @@ coils, it is not necessary to use the map representation of the serialization
 format:
 
 ```
+# #[cfg(feature = "serde")]
+# {
 use indoc::indoc;
 use stem_winding::prelude::*;
 use serde_yaml;
@@ -102,6 +104,7 @@ use serde_yaml;
 let coils: Coils = serde_yaml::from_str(yaml).unwrap();
 assert_eq!(coils.num_coils(), 2);
 assert_eq!(coils.num_zones(), 4);
+# }
 ```
 */
 #[derive(Clone, Debug)]
@@ -1553,27 +1556,21 @@ impl<'a> Iterator for ZoneAndPolarityIterator<'a> {
         self.counter += 1;
         match self.coil {
             Coil::Full(coil) => match self.counter {
-                1 => {
-                    Some(ZoneAndPolarity {
-                        zone: coil.positive_zone(),
-                        is_positive: true,
-                    })
-                }
-                2 => {
-                    Some(ZoneAndPolarity {
-                        zone: coil.negative_zone(),
-                        is_positive: false,
-                    })
-                }
+                1 => Some(ZoneAndPolarity {
+                    zone: coil.positive_zone(),
+                    is_positive: true,
+                }),
+                2 => Some(ZoneAndPolarity {
+                    zone: coil.negative_zone(),
+                    is_positive: false,
+                }),
                 _ => None,
             },
             Coil::Half(coil) => match self.counter {
-                1 => {
-                    Some(ZoneAndPolarity {
-                        zone: coil.zone(),
-                        is_positive: coil.is_positive(),
-                    })
-                }
+                1 => Some(ZoneAndPolarity {
+                    zone: coil.zone(),
+                    is_positive: coil.is_positive(),
+                }),
                 _ => None,
             },
         }
