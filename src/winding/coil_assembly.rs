@@ -830,10 +830,9 @@ impl Winding for CoilAssembly {
             .end_winding_half_turn_length_overrides
             .get(&zone)
             .cloned()
+            && length >= Length::new::<meter>(0.0)
         {
-            if length >= Length::new::<meter>(0.0) {
-                return length;
-            }
+            return length;
         }
 
         let coil = match self.coil_at(zone) {

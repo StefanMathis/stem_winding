@@ -82,7 +82,7 @@ impl<W: Winding> FromWinding<W> for RotCore {
         }
 
         // Raise yoke_radius
-        yoke_radius = yoke_radius + Length::new::<millimeter>(5.0);
+        yoke_radius += Length::new::<millimeter>(5.0);
 
         // Create slot and core object (they are just used for plotting purposes)
         let slot: SemiTrapezoidSlot = SemiTrapezoidWithoutSlopesBuilder {
@@ -99,7 +99,7 @@ impl<W: Winding> FromWinding<W> for RotCore {
         .try_into()
         .expect("slot can always be created from the given values.");
 
-        return RotCoreBuilder {
+        RotCoreBuilder {
             air_gap_radius,
             yoke_radius,
             axial_length: 4.0 * bottom_width,
@@ -117,7 +117,7 @@ impl<W: Winding> FromWinding<W> for RotCore {
             flux_barrier: None,
         }
         .try_into()
-        .expect("valid geometric data");
+        .expect("valid geometric data")
     }
 }
 
@@ -153,7 +153,7 @@ impl<W: Winding> FromWinding<W> for LinCore {
         .try_into()
         .expect("slot can always be created from the given values.");
 
-        return LinCoreBuilder {
+        LinCoreBuilder {
             height: core_height,
             width: core_width,
             axial_length: 4.0 * bottom_width,
@@ -171,7 +171,7 @@ impl<W: Winding> FromWinding<W> for LinCore {
             flux_barrier: None,
         }
         .try_into()
-        .expect("valid geometric data");
+        .expect("valid geometric data")
     }
 }
 
@@ -196,8 +196,7 @@ impl<'a> Iterator for CoilPropertyIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.coils
             .next()
-            .map(|coil| self.winding.coil_properties_at(self.core, coil.any_zone()))
-            .flatten()
+            .and_then(|coil| self.winding.coil_properties_at(self.core, coil.any_zone()))
     }
 }
 
@@ -338,7 +337,7 @@ impl<'a> CoilProperties<'a> {
             .coil
             .wire()
             .effective_conductor_area(zone_area, self.coil.turns());
-        return self.coil.turns().get() as f64 * cross_section * self.axial_half_turn_length();
+        self.coil.turns().get() as f64 * cross_section * self.axial_half_turn_length()
     }
 
     /// Returns the total conductor volume of the axial coil parts.
