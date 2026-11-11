@@ -49,7 +49,7 @@ jobs:
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "Linux" ]; then
-            cargo build --all-features
+            cargo build --all-features --features stem_core serde
           else
             cargo build --no-default-features
           fi
@@ -58,7 +58,7 @@ jobs:
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "Linux" ]; then
-            cargo test --all-features
+            cargo test --all-features --features stem_core serde
           else
             cargo test --no-default-features
           fi
