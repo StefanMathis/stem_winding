@@ -367,12 +367,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     ///
     /// The default implementation therefore returns zero. Winding types for
     /// which an analytical approximation is available should override this
-    /// method. Such calculations often require the end-winding turn length;
-    /// this can either be obtained from
-    /// [`Winding::end_winding_half_turn_length`] or supplied explicitly
-    /// through `end_winding_half_turn_length`. The latter is useful when
-    /// the actual turn length is known from a measurement which should be used
-    /// instead of a geometric approximation.
+    /// method.
     ///
     /// # Literature
     /// <a id="end_winding_leakage_inductance_1">\[1\]</a>
