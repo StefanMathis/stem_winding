@@ -23,6 +23,7 @@ modify the components. -->
 [coils_tooth_coil_winding.svg]: https://raw.githubusercontent.com/StefanMathis/stem_winding/refs/heads/main/docs/img/coils_tooth_coil_winding.svg
 
 [![Documentation](https://docs.rs/stem_winding/badge.svg)](https://docs.rs/stem_winding)
+[![CI](https://github.com/StefanMathis/stem_winding/actions/workflows/ci.yml/badge.svg)](https://github.com/StefanMathis/stem_winding/actions/workflows/ci.yml)
 
 Winding definition for stem – a Simulation Toolbox for Electric Motors. The
 [stem book] provides a comprehensive
