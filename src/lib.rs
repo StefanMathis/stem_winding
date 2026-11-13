@@ -38,11 +38,12 @@ pub mod core_support;
 pub mod winding;
 pub mod winding_table;
 
-pub use stem_types;
-pub use stem_wire::{self, stem_material, stem_material::var_quantity};
-
 #[cfg(feature = "stem_core")]
+#[doc(hidden)]
 pub use stem_core::{self, stem_magnet, stem_slot};
+
+#[doc(hidden)]
+pub use stem_wire::{self, stem_material, stem_material::var_quantity};
 
 #[cfg(feature = "cairo")]
 pub mod draw;
@@ -86,7 +87,9 @@ pub mod prelude {
     pub use stem_wire::prelude::*;
 
     // Integrate these docs into stem_winding
+    #[doc(hidden)]
     pub use stem_types;
+    #[doc(hidden)]
     pub use stem_types::*;
 
     #[cfg(feature = "stem_core")]

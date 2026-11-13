@@ -7,7 +7,7 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-pub use stem_types::Zone;
+use stem_types::Zone;
 
 use std::{marker::PhantomData, num::NonZeroU16};
 

@@ -1,5 +1,6 @@
 use indoc::indoc;
 use std::num::NonZeroU16;
+use stem_types::Zone;
 
 use stem_winding::winding_table::*;
 
