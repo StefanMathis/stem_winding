@@ -377,7 +377,8 @@ mod stem_core_tests {
                 .end_winding_leakage_inductance(
                     CoreRef::Rot(&core),
                     NonZeroU16::MIN,
-                    SpatialOrder::Electrical(1)
+                    SpatialOrder::Electrical(1),
+                    Default::default()
                 )
                 .eval(c)
                 .get::<henry>(),
@@ -412,7 +413,12 @@ mod stem_core_tests {
         );
         approxim::assert_abs_diff_eq!(
             winding
-                .slot_leakage_inductance(CoreRef::Rot(&core), NonZeroU16::MIN, ag,)
+                .slot_leakage_inductance(
+                    CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
+                    SpatialOrder::Electrical(1),
+                    ag,
+                )
                 .eval(c)
                 .get::<henry>(),
             1.826912e-7,
@@ -451,7 +457,12 @@ mod stem_core_tests {
         ];
         approxim::assert_abs_diff_eq!(
             winding
-                .slot_leakage_inductance(CoreRef::Rot(&core), NonZeroU16::MIN, ag)
+                .slot_leakage_inductance(
+                    CoreRef::Rot(&core),
+                    NonZeroU16::MIN,
+                    SpatialOrder::Electrical(1),
+                    ag
+                )
                 .eval(c)
                 .get::<henry>(),
             1.8247066e-7,

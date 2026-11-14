@@ -856,10 +856,13 @@ impl Winding for DistributedToothCoilWinding {
     fn end_winding_leakage_inductance(
         &self,
         core: CoreRef<'_>,
-        _phase: NonZeroU16,
+        phase: NonZeroU16,
         spatial_order: SpatialOrder,
+        effective_air_gap: Length,
     ) -> VarQuantity<Inductance> {
+        let _ = phase;
         let _ = spatial_order;
+        let _ = effective_air_gap;
         end_winding_leakage_inductance_tooth_coil(self, core, self.end_winding_leakage_coefficient)
             .into()
     }

@@ -172,6 +172,7 @@ let air_gap = Length::new::<millimeter>(0.6);
 let slot_leakage_inductance = winding.slot_leakage_inductance(
     core.as_core_ref(),
     phase,
+    SpatialOrder::Electrical(1),
     air_gap,
 ).eval(&[]);
 assert_abs_diff_eq!(slot_leakage_inductance.get::<millihenry>(), 0.332, epsilon = 1e-3);

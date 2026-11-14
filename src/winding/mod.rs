@@ -379,10 +379,12 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
         core: CoreRef<'_>,
         phase: NonZeroU16,
         spatial_order: SpatialOrder,
+        effective_air_gap: Length,
     ) -> VarQuantity<Inductance> {
         let _ = core;
         let _ = phase;
         let _ = spatial_order;
+        let _ = effective_air_gap;
         return Default::default();
     }
 
@@ -432,9 +434,9 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
         let air_gap_leakage_inductance_ref =
             self.air_gap_leakage_inductance(core, NonZeroU16::MIN, fundamental, air_gap);
         let end_winding_leakage_inductance_ref =
-            self.end_winding_leakage_inductance(core, NonZeroU16::MIN, fundamental);
+            self.end_winding_leakage_inductance(core, NonZeroU16::MIN, fundamental, air_gap);
         let slot_leakage_inductance_ref =
-            self.slot_leakage_inductance(core, NonZeroU16::MIN, air_gap);
+            self.slot_leakage_inductance(core, NonZeroU16::MIN, fundamental, air_gap);
         let turns_phase_ref = self.series_turns_per_phase(NonZeroU16::MIN);
 
         for ph in 2..(self.phases().get() + 1) {
@@ -457,12 +459,13 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
             }
 
             let end_winding_leakage_inductance =
-                self.end_winding_leakage_inductance(core, phase, fundamental);
+                self.end_winding_leakage_inductance(core, phase, fundamental, air_gap);
             if end_winding_leakage_inductance != end_winding_leakage_inductance_ref {
                 return false;
             }
 
-            let slot_leakage_inductance = self.slot_leakage_inductance(core, phase, air_gap);
+            let slot_leakage_inductance =
+                self.slot_leakage_inductance(core, phase, fundamental, air_gap);
             if slot_leakage_inductance != slot_leakage_inductance_ref {
                 return false;
             }
@@ -1862,6 +1865,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     ///     let calculated_inductance = winding.slot_leakage_inductance(
     ///         CoreRef::Rot(&core),
     ///         phase,
+    ///         SpatialOrder::Electrical(1),
     ///         air_gap,
     ///     ).eval(&[]);
     ///
@@ -1877,8 +1881,10 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
         &self,
         core: CoreRef<'_>,
         phase: NonZeroU16,
+        spatial_order: SpatialOrder,
         effective_air_gap: Length,
     ) -> VarQuantity<Inductance> {
+        let _ = spatial_order;
         slot_leakage_inductance(self, core, phase, effective_air_gap)
     }
 
@@ -1913,8 +1919,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
         effective_air_gap: Length,
     ) -> VarQuantity<Inductance> {
         self.air_gap_leakage_inductance(core, phase, spatial_order, effective_air_gap)
-            + self.end_winding_leakage_inductance(core, phase, spatial_order)
-            + self.slot_leakage_inductance(core, phase, effective_air_gap)
+            + self.end_winding_leakage_inductance(core, phase, spatial_order, effective_air_gap)
+            + self.slot_leakage_inductance(core, phase, spatial_order, effective_air_gap)
     }
 
     /// Returns the total phase inductance for the given spatial order.
@@ -1932,8 +1938,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
         effective_air_gap: Length,
     ) -> VarQuantity<Inductance> {
         self.air_gap_inductance(core, phase, spatial_order, effective_air_gap)
-            + self.end_winding_leakage_inductance(core, phase, spatial_order)
-            + self.slot_leakage_inductance(core, phase, effective_air_gap)
+            + self.end_winding_leakage_inductance(core, phase, spatial_order, effective_air_gap)
+            + self.slot_leakage_inductance(core, phase, spatial_order, effective_air_gap)
     }
 
     /// Returns an iterator over all coils of the winding and their physical

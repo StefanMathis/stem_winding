@@ -461,6 +461,7 @@ impl Winding for SquirrelCageWinding {
         &self,
         core: CoreRef<'_>,
         _phase: NonZeroU16,
+        _spatial_order: SpatialOrder,
         effective_air_gap: Length,
     ) -> VarQuantity<Inductance> {
         /*
@@ -648,10 +649,12 @@ impl Winding for SquirrelCageWinding {
         core: CoreRef<'_>,
         phase: NonZeroU16,
         spatial_order: SpatialOrder,
+        effective_air_gap: Length,
     ) -> VarQuantity<Inductance> {
         use std::f64::consts::PI;
         let _ = phase;
         let _ = spatial_order;
+        let _ = effective_air_gap;
 
         let ring_segment_inductance = *VACUUM_PERMEABILITY
             * self.end_winding_leakage_coefficient()

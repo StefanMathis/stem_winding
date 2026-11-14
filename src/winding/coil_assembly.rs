@@ -407,10 +407,19 @@ impl CoilAssembly {
             let phase_data = &mut coil_assembly.phase_data[usize::from(idx)];
 
             phase_data.end_winding_leakage_inductance_override =
-                Some(winding.end_winding_leakage_inductance(core, phase, spatial_order));
+                Some(winding.end_winding_leakage_inductance(
+                    core,
+                    phase,
+                    spatial_order,
+                    effective_air_gap,
+                ));
 
-            phase_data.slot_leakage_inductance_override =
-                Some(winding.slot_leakage_inductance(core, phase, effective_air_gap));
+            phase_data.slot_leakage_inductance_override = Some(winding.slot_leakage_inductance(
+                core,
+                phase,
+                spatial_order,
+                effective_air_gap,
+            ));
 
             phase_data.resistance_override = Some(winding.resistance(core, phase));
         }
@@ -861,9 +870,11 @@ impl Winding for CoilAssembly {
         core: CoreRef<'_>,
         phase: NonZeroU16,
         spatial_order: SpatialOrder,
+        effective_air_gap: Length,
     ) -> VarQuantity<Inductance> {
         let _ = core;
         let _ = spatial_order;
+        let _ = effective_air_gap;
 
         if let Some(inductance) = self
             .phase_data()
@@ -882,8 +893,10 @@ impl Winding for CoilAssembly {
         &self,
         core: CoreRef<'_>,
         phase: NonZeroU16,
+        spatial_order: SpatialOrder,
         effective_air_gap: Length,
     ) -> VarQuantity<Inductance> {
+        let _ = spatial_order;
         if let Some(inductance) = self
             .phase_data()
             .get(usize::from(phase.get()) - 1)

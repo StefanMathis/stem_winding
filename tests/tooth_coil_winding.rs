@@ -938,6 +938,7 @@ mod stem_core_tests {
                     .slot_leakage_inductance(
                         CoreRef::Rot(&core),
                         phase,
+                        SpatialOrder::Electrical(1),
                         Length::new::<millimeter>(1.0)
                     )
                     .eval(&[])
@@ -973,6 +974,7 @@ mod stem_core_tests {
                     .slot_leakage_inductance(
                         CoreRef::Rot(&core),
                         phase,
+                        SpatialOrder::Electrical(1),
                         Length::new::<millimeter>(1.0),
                     )
                     .eval(&[])

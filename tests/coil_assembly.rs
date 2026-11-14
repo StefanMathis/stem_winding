@@ -471,6 +471,7 @@ mod stem_core_tests {
                 .slot_leakage_inductance(
                     CoreRef::Rot(&core),
                     NonZeroU16::MIN,
+                    SpatialOrder::Electrical(1),
                     Length::new::<millimeter>(1.0),
                 )
                 .eval(&[])
@@ -485,6 +486,7 @@ mod stem_core_tests {
                     CoreRef::Rot(&core),
                     NonZeroU16::MIN,
                     SpatialOrder::Electrical(1),
+                    Default::default()
                 )
                 .eval(&[])
                 .get::<henry>(),

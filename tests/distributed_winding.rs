@@ -1686,6 +1686,7 @@ mod stem_core_tests {
                     .slot_leakage_inductance(
                         CoreRef::Rot(&core),
                         phase,
+                        SpatialOrder::Electrical(1),
                         Length::new::<millimeter>(1.0),
                     )
                     .eval(&[])
@@ -1699,6 +1700,7 @@ mod stem_core_tests {
                         CoreRef::Rot(&core),
                         phase,
                         SpatialOrder::Electrical(1),
+                        Default::default()
                     )
                     .eval(&[])
                     .get::<henry>(),
@@ -1778,6 +1780,7 @@ mod stem_core_tests {
                         CoreRef::Rot(&core),
                         phase,
                         SpatialOrder::Electrical(1),
+                        Default::default()
                     )
                     .eval(&[])
                     .get::<henry>(),
@@ -1865,6 +1868,7 @@ mod stem_core_tests {
                     .slot_leakage_inductance(
                         CoreRef::Rot(&core),
                         phase,
+                        SpatialOrder::Electrical(1),
                         Length::new::<millimeter>(1.0),
                     )
                     .eval(&[])
@@ -1996,6 +2000,7 @@ mod stem_core_tests {
                 .slot_leakage_inductance(
                     CoreRef::Rot(&core),
                     NonZeroU16::MIN,
+                    SpatialOrder::Electrical(1),
                     Length::new::<millimeter>(1.0),
                 )
                 .eval(&[])
@@ -2092,7 +2097,12 @@ mod stem_core_tests {
         assert_abs_diff_eq!(
             leakage_inductance.get::<henry>(),
             winding
-                .slot_leakage_inductance(CoreRef::Rot(&core), 1.try_into().unwrap(), air_gap)
+                .slot_leakage_inductance(
+                    CoreRef::Rot(&core),
+                    1.try_into().unwrap(),
+                    SpatialOrder::Electrical(1),
+                    air_gap
+                )
                 .eval(&[])
                 .get::<henry>(),
             epsilon = 1e-7
@@ -2100,7 +2110,12 @@ mod stem_core_tests {
         assert_abs_diff_eq!(
             leakage_inductance.get::<henry>(),
             winding
-                .slot_leakage_inductance(CoreRef::Rot(&core), 2.try_into().unwrap(), air_gap)
+                .slot_leakage_inductance(
+                    CoreRef::Rot(&core),
+                    2.try_into().unwrap(),
+                    SpatialOrder::Electrical(1),
+                    air_gap
+                )
                 .eval(&[])
                 .get::<henry>(),
             epsilon = 1e-7
@@ -2108,7 +2123,12 @@ mod stem_core_tests {
         assert_abs_diff_eq!(
             leakage_inductance.get::<henry>(),
             winding
-                .slot_leakage_inductance(CoreRef::Rot(&core), 3.try_into().unwrap(), air_gap)
+                .slot_leakage_inductance(
+                    CoreRef::Rot(&core),
+                    3.try_into().unwrap(),
+                    SpatialOrder::Electrical(1),
+                    air_gap
+                )
                 .eval(&[])
                 .get::<henry>(),
             epsilon = 1e-7
@@ -2135,7 +2155,12 @@ mod stem_core_tests {
             assert_abs_diff_eq!(
                 leakage_inductance.get::<henry>(),
                 winding
-                    .slot_leakage_inductance(CoreRef::Rot(&core), ph.try_into().unwrap(), air_gap,)
+                    .slot_leakage_inductance(
+                        CoreRef::Rot(&core),
+                        ph.try_into().unwrap(),
+                        SpatialOrder::Electrical(1),
+                        air_gap,
+                    )
                     .eval(&[])
                     .get::<henry>(),
                 epsilon = 1e-7
@@ -2163,7 +2188,12 @@ mod stem_core_tests {
             assert_abs_diff_eq!(
                 leakage_inductance.get::<henry>(),
                 winding
-                    .slot_leakage_inductance(CoreRef::Rot(&core), ph.try_into().unwrap(), air_gap,)
+                    .slot_leakage_inductance(
+                        CoreRef::Rot(&core),
+                        ph.try_into().unwrap(),
+                        SpatialOrder::Electrical(1),
+                        air_gap,
+                    )
                     .eval(&[])
                     .get::<henry>(),
                 epsilon = 1e-7
@@ -2194,7 +2224,12 @@ mod stem_core_tests {
             assert_abs_diff_eq!(
                 leakage_inductance.get::<henry>(),
                 winding
-                    .slot_leakage_inductance(CoreRef::Rot(&core), ph.try_into().unwrap(), air_gap,)
+                    .slot_leakage_inductance(
+                        CoreRef::Rot(&core),
+                        ph.try_into().unwrap(),
+                        SpatialOrder::Electrical(1),
+                        air_gap,
+                    )
                     .eval(&[])
                     .get::<henry>(),
                 epsilon = 1e-7
