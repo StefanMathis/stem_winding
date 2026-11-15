@@ -169,7 +169,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     /// L \ S │   0   1   2   3   4   5   6   7   8   9  10  11
     /// ──────┼────────────────────────────────────────────────
     ///   0   │   1  -3   2  -1   3  -2   1  -3   2  -1   3  -2
-    /// ``
+    /// ```
+    ///
     /// This method returns the number of repetitions of the base winding in
     /// `self`. The [`WindingTable`] of the base winding can then be obtained by
     /// considering only the first `slots / base_winding_count` columns of the
