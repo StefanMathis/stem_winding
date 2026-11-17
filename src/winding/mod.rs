@@ -3,7 +3,7 @@
 //!
 //! Besides the [`Winding`] trait, which is the centerpiece of this crate, this
 //! module also includes tools for analyzing winding properties, such as
-//! [`FecSpectralAnalysis`].
+//! [`MmfSpectralAnalysis`].
 
 use dyn_clone::DynClone;
 use num::{Complex, Integer, integer::gcd};
@@ -188,7 +188,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
         impl<'a, W: Winding + ?Sized> RandomAccess for IndexWrapper<'a, W> {
             type Item = (usize, i32);
 
-            fn get(&self, index: usize) -> Self::Item {
+            fn get_elem(&self, index: usize) -> Self::Item {
                 let layers = usize::from(self.0.layers().get());
 
                 let slot = index / layers;
@@ -1143,7 +1143,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     /// distribution of the magnetic voltage around the air gap, sampled at
     /// the winding slots [\[1\]](#fec_1), section 2.5. Its spatial harmonics
     /// can be obtained by Fourier analysis; this functionality is realized
-    /// in the [`FecSpectralAnalysis`] struct. If one is just interested in
+    /// in the [`MmfSpectralAnalysis`] struct. If one is just interested in
     /// the spatial orders of the nonzero harmonics, use [`Winding::harmonics`].
     ///
     /// The buffer length must equal the number of winding slots, and the

@@ -1,5 +1,5 @@
 use approxim::assert_abs_diff_eq;
-use stem_winding::{prelude::*, winding::FecSpectralAnalysis};
+use stem_winding::{prelude::*, winding::MmfSpectralAnalysis};
 
 #[test]
 fn test_fec_integer_slot_winding() {
@@ -15,8 +15,8 @@ fn test_fec_integer_slot_winding() {
         }
         .try_into()
         .unwrap();
-        let mut fec = FecSpectralAnalysis::new(1024);
-        let output = fec.analyze(&winding, &[0.5, -0.25, -0.25]).unwrap();
+        let mut fec = MmfSpectralAnalysis::new(1024);
+        let output = fec.analyze(&winding, [0.5, -0.25, -0.25]).unwrap();
 
         // Assert the length of the output
         assert_eq!(output.len(), 513);
@@ -42,7 +42,9 @@ fn test_fec_integer_slot_winding() {
         assert_abs_diff_eq!(val, 0.0967, epsilon = 1e-3);
 
         // Different current
-        let output = fec.analyze(&winding, &[-0.25, -0.25, 0.5]).unwrap();
+        let output = fec
+            .analyze(&winding, (&[-0.25f64, -0.25, 0.5]).iter().copied())
+            .unwrap();
 
         // Assert the length of the output
         assert_eq!(output.len(), 513);
@@ -79,8 +81,8 @@ fn test_fec_integer_slot_winding() {
         }
         .try_into()
         .unwrap();
-        let mut fec = FecSpectralAnalysis::new(1024);
-        let output = fec.analyze(&winding, &[0.5, -0.25, -0.25]).unwrap();
+        let mut fec = MmfSpectralAnalysis::new(1024);
+        let output = fec.analyze(&winding, [0.5, -0.25, -0.25]).unwrap();
 
         // Assert the length of the output
         assert_eq!(output.len(), 513);
@@ -115,8 +117,8 @@ fn test_fec_trait_object() {
     .try_into()
     .unwrap();
     let trait_object: &dyn Winding = &winding;
-    let mut fec = FecSpectralAnalysis::new(1024);
-    let output = fec.analyze(trait_object, &[0.5, -0.25, -0.25]).unwrap();
+    let mut fec = MmfSpectralAnalysis::new(1024);
+    let output = fec.analyze(trait_object, [0.5, -0.25, -0.25]).unwrap();
 
     // Assert the length of the output
     assert_eq!(output.len(), 513);
@@ -155,8 +157,8 @@ fn test_fec_short_pitched_integer_slot_winding() {
     }
     .try_into()
     .unwrap();
-    let mut fec = FecSpectralAnalysis::new(1024);
-    let output = fec.analyze(&winding, &[0.5, -0.25, -0.25]).unwrap();
+    let mut fec = MmfSpectralAnalysis::new(1024);
+    let output = fec.analyze(&winding, [0.5, -0.25, -0.25]).unwrap();
 
     // Assert the length of the output
     assert_eq!(output.len(), 513);
@@ -194,8 +196,8 @@ fn test_fec_tooth_coil_assembly() {
     .try_into()
     .unwrap();
 
-    let mut fec = FecSpectralAnalysis::new(1024);
-    let output = fec.analyze(&winding, &[1.0, -0.5, -0.5]).unwrap();
+    let mut fec = MmfSpectralAnalysis::new(1024);
+    let output = fec.analyze(&winding, [1.0, -0.5, -0.5]).unwrap();
 
     // Assert the length of the output
     assert_eq!(output.len(), 513);

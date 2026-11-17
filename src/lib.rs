@@ -50,10 +50,9 @@ pub mod draw;
 
 pub mod prelude {
     /*!
-    This module reexports the core, air gap and flux barrier types defined in
-    this crate as well as the [`Magnets`] and [`WindingZones`] iterators. In
-    addition, it reexports the prelude modules of the [`stem_core`] and
-    [`stem_wire`] dependencies (and therefore also [`stem_material::prelude`] [`stem_slot::prelude`] [`stem_magnet::prelude`]).
+    This module reexports the [`Winding`] trait, the predefined winding models
+    as well as the preludes of [stem_core] and [stem_wire]. Some additional
+    support crates are made available directly.
      */
 
     // Reexporting
@@ -86,7 +85,6 @@ pub mod prelude {
     #[doc(hidden)]
     pub use stem_wire::prelude::*;
 
-    // Integrate these docs into stem_winding
     #[doc(hidden)]
     pub use stem_types;
     #[doc(hidden)]

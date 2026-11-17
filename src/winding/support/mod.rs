@@ -319,7 +319,7 @@ pub fn hole_number(
 /// impl RandomAccess for Calculated {
 ///     type Item = i32;
 ///
-///     fn get(&self, index: usize) -> Self::Item {
+///     fn get_elem(&self, index: usize) -> Self::Item {
 ///         self.value_at(index)
 ///     }
 /// }
@@ -340,7 +340,7 @@ pub trait RandomAccess<I = usize> {
     /// The behavior for an out-of-bounds `index` is implementation-defined.
     /// Implementations should document whether such an index panics, returns a
     /// sentinel value, or is otherwise handled.
-    fn get(&self, index: I) -> Self::Item;
+    fn get_elem(&self, index: I) -> Self::Item;
 }
 
 impl<C> RandomAccess for C
@@ -350,7 +350,7 @@ where
 {
     type Item = C::Output;
 
-    fn get(&self, index: usize) -> Self::Item {
+    fn get_elem(&self, index: usize) -> Self::Item {
         self[index]
     }
 }
@@ -441,7 +441,7 @@ where
         ),
     };
     while c2 < collection_len.get() {
-        if collection.get(c1) == collection.get(c2) {
+        if collection.get_elem(c1) == collection.get_elem(c2) {
             c1 = (c1 + 1) % pattern_len_cand;
             c2 += 1;
         } else {

@@ -1,9 +1,9 @@
 //! Types and functions for calculating the Fourier coefficients of the field
 //! excitation curve of a winding.
 //!
-//! This module contains the [`FecSpectralAnalysis`] struct for calculating the
+//! This module contains the [`MmfSpectralAnalysis`] struct for calculating the
 //! complex Fourier coefficients of a [`Winding::field_excitation_curve`] and
-//! the [`sample_fec_values`] function for sampling it. Its
+//! the [`sample_mmf_values`] function for sampling it. Its
 //! public items are re-exported from the parent module.
 
 use std::sync::Arc;
@@ -26,25 +26,25 @@ use super::*;
 ///
 /// # Examples
 /// ```
-/// use stem_winding::winding::sample_fec_values;
+/// use stem_winding::winding::sample_mmf_values;
 ///
 /// let step_values = [1.0, 2.0, 3.0, 1.0];
 /// let mut samples = [0.0; 8];
 ///
-/// sample_fec_values(step_values.iter().cloned(), &mut samples);
+/// sample_mmf_values(step_values.iter().cloned(), &mut samples);
 ///
 /// assert_eq!(samples, [1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 1.0, 1.0]);
 /// ```
-pub fn sample_fec_values<T: Clone, I: ExactSizeIterator<Item = T>>(
-    mut fec_values: I,
+pub fn sample_mmf_values<T: Clone, I: ExactSizeIterator<Item = T>>(
+    mut mmf_values: I,
     buffer_samples: &mut [T],
 ) {
     if buffer_samples.is_empty() {
         return;
     }
-    let number_steps = fec_values.len();
+    let number_steps = mmf_values.len();
     let mut step = 0.0;
-    let mut stored_value = match fec_values.next() {
+    let mut stored_value = match mmf_values.next() {
         Some(v) => v,
         None => return,
     };
@@ -54,7 +54,7 @@ pub fn sample_fec_values<T: Clone, I: ExactSizeIterator<Item = T>>(
         let sample_position = delta_sample_position * idx as f64;
 
         /*
-        Find the intervall where the current sample position is located.
+        Find the interval where the current sample position is located.
         */
         loop {
             // If the sample position is within the current bounds, assign the stored value
@@ -64,7 +64,7 @@ pub fn sample_fec_values<T: Clone, I: ExactSizeIterator<Item = T>>(
                 break;
             } else {
                 step += 1.0;
-                stored_value = match fec_values.next() {
+                stored_value = match mmf_values.next() {
                     Some(v) => v,
                     None => return,
                 };
@@ -73,57 +73,24 @@ pub fn sample_fec_values<T: Clone, I: ExactSizeIterator<Item = T>>(
     }
 }
 
-/// An error which occurred during [`FecSpectralAnalysis::analyze`].
-#[derive(Debug)]
-pub enum FecAnalysisError {
-    /// A given [`usize`] is not within its allowed value range.
-    InvalidUsize(compare_variables::Comparison<usize>),
-    /// An [`FftError`] has been returned from the
-    /// [realfft](https://docs.rs/realfft/latest/realfft/) crate which is used
-    /// inside [`FecSpectralAnalysis`]
-    FftError(FftError),
-}
-
-impl From<compare_variables::Comparison<usize>> for FecAnalysisError {
-    fn from(value: compare_variables::Comparison<usize>) -> Self {
-        Self::InvalidUsize(value)
-    }
-}
-
-impl From<FftError> for FecAnalysisError {
-    fn from(value: FftError) -> Self {
-        Self::FftError(value)
-    }
-}
-
-impl std::fmt::Display for FecAnalysisError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FecAnalysisError::InvalidUsize(comparison) => comparison.fmt(f),
-            FecAnalysisError::FftError(fft_error) => fft_error.fmt(f),
-        }
-    }
-}
-
-impl std::error::Error for FecAnalysisError {}
-
 /**
-Computes the complex Fourier coefficients of the field excitation curve (FEC)
-of a [`Winding`].
+Computes the complex Fourier coefficients of the magnetomotive force (MMF)
+distribution produced by a [`Winding`].
 
-This struct computes the Fourier spectrum of the
-[`field_excitation_curve`](Winding::field_excitation_curve) (FEC) of a winding.
-The FEC is sampled at equidistant positions around the air gap and transformed
-using a real-to-complex fast Fourier transform (FFT). The indices of the
-returned coefficients correspond to the corresponding mechanical spatial order,
-starting with the constant component at index 0.
+The MMF distribution is obtained from the winding's
+[`field_excitation_curve`](Winding::field_excitation_curve), which is sampled
+at equidistant positions around the air gap and transformed using a
+real-to-complex fast Fourier transform (FFT).
+
+The index of each coefficient corresponds to its mechanical spatial order,
+starting with the constant component (order 0) at index 0.
 
 # Examples
 
 ```
 use approxim::assert_abs_diff_eq;
 use stem_winding::prelude::*;
-use stem_winding::winding::FecSpectralAnalysis;
+use stem_winding::winding::MmfSpectralAnalysis;
 
 let winding: DistributedWinding = DistributedMinimalBuilder {
     slots: 12.try_into().expect("not zero"),
@@ -136,8 +103,8 @@ let winding: DistributedWinding = DistributedMinimalBuilder {
 }
 .try_into()
 .unwrap();
-let mut fec = FecSpectralAnalysis::new(1024);
-let output = fec.analyze(&winding, &[1.0, -0.5, -0.5]).unwrap();
+let mut mmf = MmfSpectralAnalysis::new(1024);
+let output = mmf.analyze(&winding, &[1.0, -0.5, -0.5]).unwrap();
 
 // The constant component vanishes for this winding and current configuration.
 let (val, _) = output[0].to_polar(); // Constant component
@@ -170,7 +137,7 @@ ordinary spatial order `k`, the corresponding sinusoidal component is
 
 where `γ` is the mechanical angle, `A_k` is the amplitude, `φ_k` is the
 phase angle in radians and `φ_o` is the offset from the origin of `γ`
-relative to the first slot (where the FEC starts). For example, if the origin of
+relative to the first slot (where the mmf starts). For example, if the origin of
 `γ` is in the middle of the tooth before the first slot, `φ_o` becomes
 `π / number_slots`.
 
@@ -204,21 +171,30 @@ details.
 The analysis buffers are reused between calls. Repeatedly analyzing different
 current configurations of the same winding therefore requires no further
 allocations once the buffers have sufficient capacity. The same
-`FecSpectralAnalysis` can also be used with different windings; its FEC buffer
+`MmfSpectralAnalysis` can also be used with different windings; its mmf buffer
 is resized as necessary and reallocates only if its capacity is insufficient.
 */
 #[derive(Clone)]
-pub struct FecSpectralAnalysis {
-    fec_values: Vec<f64>,
+pub struct MmfSpectralAnalysis {
+    mmf_values: Vec<f64>,
     sampled_fec: Vec<f64>,
+    phase_currents: Vec<f64>,
     coefficients: Vec<Complex<f64>>,
     fft_scratch_buffer: Vec<Complex<f64>>,
     fft_plan: Arc<dyn RealToComplex<f64>>,
 }
 
-impl FecSpectralAnalysis {
-    /// Returns a new [`FecSpectralAnalysis`] that samples the field excitation
+impl MmfSpectralAnalysis {
+    /// Returns a new [`MmfSpectralAnalysis`] that samples the field excitation
     /// curve of a winding using `samples` samples.
+    ///
+    /// The number of samples determines the highest mechanical spatial order
+    /// that can be resolved without aliasing. According to the
+    /// Nyquist–Shannon sampling theorem, this limit is samples / 2 (rounded
+    /// down). Spatial orders above this limit cannot be distinguished from
+    /// lower orders and therefore alias into the spectrum. In
+    /// practice, increasing the number of samples generally improves the
+    /// accuracy of the numerical approximation even for lower orders.
     ///
     /// The number of samples affects FFT performance. When in doubt, use a
     /// power of two.
@@ -226,7 +202,7 @@ impl FecSpectralAnalysis {
         // This preallocates a buffer for a 100-slot-winding, which should be enough in
         // most cases. If it is not, a reallocation is necessary (but that is
         // usually no big deal)
-        let fec_values = Vec::with_capacity(100);
+        let mmf_values = Vec::with_capacity(100);
 
         // Create the FFT planner
         let mut real_planner = RealFftPlanner::<f64>::new();
@@ -236,39 +212,163 @@ impl FecSpectralAnalysis {
         let fft_scratch_buffer = fft_plan.make_scratch_vec();
 
         Self {
-            fec_values,
+            mmf_values,
             sampled_fec,
+            phase_currents: Vec::new(),
             coefficients,
             fft_scratch_buffer,
             fft_plan,
         }
     }
 
-    /// Returns the field excitation curve from the most recent
-    /// [`analyze`](FecSpectralAnalysis::analyze) call.
-    pub fn fec_values(&self) -> &[f64] {
-        self.fec_values.as_slice()
+    /// Returns the magnetomotive force (MMF) distribution from the most recent
+    /// [`analyze`](MmfSpectralAnalysis::analyze) call.
+    ///
+    /// Each index represents a slot: The value at index 0 is the MMF at the
+    /// middle of slot 0, the value at index 1 that at the middle of slot 1,
+    /// and so on.
+    pub fn mmf_values(&self) -> &[f64] {
+        self.mmf_values.as_slice()
     }
 
     /// Returns the complex Fourier coefficients from the most recent
-    /// [`analyze`](FecSpectralAnalysis::analyze) call.
+    /// [`analyze`](MmfSpectralAnalysis::analyze) call.
+    ///
+    /// The phase angles of the coefficients are given in mechanical degrees.
+    /// To convert the phase angle at index / mechanical spatial order `k` into
+    /// electrical degrees, the following formula can be used:
+    ///
+    /// `α_electrical = k / p * α_mechanical`
+    ///
+    /// where `p` is the number of pole pairs.
     pub fn coefficients(&self) -> &[Complex<f64>] {
         self.coefficients.as_slice()
     }
 
+    /// Returns the complex fourier coefficient from the most recent
+    /// [`analyze`](MmfSpectralAnalysis::analyze) call for the specified
+    /// `spatial_order`.
+    ///
+    /// If the order does not exist, this function returns `None`. See
+    /// [`MmfSpectralAnalysis::new`] on how the number of samples influences the
+    /// maximum spatial order.
+    ///
+    /// The phase angles of the coefficient is given in mechanical degrees.
+    /// To convert the phase angle into electrical degrees, the following
+    /// formula can be used:
+    ///
+    /// `α_electrical = k / p * α_mechanical`
+    ///
+    /// where `p` is the number of pole pairs and `k` is the mechanical
+    /// `spatial_order`.
+    pub fn coefficient(
+        &self,
+        spatial_order: SpatialOrder,
+        pole_pairs: NonZeroU16,
+    ) -> Option<Complex<f64>> {
+        let idx = spatial_order.to_mechanical(pole_pairs);
+        self.coefficients.get(idx as usize).cloned()
+    }
+
+    /// Returns the complex fourier coefficient from most recent
+    /// [`analyze`](MmfSpectralAnalysis::analyze) call for the specified
+    /// `spatial_order` in dq-coordinates.
+    ///
+    /// Since the field excitation curve created by
+    /// [`Winding::field_excitation_curve`] starts in the middle of the first
+    /// slot of the winding, the (mechanical) angle of the coefficients is
+    /// likewise relative to that first slot.  This function retrieves the
+    /// coefficient from [`MmfSpectralAnalysis::coefficient`] and
+    /// transforms it into dq-coordinates using
+    ///
+    /// `c_k_dq = c_k * e^(j * k / p * θ)`
+    ///
+    /// where `θ` is
+    /// [`CoreExt::first_slot_to_d_axis`](stem_core::core::CoreExt::first_slot_to_d_axis)
+    /// and `p` is the number of pole pairs. The factor `1 / p`
+    /// converts the electrical angle `θ` into a mechanical angle. `Re(c_k_dq)`
+    /// is the d-component of the excitation for the k-th mechanical spatial
+    /// order, `Im(c_k_dq)` the q-component.
+    pub fn coefficient_dq(
+        &self,
+        spatial_order: SpatialOrder,
+        pole_pairs: NonZeroU16,
+        first_slot_to_d_axis: f64,
+    ) -> Option<Complex<f64>> {
+        let coefficient = self.coefficient(spatial_order, pole_pairs)?;
+        let order = spatial_order.to_mechanical(pole_pairs);
+        let theta = f64::from(order) / f64::from(pole_pairs.get()) * first_slot_to_d_axis;
+        Some(coefficient * Complex::from_polar(1.0, theta))
+    }
+
+    /// Calculates the magnetomotive force spectrum for a complex dq-current,
+    /// assuming equally spaced phase axes.
+    ///
+    /// This function reconstructs a symmetric phase current system from the
+    /// given `dq_current = id + j * iq` and passes it to
+    /// [`MmfSpectralAnalysis::analyze`]. The conversion uses the inverse Park
+    /// transformation:
+    ///
+    /// `i_n = id * cos(α_n - θ) + iq * sin(α_n - θ)`
+    ///
+    /// where `θ` is [`CoreExt::first_slot_to_d_axis`] and `α_n` is the
+    /// [`phase_angle`](Winding::phase_angle) of phase `n`.
+    ///
+    /// # Limitations
+    ///
+    /// - This transformation represents only the fundamental-wave excitation.
+    ///   Additional harmonic current components cannot be specified through
+    ///   `dq_current`.
+    /// - The phase axes are assumed to be equally spaced. Consequently, the
+    ///   resulting phase currents represent an idealized symmetric current
+    ///   system, irrespective of the actual winding layout. When in doubt,
+    ///   check if the `winding` is actually [symmetric](Winding::is_symmetric).
+    pub fn analyze_dq<W: Winding + ?Sized>(
+        &mut self,
+        winding: &W,
+        dq_current: Complex<f64>,
+        first_slot_to_d_axis: f64,
+    ) -> Result<&[Complex<f64>], FftError> {
+        self.mmf_values.resize(winding.slots().get().into(), 0.0);
+
+        self.phase_currents
+            .resize(winding.phases().get().into(), 0.0);
+
+        // Calculate the phase currents from the dq-values
+        for (idx, curr) in self.phase_currents.iter_mut().enumerate() {
+            let alpha = winding.phase_angle(NonZeroU16::new(idx as u16 + 1).expect("not zero"))
+                - first_slot_to_d_axis;
+            *curr = dq_current.re * alpha.cos() + dq_current.im * alpha.sin()
+        }
+
+        // Calculate the field excitation curve (mmf)
+        winding
+            .field_excitation_curve(self.mmf_values.as_mut_slice(), &self.phase_currents)
+            .expect("buffers have a valid length");
+
+        // Switch to non-generic version to reduce code bloat
+        self.analyze_priv()
+    }
+
     /// Calculates the field excitation curve spectrum for the given currents.
     ///
+    /// The current vector used to determine the field excitation curve has the
+    /// size [`winding.phases()`](Winding::phases) and is populated from the
+    /// given `currents` iterator. If the iterator does not yield enough
+    /// elements, the remaining currents are set to 0. Any additional values
+    /// beyond the number of phases created by the iterator are discarded.
+    ///
     /// The results are stored internally and can be accessed via
-    /// [`coefficients`](FecSpectralAnalysis::coefficients). Returns an error if
-    /// the number of currents does not match the number of phases or if the FFT
-    /// fails.
+    /// [`coefficients`](MmfSpectralAnalysis::coefficients).
+    ///
+    /// Returns an error if the FFT fails.
     ///
     /// # Examples
     ///
     /// ```
     /// use approxim::assert_abs_diff_eq;
     /// use stem_winding::prelude::*;
-    /// use stem_winding::winding::FecSpectralAnalysis;
+    /// use stem_winding::winding::MmfSpectralAnalysis;
     ///
     /// let winding: DistributedWinding = DistributedMinimalBuilder {
     ///     slots: 12.try_into().expect("not zero"),
@@ -282,7 +382,7 @@ impl FecSpectralAnalysis {
     /// .try_into()
     /// .unwrap();
     ///
-    /// let mut analysis = FecSpectralAnalysis::new(1024);
+    /// let mut analysis = MmfSpectralAnalysis::new(1024);
     ///
     /// let fundamental_1 = analysis.analyze(&winding, &[1.0, -0.5, -0.5]).expect("succeeds")[1].norm();
     /// assert_abs_diff_eq!(fundamental_1, 1.8453, epsilon = 1e-3);
@@ -294,20 +394,32 @@ impl FecSpectralAnalysis {
     pub fn analyze<W: Winding + ?Sized>(
         &mut self,
         winding: &W,
-        currents: &[f64],
-    ) -> Result<&[Complex<f64>], FecAnalysisError> {
-        self.fec_values.resize(winding.slots().get().into(), 0.0);
+        currents: impl IntoIterator<Item = f64>,
+    ) -> Result<&[Complex<f64>], FftError> {
+        self.mmf_values.resize(winding.slots().get().into(), 0.0);
 
-        // Calculate the field excitation curve (FEC)
-        winding.field_excitation_curve(self.fec_values.as_mut_slice(), currents)?;
+        // Populate the current vector with all given currents
+        self.phase_currents
+            .resize(winding.phases().get().into(), 0.0);
+        self.phase_currents.iter_mut().for_each(|v| {
+            *v = 0.0;
+        });
+        for (phase_curr, curr) in self.phase_currents.iter_mut().zip(currents) {
+            *phase_curr = curr;
+        }
+
+        // Calculate the field excitation curve (mmf)
+        winding
+            .field_excitation_curve(self.mmf_values.as_mut_slice(), &self.phase_currents)
+            .expect("buffers have a valid length");
 
         // Switch to non-generic version to reduce code bloat
         self.analyze_priv()
     }
 
-    fn analyze_priv(&mut self) -> Result<&[Complex<f64>], FecAnalysisError> {
-        // Upsample the FEC
-        sample_fec_values(self.fec_values.iter().cloned(), &mut self.sampled_fec);
+    fn analyze_priv(&mut self) -> Result<&[Complex<f64>], FftError> {
+        // Upsample the mmf
+        sample_mmf_values(self.mmf_values.iter().cloned(), &mut self.sampled_fec);
 
         // Perform the FFT on the buffer
         self.fft_plan.process_with_scratch(
