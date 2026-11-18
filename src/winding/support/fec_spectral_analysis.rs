@@ -2,7 +2,7 @@
 //! excitation curve of a winding.
 //!
 //! This module contains the [`MmfSpectralAnalysis`] struct for calculating the
-//! complex Fourier coefficients of a [`Winding::field_excitation_curve`] and
+//! complex Fourier coefficients of a [`Winding::magnetomotive_force`] and
 //! the [`sample_mmf_values`] function for sampling it. Its
 //! public items are re-exported from the parent module.
 
@@ -78,7 +78,7 @@ Computes the complex Fourier coefficients of the magnetomotive force (MMF)
 distribution produced by a [`Winding`].
 
 The MMF distribution is obtained from the winding's
-[`field_excitation_curve`](Winding::field_excitation_curve), which is sampled
+[`magnetomotive_force`](Winding::magnetomotive_force), which is sampled
 at equidistant positions around the air gap and transformed using a
 real-to-complex fast Fourier transform (FFT).
 
@@ -185,8 +185,8 @@ pub struct MmfSpectralAnalysis {
 }
 
 impl MmfSpectralAnalysis {
-    /// Returns a new [`MmfSpectralAnalysis`] that samples the field excitation
-    /// curve of a winding using `samples` samples.
+    /// Returns a new [`MmfSpectralAnalysis`] that samples the magnetomotive
+    /// force (MMF) distribution curve of a winding using `samples` samples.
     ///
     /// The number of samples determines the highest mechanical spatial order
     /// that can be resolved without aliasing. According to the
@@ -274,8 +274,8 @@ impl MmfSpectralAnalysis {
     /// [`analyze`](MmfSpectralAnalysis::analyze) call for the specified
     /// `spatial_order` in dq-coordinates.
     ///
-    /// Since the field excitation curve created by
-    /// [`Winding::field_excitation_curve`] starts in the middle of the first
+    /// Since the MMF distribution created by
+    /// [`Winding::magnetomotive_force`] starts in the middle of the first
     /// slot of the winding, the (mechanical) angle of the coefficients is
     /// likewise relative to that first slot.  This function retrieves the
     /// coefficient from [`MmfSpectralAnalysis::coefficient`] and
@@ -345,19 +345,19 @@ impl MmfSpectralAnalysis {
             *curr = dq0_current[0] * alpha.cos() + dq0_current[1] * alpha.sin() + zero_curr;
         }
 
-        // Calculate the field excitation curve (mmf)
+        // Calculate the MMF
         winding
-            .field_excitation_curve(self.mmf_values.as_mut_slice(), &self.phase_currents)
+            .magnetomotive_force(self.mmf_values.as_mut_slice(), &self.phase_currents)
             .expect("buffers have a valid length");
 
         // Switch to non-generic version to reduce code bloat
         self.analyze_priv()
     }
 
-    /// Calculates the field excitation curve spectrum for the given currents.
+    /// Calculates the magnetomotive force (MMF) spectrum for the given currents.
     ///
-    /// The current vector used to determine the field excitation curve has the
-    /// size [`winding.phases()`](Winding::phases) and is populated from the
+    /// The current vector used to determine the MMF has the size
+    /// [`winding.phases()`](Winding::phases) and is populated from the
     /// given `currents` iterator. If the iterator does not yield enough
     /// elements, the remaining currents are set to 0. Any additional values
     /// beyond the number of phases created by the iterator are discarded.
@@ -412,9 +412,9 @@ impl MmfSpectralAnalysis {
             *phase_curr = curr;
         }
 
-        // Calculate the field excitation curve (mmf)
+        // Calculate the MMF
         winding
-            .field_excitation_curve(self.mmf_values.as_mut_slice(), &self.phase_currents)
+            .magnetomotive_force(self.mmf_values.as_mut_slice(), &self.phase_currents)
             .expect("buffers have a valid length");
 
         // Switch to non-generic version to reduce code bloat

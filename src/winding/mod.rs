@@ -1136,10 +1136,10 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
         rg2 / rp2 - 1.0
     }
 
-    /// Calculates the field excitation curve (FEC) of this winding for the
+    /// Calculates the magnetomotive force distribution of this winding for the
     /// given phase currents and writes it into the provided buffer.
     ///
-    /// The field excitation curve represents the piecewise-constant spatial
+    /// The magnetomotive force represents the piecewise-constant spatial
     /// distribution of the magnetic voltage around the air gap, sampled at
     /// the winding slots [\[1\]](#fec_1), section 2.5. Its spatial harmonics
     /// can be obtained by Fourier analysis; this functionality is realized
@@ -1152,13 +1152,13 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     #[doc = ""]
     #[cfg_attr(
         feature = "doc-images",
-        doc = "![Example of a field excitation curve][field_excitation_curve]"
+        doc = "![Example of a MMF distribution][magnetomotive_force]"
     )]
     #[cfg_attr(
         feature = "doc-images",
         embed_doc_image::embed_doc_image(
-            "field_excitation_curve",
-            "docs/img/field_excitation_curve.svg"
+            "magnetomotive_force",
+            "docs/img/magnetomotive_force.svg"
         )
     )]
     #[cfg_attr(
@@ -1196,19 +1196,19 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     ///         -2.0, -2.5, -3.0, -2.5,-2.0, -1.5
     ///     ];
     ///
-    /// assert!(winding.field_excitation_curve(&mut buffer, three_phase_currents.as_slice()).is_ok());
+    /// assert!(winding.magnetomotive_force(&mut buffer, three_phase_currents.as_slice()).is_ok());
     /// assert_eq!(buffer.as_slice(), expected_curve);
     ///
     /// // Providing currents of the wrong length results in an error. The curve buffer is left unchanged.
     /// let five_phase_currents = [1.0, 0.0, 0.0, -0.5, -0.5];
-    /// assert!(winding.field_excitation_curve(&mut buffer, five_phase_currents.as_slice()).is_err());
+    /// assert!(winding.magnetomotive_force(&mut buffer, five_phase_currents.as_slice()).is_err());
     /// assert_eq!(buffer.as_slice(), expected_curve);
     ///
-    /// // If the field excitation curve buffer itself has the wrong length, an error is returned as well.
+    /// // If the MMF buffer itself has the wrong length, an error is returned as well.
     /// buffer.resize(12, 0.0);
-    /// assert!(winding.field_excitation_curve(&mut buffer, three_phase_currents.as_slice()).is_err());
+    /// assert!(winding.magnetomotive_force(&mut buffer, three_phase_currents.as_slice()).is_err());
     /// ```
-    fn field_excitation_curve(
+    fn magnetomotive_force(
         &self,
         buffer: &mut [f64],
         currents: &[f64],
@@ -1342,13 +1342,13 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     }
 
     /**
-    Checks whether the field excitation curve of the winding contains a
-    nonzero component of the given `spatial_order`. If so, returns the
-    direction of the resulting wave relative to the current system:
+    Checks whether the magnetomotive force (MMF) distribution of the winding
+    contains a nonzero component of the given `spatial_order`. If so, returns
+    the direction of the resulting wave relative to the current system:
     `Some(true)` if co-rotating, `Some(false)` if counter-rotating, or
     `None` if no such component exists.
 
-    The general mathematical treatment of the field excitation curve is based
+    The general mathematical treatment of the MMF distribution is based
     on its Fourier decomposition into its individual orders.
     In [\[1\]](#is_harmonic_1), the wave equation for the `i`th phase and a
     spatial order `v'_mech` is given as:
@@ -1382,8 +1382,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
 
     When summing the contributions of all phases, the co- and counter-rotating
     components may cancel. If both do cancel, the winding does not have a
-    component of the given `spatial_order` in its field excitation curve and
-    this function returns `None`.
+    component of the given `spatial_order` in its MMF and this function returns
+    `None`.
 
     If the co-rotating part cancels, the resulting wave for the `spatial_order`
     counter-rotates relative to the current system and this method
@@ -1469,8 +1469,8 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
 
     where `k_w` is the winding factor for the given spatial order, `p` is
     the number of pole pairs, and `v_mech` is the mechanical spatial
-    order. If the spatial order is not present in the field excitation
-    curve, the method returns zero.
+    order. If the spatial order is not present in the MMF, the method returns
+    zero.
 
     This quantity does not represent the magnetic induction amplitude, which
     also depends on parameters such as the air-gap width or the reluctance of
@@ -1705,7 +1705,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     /// This is the product of [`Winding::main_inductance`] and
     /// [`Winding::air_gap_leakage_factor`]. It quantifies the self-inductance
     /// associated with higher-order magnetic field harmonics resulting from the
-    /// [`field_excitation_curve`](Winding::field_excitation_curve). See
+    /// [`magnetomotive_force`](Winding::magnetomotive_force). See
     /// [\[1\]](#air_gap_leakage_inductance_1), section 3.7.3, for details.
     ///
     /// # Literature

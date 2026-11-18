@@ -1246,7 +1246,7 @@ fn test_normalized_induction_amp() {
 }
 
 #[test]
-fn test_field_excitation_curve() {
+fn test_magnetomotive_force() {
     let winding: DistributedWinding = DistributedMinimalBuilder {
         slots: 18.try_into().expect("not zero"),
         pole_pairs: 1.try_into().expect("not zero"),
@@ -1263,7 +1263,7 @@ fn test_field_excitation_curve() {
     let currents = [1.0, -0.5, -0.5];
 
     winding
-        .field_excitation_curve(&mut buffer, currents.as_slice())
+        .magnetomotive_force(&mut buffer, currents.as_slice())
         .unwrap();
 
     assert_eq!(

@@ -616,7 +616,7 @@ fn test_derive_coil_assembly_12_10_sl() {
 }
 
 #[test]
-fn test_field_excitation_curve() {
+fn test_magnetomotive_force() {
     let winding: ToothCoilWinding = ToothCoilMinimalBuilder {
         slots: 12.try_into().expect("not zero"),
         pole_pairs: 5.try_into().expect("not zero"),
@@ -630,7 +630,7 @@ fn test_field_excitation_curve() {
     let currents = [1.0, -0.5, -0.5];
 
     winding
-        .field_excitation_curve(&mut buffer, currents.as_slice())
+        .magnetomotive_force(&mut buffer, currents.as_slice())
         .unwrap();
 
     assert_eq!(
