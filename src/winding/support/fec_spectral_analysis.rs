@@ -104,7 +104,7 @@ let winding: DistributedWinding = DistributedMinimalBuilder {
 .try_into()
 .unwrap();
 let mut mmf = MmfSpectralAnalysis::new(1024);
-let output = mmf.analyze(&winding, &[1.0, -0.5, -0.5]).unwrap();
+let output = mmf.analyze(&winding, [1.0, -0.5, -0.5]).unwrap();
 
 // The constant component vanishes for this winding and current configuration.
 let (val, _) = output[0].to_polar(); // Constant component
@@ -384,11 +384,11 @@ impl MmfSpectralAnalysis {
     ///
     /// let mut analysis = MmfSpectralAnalysis::new(1024);
     ///
-    /// let fundamental_1 = analysis.analyze(&winding, &[1.0, -0.5, -0.5]).expect("succeeds")[1].norm();
+    /// let fundamental_1 = analysis.analyze(&winding, [1.0, -0.5, -0.5]).expect("succeeds")[1].norm();
     /// assert_abs_diff_eq!(fundamental_1, 1.8453, epsilon = 1e-3);
     ///
     /// // Reuse the same analyzer for a different current configuration.
-    /// let fundamental_2 = analysis.analyze(&winding, &[0.0, 2.0, -2.0]).expect("succeeds")[1].norm();
+    /// let fundamental_2 = analysis.analyze(&winding, [0.0, 2.0, -2.0]).expect("succeeds")[1].norm();
     /// assert_abs_diff_eq!(fundamental_2, 4.2589, epsilon = 1e-3);
     /// ```
     pub fn analyze<W: Winding + ?Sized>(

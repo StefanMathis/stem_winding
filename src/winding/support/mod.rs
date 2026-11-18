@@ -324,7 +324,7 @@ pub fn hole_number(
 ///     }
 /// }
 ///
-/// assert_eq!(Calculated {}.get(2), 4);
+/// assert_eq!(Calculated {}.get_elem(2), 4);
 /// ```
 ///
 /// [`Copy`]: std::marker::Copy
