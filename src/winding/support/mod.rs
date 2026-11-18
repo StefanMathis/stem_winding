@@ -12,8 +12,146 @@ use crate::coils::Coil;
 
 use super::*;
 
-mod fec_spectral_analysis;
-pub use fec_spectral_analysis::*;
+mod magnetomotive_force;
+pub use magnetomotive_force::*;
+
+/// A current in d-q-0-coordinates.
+///
+/// The d- and q-components describe the current vector in a rotating
+/// reference frame, with the d-axis aligned with the direct axis and the
+/// q-axis displaced by 90 electrical degrees. The zero component represents
+/// the zero-sequence component of the current. [\[1\]](#dq0_current_1), p. 201.
+///
+/// The struct can be indexed like a 3-element array of [`ElectricCurrent`]s and
+/// also be converted from and into one. Out of bounds indexing results in a
+/// panic.
+///
+/// ```
+/// use stem_winding::prelude::*;
+///
+/// let currents = [
+///     ElectricCurrent::new::<ampere>(0.0),
+///     ElectricCurrent::new::<ampere>(1.0),
+///     ElectricCurrent::new::<ampere>(0.0),
+/// ];
+///
+/// let dq0 = Dq0Current::from(currents);
+/// assert_eq!(dq0[1].get::<ampere>(), 1.0);
+///
+/// let reconstructed = <[ElectricCurrent; 3]>::from(dq0);
+/// ```
+///
+/// # Literature
+/// <a id="dq0_current_1">\[1\]</a>
+/// Müller, G., Vogt, K. and Ponick, B.: Theorie elektrischer Maschinen,
+/// 1st edition, Wiley-VCH, 1995
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+pub struct Dq0Current {
+    /// Direct (d) component of the current.
+    pub direct: ElectricCurrent,
+    /// Quadrature (q) component of the current.
+    pub quadrature: ElectricCurrent,
+    /// Zero (0) component of the current.
+    pub zero: ElectricCurrent,
+}
+
+impl Dq0Current {
+    /// Returns an iterator over the phase current system represented by self.
+    ///
+    /// This function reconstructs a symmetric phase current system from `self`,
+    /// using the inverse Park transformation:
+    ///
+    /// `i_n = id * cos(α_n - θ) + iq * sin(α_n - θ) + i0 / m`
+    ///
+    /// where `θ` is the angle between the first phase and the d-axis
+    /// `first_phase_to_d_axis` in electrical degrees, `α_n` is the
+    /// [`phase_angle`](Winding::phase_angle) of phase `n` and `m` is the number
+    /// of [`phases`](Winding::phases).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::f64::consts::TAU;
+    /// use std::num::NonZeroU16;
+    ///
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let currents = [
+    ///     ElectricCurrent::new::<ampere>(1.0),
+    ///     ElectricCurrent::new::<ampere>(0.0),
+    ///     ElectricCurrent::new::<ampere>(0.0),
+    /// ];
+    /// let dq0 = Dq0Current::from(currents);
+    ///
+    /// // d-axis and axis of first phase are identical
+    /// let first_phase_to_d_axis = 0.0;
+    ///
+    /// // Phase currents for a five-phase system
+    /// let phases = NonZeroU16::new(5).expect("not zero");
+    /// let phase_angle = TAU / f64::from(phases.get());
+    ///
+    /// let mut currents = dq0.phase_currents(phases, phase_angle, first_phase_to_d_axis);
+    /// assert_abs_diff_eq!(currents.next().unwrap().get::<ampere>(), 1.0, epsilon = 1e-3);
+    /// assert_abs_diff_eq!(currents.next().unwrap().get::<ampere>(), 0.309, epsilon = 1e-3);
+    /// assert_abs_diff_eq!(currents.next().unwrap().get::<ampere>(), -0.809, epsilon = 1e-3);
+    /// assert_abs_diff_eq!(currents.next().unwrap().get::<ampere>(), -0.809, epsilon = 1e-3);
+    /// assert_abs_diff_eq!(currents.next().unwrap().get::<ampere>(), 0.309, epsilon = 1e-3);
+    /// assert!(currents.next().is_none());
+    /// ```
+    pub fn phase_currents(
+        &self,
+        phases: NonZeroU16,
+        phase_angle: f64,
+        first_phase_to_d_axis: f64,
+    ) -> impl Iterator<Item = ElectricCurrent> + '_ {
+        (0..phases.get()).into_iter().map(move |phase| {
+            let alpha = f64::from(phase) * phase_angle - first_phase_to_d_axis;
+            self.direct * alpha.cos() + self.quadrature * alpha.sin() + self.zero
+        })
+    }
+}
+
+impl std::ops::Index<usize> for Dq0Current {
+    type Output = ElectricCurrent;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.direct,
+            1 => &self.quadrature,
+            2 => &self.zero,
+            _ => panic!("out of bounds"),
+        }
+    }
+}
+
+impl std::ops::IndexMut<usize> for Dq0Current {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match index {
+            0 => &mut self.direct,
+            1 => &mut self.quadrature,
+            2 => &mut self.zero,
+            _ => panic!("out of bounds"),
+        }
+    }
+}
+
+impl From<[ElectricCurrent; 3]> for Dq0Current {
+    fn from(value: [ElectricCurrent; 3]) -> Self {
+        Self {
+            direct: value[0],
+            quadrature: value[1],
+            zero: value[2],
+        }
+    }
+}
+
+impl From<Dq0Current> for [ElectricCurrent; 3] {
+    fn from(value: Dq0Current) -> Self {
+        [value.direct, value.quadrature, value.zero]
+    }
+}
 
 /// Electrical connection of the phases of a [`Winding`].
 ///

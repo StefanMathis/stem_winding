@@ -16,10 +16,25 @@ fn test_fec_integer_slot_winding() {
         .try_into()
         .unwrap();
         let mut fec = MmfSpectralAnalysis::new(1024);
-        let output = fec.analyze(&winding, [0.5, -0.25, -0.25]).unwrap();
+        let output = fec
+            .analyze(
+                &winding,
+                [
+                    ElectricCurrent::new::<ampere>(0.5),
+                    ElectricCurrent::new::<ampere>(-0.25),
+                    ElectricCurrent::new::<ampere>(-0.25),
+                ],
+            )
+            .unwrap();
 
         // Assert the length of the output
         assert_eq!(output.len(), 513);
+
+        // Convert the output into f64 for evaluation
+        let output: Vec<_> = output
+            .iter()
+            .map(|c| num::Complex::new(c.re.get::<ampere>(), c.im.get::<ampere>()))
+            .collect();
 
         // All even orders are zero. Since the field is a pure 2D field, no constant
         // component exists.
@@ -43,11 +58,23 @@ fn test_fec_integer_slot_winding() {
 
         // Different current
         let output = fec
-            .analyze(&winding, (&[-0.25f64, -0.25, 0.5]).iter().copied())
+            .analyze(
+                &winding,
+                [
+                    ElectricCurrent::new::<ampere>(-0.25),
+                    ElectricCurrent::new::<ampere>(-0.25),
+                    ElectricCurrent::new::<ampere>(0.5),
+                ],
+            )
             .unwrap();
 
         // Assert the length of the output
         assert_eq!(output.len(), 513);
+
+        let output: Vec<_> = output
+            .iter()
+            .map(|c| num::Complex::new(c.re.get::<ampere>(), c.im.get::<ampere>()))
+            .collect();
 
         // All even orders are zero. Since the field is a pure 2D field, no constant
         // component exists.
@@ -82,7 +109,21 @@ fn test_fec_integer_slot_winding() {
         .try_into()
         .unwrap();
         let mut fec = MmfSpectralAnalysis::new(1024);
-        let output = fec.analyze(&winding, [0.5, -0.25, -0.25]).unwrap();
+        let output = fec
+            .analyze(
+                &winding,
+                [
+                    ElectricCurrent::new::<ampere>(0.5),
+                    ElectricCurrent::new::<ampere>(-0.25),
+                    ElectricCurrent::new::<ampere>(-0.25),
+                ],
+            )
+            .unwrap();
+
+        let output: Vec<_> = output
+            .iter()
+            .map(|c| num::Complex::new(c.re.get::<ampere>(), c.im.get::<ampere>()))
+            .collect();
 
         // Assert the length of the output
         assert_eq!(output.len(), 513);
@@ -118,10 +159,24 @@ fn test_fec_trait_object() {
     .unwrap();
     let trait_object: &dyn Winding = &winding;
     let mut fec = MmfSpectralAnalysis::new(1024);
-    let output = fec.analyze(trait_object, [0.5, -0.25, -0.25]).unwrap();
+    let output = fec
+        .analyze(
+            trait_object,
+            [
+                ElectricCurrent::new::<ampere>(0.5),
+                ElectricCurrent::new::<ampere>(-0.25),
+                ElectricCurrent::new::<ampere>(-0.25),
+            ],
+        )
+        .unwrap();
 
     // Assert the length of the output
     assert_eq!(output.len(), 513);
+
+    let output: Vec<_> = output
+        .iter()
+        .map(|c| num::Complex::new(c.re.get::<ampere>(), c.im.get::<ampere>()))
+        .collect();
 
     // All even orders are zero. Since the field is a pure 2D field, no constant
     // component exists.
@@ -158,10 +213,24 @@ fn test_fec_short_pitched_integer_slot_winding() {
     .try_into()
     .unwrap();
     let mut fec = MmfSpectralAnalysis::new(1024);
-    let output = fec.analyze(&winding, [0.5, -0.25, -0.25]).unwrap();
+    let output = fec
+        .analyze(
+            &winding,
+            [
+                ElectricCurrent::new::<ampere>(0.5),
+                ElectricCurrent::new::<ampere>(-0.25),
+                ElectricCurrent::new::<ampere>(-0.25),
+            ],
+        )
+        .unwrap();
 
     // Assert the length of the output
     assert_eq!(output.len(), 513);
+
+    let output: Vec<_> = output
+        .iter()
+        .map(|c| num::Complex::new(c.re.get::<ampere>(), c.im.get::<ampere>()))
+        .collect();
 
     // All even orders are zero. Since the field is a pure 2D field, no constant
     // component exists.
@@ -197,10 +266,24 @@ fn test_fec_tooth_coil_assembly() {
     .unwrap();
 
     let mut fec = MmfSpectralAnalysis::new(1024);
-    let output = fec.analyze(&winding, [1.0, -0.5, -0.5]).unwrap();
+    let output = fec
+        .analyze(
+            &winding,
+            [
+                ElectricCurrent::new::<ampere>(1.0),
+                ElectricCurrent::new::<ampere>(-0.5),
+                ElectricCurrent::new::<ampere>(-0.5),
+            ],
+        )
+        .unwrap();
 
     // Assert the length of the output
     assert_eq!(output.len(), 513);
+
+    let output: Vec<_> = output
+        .iter()
+        .map(|c| num::Complex::new(c.re.get::<ampere>(), c.im.get::<ampere>()))
+        .collect();
 
     // All even orders are zero. Since the field is a pure 2D field, no constant
     // component exists.

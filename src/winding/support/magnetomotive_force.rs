@@ -104,7 +104,17 @@ let winding: DistributedWinding = DistributedMinimalBuilder {
 .try_into()
 .unwrap();
 let mut mmf = MmfSpectralAnalysis::new(1024);
-let output = mmf.analyze(&winding, [1.0, -0.5, -0.5]).unwrap();
+let output = mmf.analyze(&winding, [
+    ElectricCurrent::new::<ampere>(1.0),
+    ElectricCurrent::new::<ampere>(-0.5),
+    ElectricCurrent::new::<ampere>(-0.5),
+]).unwrap();
+
+// Convert the output into f64 for evaluation
+let output: Vec<_> = output
+    .iter()
+    .map(|c| num::Complex::new(c.re.get::<ampere>(), c.im.get::<ampere>()))
+    .collect();
 
 // The constant component vanishes for this winding and current configuration.
 let (val, _) = output[0].to_polar(); // Constant component
@@ -227,10 +237,23 @@ impl MmfSpectralAnalysis {
     /// Each index represents a slot: The value at index 0 is the MMF at the
     /// middle of slot 0, the value at index 1 that at the middle of slot 1,
     /// and so on.
-    pub fn mmf_values(&self) -> &[f64] {
-        self.mmf_values.as_slice()
+    pub fn mmf_values(&self) -> &[ElectricCurrent] {
+        // SAFETY: ElectricCurrent is a uom::Quantity with #[repr(transparent)]
+        // over f64. Therefore, it has the same memory layout and ABI as f64.
+        // The stored values represent amperes, as ensured by analyze().
+        // https://docs.rs/uom/latest/uom/si/struct.Quantity.html
+        unsafe { std::mem::transmute(self.mmf_values.as_slice()) }
     }
 
+    /// Like [`MmfSpectralAnalysis::mmf_values`], but returns the underlying
+    /// [`f64`] values without dimensional information.
+    ///
+    /// The FFT algorithms operate directly on raw [`f64`] values, which are
+    /// also used for internal storage. This method provides zero-copy access
+    /// to the underlying MMF distribution.
+    pub fn mmf_values_raw(&self) -> &[f64] {
+        self.mmf_values.as_slice()
+    }
     /// Returns the complex Fourier coefficients from the most recent
     /// [`analyze`](MmfSpectralAnalysis::analyze) call.
     ///
@@ -241,7 +264,23 @@ impl MmfSpectralAnalysis {
     /// `α_electrical = k / p * α_mechanical`
     ///
     /// where `p` is the number of pole pairs.
-    pub fn coefficients(&self) -> &[Complex<f64>] {
+    pub fn coefficients(&self) -> &[Complex<ElectricCurrent>] {
+        // SAFETY: Complex<T> has #[repr(C)] and ElectricCurrent has
+        // #[repr(transparent)] over f64. Consequently, Complex<ElectricCurrent>
+        // has the same memory layout as Complex<f64>. The stored values
+        // represent amperes, as ensured by analyze().
+        // https://docs.rs/uom/latest/uom/si/struct.Quantity.html
+        // https://docs.rs/num-complex/latest/num_complex/struct.Complex.html
+        unsafe { std::mem::transmute(self.coefficients.as_slice()) }
+    }
+
+    /// Like [`MmfSpectralAnalysis::coefficients`], but returns the underlying
+    /// [`f64`] values without dimensional information.
+    ///
+    /// The FFT algorithms operate directly on raw [`f64`] values, which are
+    /// also used for internal storage. This method provides zero-copy access
+    /// to the underlying Fourier coefficients.
+    pub fn coefficients_raw(&self) -> &[Complex<f64>] {
         self.coefficients.as_slice()
     }
 
@@ -265,9 +304,13 @@ impl MmfSpectralAnalysis {
         &self,
         spatial_order: SpatialOrder,
         pole_pairs: NonZeroU16,
-    ) -> Option<Complex<f64>> {
+    ) -> Option<Complex<ElectricCurrent>> {
         let idx = spatial_order.to_mechanical(pole_pairs);
-        self.coefficients.get(idx as usize).cloned()
+        let val = self.coefficients.get(idx as usize)?;
+        Some(Complex::new(
+            ElectricCurrent::new::<ampere>(val.re),
+            ElectricCurrent::new::<ampere>(val.im),
+        ))
     }
 
     /// Returns the complex fourier coefficient from most recent
@@ -294,67 +337,19 @@ impl MmfSpectralAnalysis {
         spatial_order: SpatialOrder,
         pole_pairs: NonZeroU16,
         first_slot_to_d_axis: f64,
-    ) -> Option<Complex<f64>> {
-        let coefficient = self.coefficient(spatial_order, pole_pairs)?;
+    ) -> Option<Complex<ElectricCurrent>> {
         let order = spatial_order.to_mechanical(pole_pairs);
+        let coefficient = self.coefficients.get(order as usize)?;
         let theta = f64::from(order) / f64::from(pole_pairs.get()) * first_slot_to_d_axis;
-        Some(coefficient * Complex::from_polar(1.0, theta))
+        let val = coefficient * Complex::from_polar(1.0, theta);
+        Some(Complex::new(
+            ElectricCurrent::new::<ampere>(val.re),
+            ElectricCurrent::new::<ampere>(val.im),
+        ))
     }
 
-    /// Calculates the magnetomotive force spectrum for a complex dq0-current,
-    /// assuming equally spaced phase axes.
-    ///
-    /// This function reconstructs a symmetric phase current system from the
-    /// given `dq0_current = [id, iq, i0]` and passes it to
-    /// [`MmfSpectralAnalysis::analyze`]. The conversion uses the inverse Park
-    /// transformation:
-    ///
-    /// `i_n = id * cos(α_n - θ) + iq * sin(α_n - θ) + i0 / m`
-    ///
-    /// where `θ` is [`CoreExt::first_slot_to_d_axis`], `α_n` is the
-    /// [`phase_angle`](Winding::phase_angle) of phase `n` and `m` is the number
-    /// of phases. `id` is the d-current, `iq` is the q-current and i0 is the
-    /// zero-current (which is always zero if there is no neutral conductor and
-    /// may not be zero if there is one).
-    ///
-    /// # Limitations
-    ///
-    /// - This transformation represents only the fundamental-wave excitation.
-    ///   Additional harmonic current components cannot be specified through
-    ///   `dq_current`.
-    /// - The phase axes are assumed to be equally spaced. Consequently, the
-    ///   resulting phase currents represent an idealized symmetric current
-    ///   system, irrespective of the actual winding layout. When in doubt,
-    ///   check if the `winding` is actually [symmetric](Winding::is_symmetric).
-    pub fn analyze_dq<W: Winding + ?Sized>(
-        &mut self,
-        winding: &W,
-        dq0_current: [f64; 3],
-        first_slot_to_d_axis: f64,
-    ) -> Result<&[Complex<f64>], FftError> {
-        self.mmf_values.resize(winding.slots().get().into(), 0.0);
-
-        self.phase_currents
-            .resize(winding.phases().get().into(), 0.0);
-        let zero_curr = dq0_current[2] / f64::from(winding.phases().get());
-
-        // Calculate the phase currents from the dq-values
-        for (idx, curr) in self.phase_currents.iter_mut().enumerate() {
-            let alpha = winding.phase_angle(NonZeroU16::new(idx as u16 + 1).expect("not zero"))
-                - first_slot_to_d_axis;
-            *curr = dq0_current[0] * alpha.cos() + dq0_current[1] * alpha.sin() + zero_curr;
-        }
-
-        // Calculate the MMF
-        winding
-            .magnetomotive_force(self.mmf_values.as_mut_slice(), &self.phase_currents)
-            .expect("buffers have a valid length");
-
-        // Switch to non-generic version to reduce code bloat
-        self.analyze_priv()
-    }
-
-    /// Calculates the magnetomotive force (MMF) spectrum for the given currents.
+    /// Calculates the magnetomotive force (MMF) spectrum for the given
+    /// currents.
     ///
     /// The current vector used to determine the MMF has the size
     /// [`winding.phases()`](Winding::phases) and is populated from the
@@ -374,6 +369,8 @@ impl MmfSpectralAnalysis {
     /// use stem_winding::prelude::*;
     /// use stem_winding::winding::MmfSpectralAnalysis;
     ///
+    ///
+    ///
     /// let winding: DistributedWinding = DistributedMinimalBuilder {
     ///     slots: 12.try_into().expect("not zero"),
     ///     pole_pairs: 1.try_into().expect("not zero"),
@@ -388,18 +385,30 @@ impl MmfSpectralAnalysis {
     ///
     /// let mut analysis = MmfSpectralAnalysis::new(1024);
     ///
-    /// let fundamental_1 = analysis.analyze(&winding, [1.0, -0.5, -0.5]).expect("succeeds")[1].norm();
+    /// let currents = [
+    ///     ElectricCurrent::new::<ampere>(1.0),
+    ///     ElectricCurrent::new::<ampere>(-0.5),
+    ///     ElectricCurrent::new::<ampere>(-0.5),
+    /// ];
+    /// analysis.analyze(&winding, currents).expect("succeeds");
+    /// let fundamental_1 = analysis.coefficients_raw()[1].norm();
     /// assert_abs_diff_eq!(fundamental_1, 1.8453, epsilon = 1e-3);
     ///
     /// // Reuse the same analyzer for a different current configuration.
-    /// let fundamental_2 = analysis.analyze(&winding, [0.0, 2.0, -2.0]).expect("succeeds")[1].norm();
+    /// let currents = [
+    ///     ElectricCurrent::new::<ampere>(0.0),
+    ///     ElectricCurrent::new::<ampere>(2.0),
+    ///     ElectricCurrent::new::<ampere>(-2.0),
+    /// ];
+    /// analysis.analyze(&winding, currents).expect("succeeds");
+    /// let fundamental_2 = analysis.coefficients_raw()[1].norm();
     /// assert_abs_diff_eq!(fundamental_2, 4.2589, epsilon = 1e-3);
     /// ```
     pub fn analyze<W: Winding + ?Sized>(
         &mut self,
         winding: &W,
-        currents: impl IntoIterator<Item = f64>,
-    ) -> Result<&[Complex<f64>], FftError> {
+        currents: impl IntoIterator<Item = ElectricCurrent>,
+    ) -> Result<&[Complex<ElectricCurrent>], FftError> {
         self.mmf_values.resize(winding.slots().get().into(), 0.0);
 
         // Populate the current vector with all given currents
@@ -409,7 +418,7 @@ impl MmfSpectralAnalysis {
             *v = 0.0;
         });
         for (phase_curr, curr) in self.phase_currents.iter_mut().zip(currents) {
-            *phase_curr = curr;
+            *phase_curr = curr.get::<ampere>();
         }
 
         // Calculate the MMF
@@ -421,7 +430,7 @@ impl MmfSpectralAnalysis {
         self.analyze_priv()
     }
 
-    fn analyze_priv(&mut self) -> Result<&[Complex<f64>], FftError> {
+    fn analyze_priv(&mut self) -> Result<&[Complex<ElectricCurrent>], FftError> {
         // Upsample the mmf
         sample_mmf_values(self.mmf_values.iter().cloned(), &mut self.sampled_fec);
 
@@ -454,6 +463,6 @@ impl MmfSpectralAnalysis {
         // needs to be normalized
         self.coefficients[0] *= inverse;
 
-        Ok(self.coefficients.as_slice())
+        Ok(self.coefficients())
     }
 }
