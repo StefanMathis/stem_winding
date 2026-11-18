@@ -107,12 +107,6 @@ as [`DistributedWinding`](crate::winding::distributed::DistributedWinding).
   `stem_core` feature enabled) returns zero by default. Implementations should
   override this method if the winding has a non-negligible end-winding leakage
   inductance.
-- [`Winding::is_symmetric`] (only available with the `stem_core` feature enabled)
-  checks if the winding is symmetric across its phases. The default
-  implementation relies on comparing a couple of physical properties such as
-  the [`Winding::resistance`] or the [`Winding::main_inductance`]. If the
-  implementor of [`Winding`] is known to be symmetric, this function should be
-  overridden for performance reasons.
  */
 #[cfg_attr(feature = "serde", typetag::serde)]
 pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
@@ -389,97 +383,66 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
         return Default::default();
     }
 
+    // =========================================================================
+    // These functions usually don't need to be overridden.
+
     /// Checks whether the winding exhibits phase symmetry.
     ///
     /// The following properties are compared across all phases:
     ///
-    /// - The fundamental winding factor.
-    /// - The electrical resistance.
-    /// - The main inductance, air-gap leakage inductance, end-winding leakage
-    ///   inductance and slot leakage inductance.
+    /// - The fundamental winding factor for
+    ///   [`SpatialOrder::Electrical(1)`](SpatialOrder).
     /// - The number of series turns per phase.
-    ///
-    /// The winding factor is considered at the fundamental electrical spatial
-    /// order. The inductances are calculated with an effective air gap of 1 mm.
-    ///
-    /// Variable quantities are compared by their underlying expressions rather
-    /// than by evaluating them for particular environmental conditions, such as
-    /// temperature or excitation frequency. Consequently, mathematically
-    /// equivalent expressions are not necessarily considered equal if their
-    /// representations differ (`a + b != b + a`).
+    /// - The coil [`throw`](CoilExt::throw) and hence the end winding lengths.
+    ///   As discussed in [`Coil::throw`], the coil throw and hence the winding
+    ///   symmetry can differ can depend on the value of `cyclic`.
     ///
     /// If all listed properties are equal across phases, the winding is
     /// considered symmetric.
-    ///
-    /// This check cannot account for arbitrary behavior introduced by
-    /// overridden methods. Implementations requiring a different symmetry
-    /// criterion can override this method.
-    ///
-    /// Implementations known to be symmetric should override this method to
-    /// avoid the property comparisons. An example from this crate is
-    /// [`DistributedWinding::is_symmetric`](crate::winding::distributed::DistributedWinding::is_symmetric).
-    #[cfg(feature = "stem_core")]
-    fn is_symmetric(&self, core: CoreRef<'_>) -> bool {
+    fn is_symmetric(&self, cyclic: bool) -> bool {
         // Condition 1: Comparison of winding factors
+
+        use std::collections::HashMap;
         if !self.equal_winding_factors() {
             return false;
         }
 
-        // All other conditions
-        let air_gap = Length::new::<millimeter>(1.0);
-        let fundamental = SpatialOrder::Electrical(1);
-
-        // Condition 2: Calculate the phase resistance for some assumed conditions
-        let resistance_ref = self.resistance(core, NonZeroU16::MIN);
-        let main_inductance_ref = self.main_inductance(core, NonZeroU16::MIN, fundamental, air_gap);
-        let air_gap_leakage_inductance_ref =
-            self.air_gap_leakage_inductance(core, NonZeroU16::MIN, fundamental, air_gap);
-        let end_winding_leakage_inductance_ref =
-            self.end_winding_leakage_inductance(core, NonZeroU16::MIN, fundamental, air_gap);
-        let slot_leakage_inductance_ref =
-            self.slot_leakage_inductance(core, NonZeroU16::MIN, fundamental, air_gap);
+        // Condition 2: Series turns per phase
         let turns_phase_ref = self.series_turns_per_phase(NonZeroU16::MIN);
+
+        // Condition 3: Coil throw in slots. Key is coil throw, value is number of
+        // occurrences
+        let slots = if cyclic { Some(self.slots()) } else { None };
+        let mut coil_throw_ref: HashMap<u16, usize> = HashMap::new();
+        for c in self.coils_iter() {
+            if c.phase().get() == 1 {
+                let throw = c.throw(slots);
+                *coil_throw_ref.entry(throw).or_insert(0) += 1;
+            }
+        }
 
         for ph in 2..(self.phases().get() + 1) {
             let phase = NonZeroU16::new(ph).expect("not zero");
 
-            let resistance = self.resistance(core, phase);
-            if resistance != resistance_ref {
-                return false;
-            }
-
-            let main_inductance = self.main_inductance(core, phase, fundamental, air_gap);
-            if main_inductance != main_inductance_ref {
-                return false;
-            }
-
-            let air_gap_leakage_inductance =
-                self.air_gap_leakage_inductance(core, phase, fundamental, air_gap);
-            if air_gap_leakage_inductance != air_gap_leakage_inductance_ref {
-                return false;
-            }
-
-            let end_winding_leakage_inductance =
-                self.end_winding_leakage_inductance(core, phase, fundamental, air_gap);
-            if end_winding_leakage_inductance != end_winding_leakage_inductance_ref {
-                return false;
-            }
-
-            let slot_leakage_inductance =
-                self.slot_leakage_inductance(core, phase, fundamental, air_gap);
-            if slot_leakage_inductance != slot_leakage_inductance_ref {
-                return false;
-            }
-
             if self.series_turns_per_phase(phase) != turns_phase_ref {
+                return false;
+            }
+
+            let mut coil_throw: HashMap<u16, usize> = HashMap::new();
+            for c in self.coils_iter() {
+                if c.phase().get() == 1 {
+                    let throw = c.throw(slots);
+                    *coil_throw.entry(throw).or_insert(0) += 1;
+                }
+            }
+
+            // Compare all entries of coil_throw with coil_throw_ref
+            if coil_throw_ref != coil_throw {
                 return false;
             }
         }
         true
     }
-
-    // =========================================================================
-    // These functions usually don't need to be overridden.
 
     /// Return the number of turns at the given [`Zone`].
     ///

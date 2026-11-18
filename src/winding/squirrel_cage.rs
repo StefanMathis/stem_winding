@@ -451,9 +451,9 @@ impl Winding for SquirrelCageWinding {
         self
     }
 
-    #[cfg(feature = "stem_core")]
-    fn is_symmetric(&self, _core: CoreRef<'_>) -> bool {
-        return true;
+    fn is_symmetric(&self, cyclic: bool) -> bool {
+        let _ = cyclic;
+        true
     }
 
     #[cfg(feature = "stem_core")]

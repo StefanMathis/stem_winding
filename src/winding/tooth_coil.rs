@@ -491,11 +491,6 @@ impl Winding for ToothCoilWinding {
     }
 
     #[cfg(feature = "stem_core")]
-    fn is_symmetric(&self, _core: CoreRef<'_>) -> bool {
-        return true;
-    }
-
-    #[cfg(feature = "stem_core")]
     fn end_winding_leakage_inductance(
         &self,
         core: CoreRef<'_>,

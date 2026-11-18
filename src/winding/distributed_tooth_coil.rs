@@ -848,11 +848,6 @@ impl Winding for DistributedToothCoilWinding {
     }
 
     #[cfg(feature = "stem_core")]
-    fn is_symmetric(&self, _core: CoreRef<'_>) -> bool {
-        true
-    }
-
-    #[cfg(feature = "stem_core")]
     fn end_winding_leakage_inductance(
         &self,
         core: CoreRef<'_>,

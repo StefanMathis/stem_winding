@@ -5,18 +5,18 @@ stem_winding
 docs/main.md and (if available docs/end.md). Do not modify this file, instead
 modify the components. -->
 
-[`Winding`]: https://docs.rs/stem_winding/0.1.3/stem_winding/winding/trait.Winding.html
-[`Winding::zone_drawables`]: https://docs.rs/stem_winding/0.1.3/stem_winding/winding/trait.Winding.html#method.zone_drawables
-[`Winding::coil_drawables`]: https://docs.rs/stem_winding/0.1.3/stem_winding/winding/trait.Winding.html#method.coil_drawables
-[`SquirrelCageWinding`]: https://docs.rs/stem_winding/0.1.3/stem_winding/winding/squirrel_cage/struct.SquirrelCageWinding.html
-[`DistributedWinding`]: https://docs.rs/stem_winding/0.1.3/stem_winding/winding/distributed/struct.DistributedWinding.html
-[`DistributedToothCoilWinding`]: https://docs.rs/stem_winding/0.1.3/stem_winding/winding/distributed_tooth_coil/struct.DistributedToothCoilWinding.html
-[`ToothCoilWinding`]: https://docs.rs/stem_winding/0.1.3/stem_winding/winding/tooth_coil/struct.ToothCoilWinding.html
-[`QuadrupleLayerToothCoilWinding`]: https://docs.rs/stem_winding/0.1.3/stem_winding/winding/quadruple_layer_tooth_coil/struct.QuadrupleLayerToothCoilWinding.html
-[`CoilAssembly`]: https://docs.rs/stem_winding/0.1.3/stem_winding/winding/coil_assembly/struct.CoilAssembly.html
-[`Coil`]: https://docs.rs/stem_winding/0.1.3/stem_winding/coils/enum.Coil.html
-[`WindingTable`]: https://docs.rs/stem_winding/0.1.3/stem_winding/winding_table/struct.WindingTable.html
-[`Connection`]: https://docs.rs/stem_winding/0.1.3/stem_winding/winding/support/enum.Connection.html
+[`Winding`]: https://docs.rs/stem_winding/0.2.0/stem_winding/winding/trait.Winding.html
+[`Winding::zone_drawables`]: https://docs.rs/stem_winding/0.2.0/stem_winding/winding/trait.Winding.html#method.zone_drawables
+[`Winding::coil_drawables`]: https://docs.rs/stem_winding/0.2.0/stem_winding/winding/trait.Winding.html#method.coil_drawables
+[`SquirrelCageWinding`]: https://docs.rs/stem_winding/0.2.0/stem_winding/winding/squirrel_cage/struct.SquirrelCageWinding.html
+[`DistributedWinding`]: https://docs.rs/stem_winding/0.2.0/stem_winding/winding/distributed/struct.DistributedWinding.html
+[`DistributedToothCoilWinding`]: https://docs.rs/stem_winding/0.2.0/stem_winding/winding/distributed_tooth_coil/struct.DistributedToothCoilWinding.html
+[`ToothCoilWinding`]: https://docs.rs/stem_winding/0.2.0/stem_winding/winding/tooth_coil/struct.ToothCoilWinding.html
+[`QuadrupleLayerToothCoilWinding`]: https://docs.rs/stem_winding/0.2.0/stem_winding/winding/quadruple_layer_tooth_coil/struct.QuadrupleLayerToothCoilWinding.html
+[`CoilAssembly`]: https://docs.rs/stem_winding/0.2.0/stem_winding/winding/coil_assembly/struct.CoilAssembly.html
+[`Coil`]: https://docs.rs/stem_winding/0.2.0/stem_winding/coils/enum.Coil.html
+[`WindingTable`]: https://docs.rs/stem_winding/0.2.0/stem_winding/winding_table/struct.WindingTable.html
+[`Connection`]: https://docs.rs/stem_winding/0.2.0/stem_winding/winding/support/enum.Connection.html
 
 [phd_stator.svg]: https://raw.githubusercontent.com/StefanMathis/stem_winding/refs/heads/main/docs/img/phd_stator.svg
 [table_tooth_coil_winding.svg]: https://raw.githubusercontent.com/StefanMathis/stem_winding/refs/heads/main/docs/img/table_tooth_coil_winding.svg
@@ -29,7 +29,7 @@ Winding definition for stem – a Simulation Toolbox for Electric Motors. The
 [stem book] provides a comprehensive
 guide to the framework, while this crate's documentation describes its API.
 
-The full API documentation is available at <https://docs.rs/stem_winding/0.1.3/stem_winding>.
+The full API documentation is available at <https://docs.rs/stem_winding/0.2.0/stem_winding>.
 
 [serialization and deserialization]: https://stefanmathis.github.io/stem_book/serialization_and_deserialization.html
 [stem book]: https://stefanmathis.github.io/stem_book/
@@ -183,8 +183,8 @@ let winding: DistributedWinding = DistributedBuilder {
 // machine geometry, as demonstrated in the stem_core documentation.
 let core = RotCore::from_winding(&winding);
 
-// Assert that the winding is symmetric.
-assert!(winding.is_symmetric(core.as_core_ref()));
+// Assert that the winding is symmetric for a rotary core (cyclic winding).
+assert!(winding.is_symmetric(true));
 
 // Calculate the phase resistance. Since the winding is symmetric, it
 // suffices to evaluate one phase. The returned VarQuantity can be evaluated
