@@ -301,18 +301,21 @@ impl MmfSpectralAnalysis {
         Some(coefficient * Complex::from_polar(1.0, theta))
     }
 
-    /// Calculates the magnetomotive force spectrum for a complex dq-current,
+    /// Calculates the magnetomotive force spectrum for a complex dq0-current,
     /// assuming equally spaced phase axes.
     ///
     /// This function reconstructs a symmetric phase current system from the
-    /// given `dq_current = id + j * iq` and passes it to
+    /// given `dq0_current = [id, iq, i0]` and passes it to
     /// [`MmfSpectralAnalysis::analyze`]. The conversion uses the inverse Park
     /// transformation:
     ///
-    /// `i_n = id * cos(α_n - θ) + iq * sin(α_n - θ)`
+    /// `i_n = id * cos(α_n - θ) + iq * sin(α_n - θ) + i0 / m`
     ///
-    /// where `θ` is [`CoreExt::first_slot_to_d_axis`] and `α_n` is the
-    /// [`phase_angle`](Winding::phase_angle) of phase `n`.
+    /// where `θ` is [`CoreExt::first_slot_to_d_axis`], `α_n` is the
+    /// [`phase_angle`](Winding::phase_angle) of phase `n` and `m` is the number
+    /// of phases. `id` is the d-current, `iq` is the q-current and i0 is the
+    /// zero-current (which is always zero if there is no neutral conductor and
+    /// may not be zero if there is one).
     ///
     /// # Limitations
     ///
@@ -326,19 +329,20 @@ impl MmfSpectralAnalysis {
     pub fn analyze_dq<W: Winding + ?Sized>(
         &mut self,
         winding: &W,
-        dq_current: Complex<f64>,
+        dq0_current: [f64; 3],
         first_slot_to_d_axis: f64,
     ) -> Result<&[Complex<f64>], FftError> {
         self.mmf_values.resize(winding.slots().get().into(), 0.0);
 
         self.phase_currents
             .resize(winding.phases().get().into(), 0.0);
+        let zero_curr = dq0_current[2] / f64::from(winding.phases().get());
 
         // Calculate the phase currents from the dq-values
         for (idx, curr) in self.phase_currents.iter_mut().enumerate() {
             let alpha = winding.phase_angle(NonZeroU16::new(idx as u16 + 1).expect("not zero"))
                 - first_slot_to_d_axis;
-            *curr = dq_current.re * alpha.cos() + dq_current.im * alpha.sin()
+            *curr = dq0_current[0] * alpha.cos() + dq0_current[1] * alpha.sin() + zero_curr;
         }
 
         // Calculate the field excitation curve (mmf)
