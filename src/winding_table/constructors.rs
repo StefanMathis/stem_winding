@@ -583,9 +583,24 @@ impl WindingTable {
                     1,
                 )?;
                 // "Flatten" the tingley pattern, doubling the number of
-                // slots and halfing the number of layers in the process
-                // This compensates the aforementioned halfing of the slots.
+                // slots and halving the number of layers in the process
+                // This compensates the aforementioned halving of the slots.
                 winding_table_dl.layers = NonZeroU16::MIN;
+
+                // Make sure the coils aren't separated at the start of the winding.
+                // If they are, shift the winding table by 1
+                let first = winding_table_dl[Zone::new(0, 0)].abs();
+                let mut counter = 1;
+                for slot in 1..slots_num {
+                    if winding_table_dl[Zone::new(slot, 0)].abs() != first {
+                        break;
+                    }
+                    counter += 1;
+                }
+                if counter % 2 != 0 {
+                    winding_table_dl.shift_layer(-1, 0);
+                }
+
                 winding_table_dl.check(phases)
             }
         } else {

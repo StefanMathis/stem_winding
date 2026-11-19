@@ -451,8 +451,7 @@ impl Winding for SquirrelCageWinding {
         self
     }
 
-    fn is_symmetric(&self, cyclic: bool) -> bool {
-        let _ = cyclic;
+    fn is_symmetric(&self) -> bool {
         true
     }
 
@@ -526,6 +525,7 @@ impl Winding for SquirrelCageWinding {
             coil,
             self.as_dyn(),
             core,
+            true,
             Some(end_winding_volume),
         ));
     }

@@ -196,7 +196,7 @@ fn test_winding_12_8_dl() {
     assert_eq!(parallel_paths, vec![1, 2, 4]);
 
     // Assert that the winding is symmetric
-    assert!(winding.equal_winding_factors());
+    assert!(winding.is_symmetric());
 
     let harmonics: Vec<WindingHarmonic> = winding.harmonics().take(5).collect();
     assert_eq!(
@@ -284,7 +284,7 @@ fn test_winding_12_10_dl() {
     assert_eq!(parallel_paths, vec![1, 2]);
 
     // Assert that the winding is symmetric
-    assert!(winding.equal_winding_factors());
+    assert!(winding.is_symmetric());
 
     let harmonics: Vec<WindingHarmonic> = winding.harmonics().take(5).collect();
     assert_eq!(
@@ -377,7 +377,7 @@ fn test_winding_24_20_dl() {
     assert_eq!(parallel_paths, vec![1, 2, 4]);
 
     // Assert that the winding is symmetric
-    assert!(winding.equal_winding_factors());
+    assert!(winding.is_symmetric());
 
     let harmonics: Vec<WindingHarmonic> = winding.harmonics().take(5).collect();
     assert_eq!(
@@ -470,7 +470,7 @@ fn test_winding_12_10_sl() {
     assert_eq!(parallel_paths, vec![1, 2]);
 
     // Assert that the winding is symmetric
-    assert!(winding.equal_winding_factors());
+    assert!(winding.is_symmetric());
 
     let harmonics: Vec<WindingHarmonic> = winding.harmonics().take(5).collect();
     assert_eq!(
@@ -915,6 +915,9 @@ mod stem_core_tests {
             epsilon = 0.00001
         );
 
+        // Test symmetry with core
+        assert!(winding.is_symmetric_in_core(core.as_core_ref()));
+
         // Slot leakage inductance
         for ph in 1..4 {
             let phase = NonZeroU16::new(ph).expect("not zero");
@@ -966,6 +969,9 @@ mod stem_core_tests {
             epsilon = 0.00001
         );
 
+        // Test symmetry with core
+        assert!(winding.is_symmetric_in_core(core.as_core_ref()));
+
         for ph in 1..4 {
             let phase = NonZeroU16::new(ph).expect("not zero");
 
@@ -1009,6 +1015,114 @@ mod stem_core_tests {
                     .get::<henry>(),
                 4.40897e-3,
                 epsilon = 1e-6
+            );
+        }
+    }
+
+    #[test]
+    fn test_wrapping_with_lin_core() {
+        fn lin_core<W: Winding>(starts_in_slot_middle: bool, winding: &W) -> LinCore {
+            // Define some constructor values
+            LinCoreBuilder {
+                height: Length::new::<millimeter>(20.0),
+                width: Length::new::<millimeter>(200.0),
+                axial_length: Length::new::<millimeter>(10.0),
+                axial_coil_overhang: Length::new::<millimeter>(0.0),
+                skew_angle: 0.0,
+                iron_fill_factor: 1.0,
+                material: Arc::new(Material::default()),
+                pole_pairs: winding.pole_pairs(),
+                air_gap: Box::new(PlainAirGap {
+                    slots: winding.slots().get(),
+                    starts_in_slot_middle,
+                    num_segments: 0,
+                    air_gap_winding_height: Length::new::<millimeter>(1.0),
+                    winding_coverage: 0.8,
+                }),
+                flux_barrier: None,
+            }
+            .try_into()
+            .expect("valid geometric data")
+        }
+
+        {
+            let winding = create_winding_meas_servo();
+            let core = lin_core(false, &winding);
+
+            assert!(!winding.is_symmetric_in_core(core.as_core_ref()));
+            assert_eq!(
+                winding
+                    .coil_properties_at(core.as_core_ref(), Zone::new(0, 0))
+                    .unwrap()
+                    .throw(),
+                11
+            );
+            assert_eq!(
+                winding
+                    .coil_properties_at(core.as_core_ref(), Zone::new(1, 0))
+                    .unwrap()
+                    .throw(),
+                1
+            );
+        }
+        {
+            let winding = create_winding_meas_servo();
+            let core = lin_core(true, &winding);
+
+            assert!(winding.is_symmetric_in_core(core.as_core_ref()));
+            assert_eq!(
+                winding
+                    .coil_properties_at(core.as_core_ref(), Zone::new(0, 0))
+                    .unwrap()
+                    .throw(),
+                1
+            );
+            assert_eq!(
+                winding
+                    .coil_properties_at(core.as_core_ref(), Zone::new(1, 0))
+                    .unwrap()
+                    .throw(),
+                1
+            );
+        }
+        {
+            let winding = create_winding_1210_sl();
+            let core = lin_core(false, &winding);
+
+            assert!(winding.is_symmetric_in_core(core.as_core_ref()));
+            assert_eq!(
+                winding
+                    .coil_properties_at(core.as_core_ref(), Zone::new(0, 0))
+                    .unwrap()
+                    .throw(),
+                1
+            );
+            assert_eq!(
+                winding
+                    .coil_properties_at(core.as_core_ref(), Zone::new(1, 0))
+                    .unwrap()
+                    .throw(),
+                1
+            );
+        }
+        {
+            let winding = create_winding_1210_sl();
+            let core = lin_core(true, &winding);
+
+            assert!(winding.is_symmetric_in_core(core.as_core_ref()));
+            assert_eq!(
+                winding
+                    .coil_properties_at(core.as_core_ref(), Zone::new(0, 0))
+                    .unwrap()
+                    .throw(),
+                1
+            );
+            assert_eq!(
+                winding
+                    .coil_properties_at(core.as_core_ref(), Zone::new(1, 0))
+                    .unwrap()
+                    .throw(),
+                1
             );
         }
     }

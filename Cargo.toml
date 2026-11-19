@@ -21,7 +21,7 @@ rayon = "1.5"
 realfft = "3.5"
 serde = { version = "1", features = ["derive"], optional = true }
 stem_types = { version = "0.1.0" }
-stem_core = { version = "0.2.2", optional = true }
+stem_core = { version = "0.2.3", optional = true }
 stem_wire = { version = "0.3.0" } #version = "0.3.0"
 typetag = { version = "^0.2", optional = true }
 

@@ -689,3 +689,109 @@ mod serde_tests {
         assert_eq!(winding.layers().get(), 4);
     }
 }
+
+#[cfg(feature = "stem_core")]
+mod stem_core_tests {
+    use super::*;
+    use std::sync::Arc;
+
+    fn lin_core<W: Winding>(starts_in_slot_middle: bool, winding: &W) -> LinCore {
+        // Define some constructor values
+        LinCoreBuilder {
+            height: Length::new::<millimeter>(20.0),
+            width: Length::new::<millimeter>(200.0),
+            axial_length: Length::new::<millimeter>(10.0),
+            axial_coil_overhang: Length::new::<millimeter>(0.0),
+            skew_angle: 0.0,
+            iron_fill_factor: 1.0,
+            material: Arc::new(Material::default()),
+            pole_pairs: winding.pole_pairs(),
+            air_gap: Box::new(PlainAirGap {
+                slots: winding.slots().get(),
+                starts_in_slot_middle,
+                num_segments: 0,
+                air_gap_winding_height: Length::new::<millimeter>(1.0),
+                winding_coverage: 0.8,
+            }),
+            flux_barrier: None,
+        }
+        .try_into()
+        .expect("valid geometric data")
+    }
+
+    #[test]
+    fn test_end_winding_length_with_lin_core() {
+        let winding: QuadrupleLayerToothCoilWinding = QuadrupleLayerToothCoilMinimalBuilder {
+            slots: 12.try_into().expect("not zero"),
+            pole_pairs: 5.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            winding_table_constructor: WindingTableConstructor::Tingley,
+            turns_per_slot_side: 2.try_into().expect("not zero"),
+            turns_upper_layer_coils: Vec::new(),
+        }
+        .try_into()
+        .unwrap();
+
+        let core = lin_core(true, &winding);
+        for coil in winding.coil_properties_iter(core.as_core_ref()) {
+            approxim::assert_abs_diff_eq!(
+                coil.end_winding_half_turn_length(coil.any_zone())
+                    .get::<meter>(),
+                0.0157,
+                epsilon = 1e-4
+            );
+        }
+    }
+
+    #[test]
+    fn test_wrapping_with_lin_core() {
+        let mut conductor_material = Material::default();
+        conductor_material
+            .set_electrical_resistivity(ElectricalResistivity::new::<ohm_meter>(1.0).into());
+        let wire = Arc::new(SffWire::new(Arc::new(conductor_material), 1.0, 1.0).unwrap());
+
+        let winding: QuadrupleLayerToothCoilWinding = QuadrupleLayerToothCoilBuilder {
+            slots: 12.try_into().expect("not zero"),
+            pole_pairs: 5.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            winding_table_constructor: WindingTableConstructor::Tingley,
+            turns_per_slot_side: 2.try_into().expect("not zero"),
+            turns_upper_layer_coils: Vec::new(),
+            parallel_paths: 1.try_into().expect("not zero"),
+            connection: Connection::Star,
+            end_winding_leakage_coefficient: 0.0,
+            wire,
+            end_winding_half_turn_length_override: Default::default(),
+        }
+        .try_into()
+        .unwrap();
+
+        {
+            let core = lin_core(false, &winding);
+
+            assert_eq!(
+                winding
+                    .coil_properties_at(core.as_core_ref(), Zone::new(0, 0))
+                    .unwrap()
+                    .throw(),
+                11
+            );
+            assert_eq!(
+                winding
+                    .coil_properties_at(core.as_core_ref(), Zone::new(1, 0))
+                    .unwrap()
+                    .throw(),
+                1
+            );
+            assert!(!winding.is_symmetric_in_core(core.as_core_ref()));
+        }
+        {
+            let core = lin_core(true, &winding);
+
+            for coil in winding.coil_properties_iter(core.as_core_ref()) {
+                assert_eq!(coil.throw(), 1);
+            }
+            assert!(winding.is_symmetric_in_core(core.as_core_ref()));
+        }
+    }
+}

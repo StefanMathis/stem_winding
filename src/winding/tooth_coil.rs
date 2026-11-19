@@ -512,6 +512,31 @@ impl Winding for ToothCoilWinding {
         }
         end_winding_half_turn_length_semicircle(self, core, zone)
     }
+
+    #[cfg(feature = "stem_core")]
+    fn coil_properties_at<'a>(
+        &'a self,
+        core: CoreRef<'a>,
+        zone: Zone,
+    ) -> Option<crate::core_support::CoilProperties<'a>> {
+        let coil = self.coil_at(zone)?;
+
+        // If the core is a linear core and the slot middle is at the start of
+        // the core, force wrapping behavior (a rotary core wraps anyway).
+        let wrapping = if let Some(lin_core) = core.lin() {
+            lin_core.slot_middle_offset() == 0.0
+        } else {
+            false
+        };
+
+        return Some(crate::core_support::CoilProperties::new(
+            coil,
+            self.as_dyn(),
+            core,
+            wrapping,
+            None,
+        ));
+    }
 }
 
 /**

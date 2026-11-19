@@ -107,6 +107,9 @@ as [`DistributedWinding`](crate::winding::distributed::DistributedWinding).
   `stem_core` feature enabled) returns zero by default. Implementations should
   override this method if the winding has a non-negligible end-winding leakage
   inductance.
+- [`Winding::coil_properties_at`] can be overridden to customize the coil
+  wrapping behavior, see [`CoilProperties::new`] for details. By default, the
+  `wrapping` parameter is set to false.
  */
 #[cfg_attr(feature = "serde", typetag::serde)]
 pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
@@ -383,6 +386,31 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
         return Default::default();
     }
 
+    /// Returns a [`CoilProperties`] context for the [`Coil`] containing the
+    /// specified [`Zone`]. The returned `CoilProperties` combines the coil with
+    /// this winding, the specified [`CoreRef`], and the supplied end-winding
+    /// half-turn length overrides.
+    ///
+    /// These values are used by the physical-property calculations provided by
+    /// [`CoilProperties`].
+    ///
+    /// Returns `None` if the specified zone does not contain a coil.
+    #[cfg(feature = "stem_core")]
+    fn coil_properties_at<'a>(
+        &'a self,
+        core: CoreRef<'a>,
+        zone: Zone,
+    ) -> Option<crate::core_support::CoilProperties<'a>> {
+        let coil = self.coil_at(zone)?;
+        return Some(crate::core_support::CoilProperties::new(
+            coil,
+            self.as_dyn(),
+            core,
+            false,
+            None,
+        ));
+    }
+
     // =========================================================================
     // These functions usually don't need to be overridden.
 
@@ -394,12 +422,12 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     ///   [`SpatialOrder::Electrical(1)`](SpatialOrder).
     /// - The number of series turns per phase.
     /// - The coil [`throw`](CoilExt::throw) and hence the end winding lengths.
-    ///   As discussed in [`Coil::throw`], the coil throw and hence the winding
-    ///   symmetry can differ can depend on the value of `cyclic`.
+    ///   The winding is assumed to be cyclic, see [`CoilExt::throw`] for
+    ///   details.
     ///
     /// If all listed properties are equal across phases, the winding is
     /// considered symmetric.
-    fn is_symmetric(&self, cyclic: bool) -> bool {
+    fn is_symmetric(&self) -> bool {
         // Condition 1: Comparison of winding factors
 
         use std::collections::HashMap;
@@ -412,7 +440,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
 
         // Condition 3: Coil throw in slots. Key is coil throw, value is number of
         // occurrences
-        let slots = if cyclic { Some(self.slots()) } else { None };
+        let slots = Some(self.slots());
         let mut coil_throw_ref: HashMap<u16, usize> = HashMap::new();
         for c in self.coils_iter() {
             if c.phase().get() == 1 {
@@ -438,6 +466,80 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
 
             // Compare all entries of coil_throw with coil_throw_ref
             if coil_throw_ref != coil_throw {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Checks whether the winding exhibits phase symmetry when inserted in the
+    /// specified `core`.
+    ///
+    /// This function is an extension of [`Ẁinding::is_symmetric`], which
+    /// compares the same properties across all phases:
+    ///
+    /// - The fundamental winding factor for
+    ///   [`SpatialOrder::Electrical(1)`](SpatialOrder).
+    /// - The number of series turns per phase.
+    /// - The [`throw`](CoilExt::throw) of the coils and hence the end winding
+    ///   lengths. Note that [`Ẁinding::is_symmetric`] compares the
+    ///   [`throw`](CoilExt::throw) instead.
+    ///
+    /// Additionally, it also checks if the phase resistances are equal.
+    ///
+    /// If all listed properties are equal across phases, the winding is
+    /// considered symmetric.
+    #[cfg(feature = "stem_core")]
+    fn is_symmetric_in_core(&self, core: CoreRef<'_>) -> bool {
+        // Condition 1: Comparison of winding factors
+
+        use std::collections::HashMap;
+        if !self.equal_winding_factors() {
+            return false;
+        }
+
+        // Condition 2: Series turns per phase
+        let turns_phase_ref = self.series_turns_per_phase(NonZeroU16::MIN);
+
+        // Condition 3: Coil throw in slots. Key is coil throw, value is number of
+        // occurrences
+        let mut coil_throw_ref: HashMap<u16, usize> = HashMap::new();
+        for c in self.coil_properties_iter(core) {
+            if c.phase().get() == 1 {
+                let throw = c.throw();
+                *coil_throw_ref.entry(throw).or_insert(0) += 1;
+            }
+        }
+
+        // Condition 4
+        let resistance_ref = self.resistance(core, NonZeroU16::MIN).eval(&[]);
+
+        for ph in 2..(self.phases().get() + 1) {
+            let phase = NonZeroU16::new(ph).expect("not zero");
+
+            if self.series_turns_per_phase(phase) != turns_phase_ref {
+                return false;
+            }
+
+            let mut coil_throw: HashMap<u16, usize> = HashMap::new();
+            for c in self.coil_properties_iter(core) {
+                if c.phase().get() == 1 {
+                    let throw = c.throw();
+                    *coil_throw.entry(throw).or_insert(0) += 1;
+                }
+            }
+
+            // Compare all entries of coil_throw with coil_throw_ref
+            if coil_throw_ref != coil_throw {
+                return false;
+            }
+
+            let resistance = self.resistance(core, phase).eval(&[]);
+            if approxim::abs_diff_ne!(
+                resistance.get::<ohm>(),
+                resistance_ref.get::<ohm>(),
+                epsilon = ZERO_THRESHOLD
+            ) {
                 return false;
             }
         }
@@ -1952,30 +2054,6 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
             winding: self.as_dyn(),
             core,
         };
-    }
-
-    /// Returns a [`CoilProperties`] context for the [`Coil`] containing the
-    /// specified [`Zone`]. The returned `CoilProperties` combines the coil with
-    /// this winding, the specified [`CoreRef`], and the supplied end-winding
-    /// half-turn length overrides.
-    ///
-    /// These values are used by the physical-property calculations provided by
-    /// [`CoilProperties`].
-    ///
-    /// Returns `None` if the specified zone does not contain a coil.
-    #[cfg(feature = "stem_core")]
-    fn coil_properties_at<'a>(
-        &'a self,
-        core: CoreRef<'a>,
-        zone: Zone,
-    ) -> Option<crate::core_support::CoilProperties<'a>> {
-        let coil = self.coil_at(zone)?;
-        return Some(crate::core_support::CoilProperties::new(
-            coil,
-            self.as_dyn(),
-            core,
-            None,
-        ));
     }
 
     /// Returns the phase resistance of the winding.

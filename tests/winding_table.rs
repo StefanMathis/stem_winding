@@ -361,7 +361,7 @@ fn test_tingley_success() {
         )
         .unwrap();
         let expected_result = WindingTable::from_layer_major(
-            [3, 1, -1, -2, 2, 3, -3, -1, 1, 2, -2, -3].into_iter(),
+            [1, -1, -2, 2, 3, -3, -1, 1, 2, -2, -3, 3].into_iter(),
             NonZeroU16::new(12).expect("not zero"),
             NonZeroU16::MIN,
         );
@@ -420,7 +420,7 @@ fn test_tingley_success() {
         )
         .unwrap();
         let expected_result = WindingTable::from_layer_major(
-            [3, 1, -1, -2, 2, 3, -3, -1, 1, 2, -2, -3].into_iter(),
+            [1, -1, -2, 2, 3, -3, -1, 1, 2, -2, -3, 3].into_iter(),
             NonZeroU16::new(12).expect("not zero"),
             NonZeroU16::MIN,
         );
@@ -441,7 +441,7 @@ fn test_tingley_success() {
         .unwrap();
         let expected_result = WindingTable::from_layer_major(
             [
-                3, 1, -1, -2, 2, 3, -3, -1, 1, 2, -2, -3, 3, 1, -1, -2, 2, 3, -3, -1, 1, 2, -2, -3,
+                1, -1, -2, 2, 3, -3, -1, 1, 2, -2, -3, 3, 1, -1, -2, 2, 3, -3, -1, 1, 2, -2, -3, 3,
             ]
             .into_iter(),
             NonZeroU16::new(24).expect("not zero"),

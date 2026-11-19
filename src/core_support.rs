@@ -12,7 +12,7 @@
 
 use std::{
     f64::consts::{FRAC_PI_2, PI, TAU},
-    num::NonZeroU16,
+    num::{NonZeroU16, NonZeroUsize},
     sync::Arc,
 };
 
@@ -232,6 +232,7 @@ pub struct CoilProperties<'a> {
     winding: &'a dyn Winding,
     core: CoreRef<'a>,
     end_winding_volume: Option<Volume>,
+    wrapping: bool,
 }
 
 impl<'a> CoilProperties<'a> {
@@ -242,8 +243,16 @@ impl<'a> CoilProperties<'a> {
     /// part of the [`Winding`]. To create [`CoilProperties`] for an existing
     /// winding, use [`Winding::coil_properties_at`] instead.
     ///
-    /// `end_winding_half_turn_lengths` can be used to override the calculated
-    /// end-winding half-turn length for individual [`Zone`]s.
+    /// The `wrapping` parameter can be used to force a wrapping coil (see
+    /// [`CoilExt::throw`]). If set to false, the wrapping behavior depends on
+    /// the `core` (wrapping for [`RotCore`], not wrapping for [`LinCore`]).
+    /// This escape hatch can be useful to account for special cases such as a
+    /// double-layer
+    /// [`ToothCoilWinding`](crate::winding::tooth_coil::ToothCoilWinding)
+    /// inserted into a slotted [`LinCore`] where the core starts in the middle
+    /// of the slot. In this particular case, the slot is split across both end
+    /// sides of the core, meaning that one of the coils in the first slot is
+    /// actually wrapped around the last tooth with a throw of 1.
     ///
     /// If an `end_winding_volume` override is provided, it is interpreted as
     /// the total conductor volume of the end winding of the winding. The
@@ -260,12 +269,14 @@ impl<'a> CoilProperties<'a> {
         coil: &'a Coil,
         winding: &'a dyn Winding,
         core: CoreRef<'a>,
+        wrapping: bool,
         end_winding_volume: Option<Volume>,
     ) -> Self {
         Self {
             coil,
             winding,
             core,
+            wrapping,
             end_winding_volume,
         }
     }
@@ -402,6 +413,53 @@ impl<'a> CoilProperties<'a> {
             return Length::new::<meter>(0.0);
         }
         self.winding.end_winding_half_turn_length(self.core, zone)
+    }
+
+    /// Returns the coil throw in slot pitches.
+    ///
+    /// The throw is the number of slot pitches between the two ends of a coil,
+    /// measured along the slot direction.
+    ///
+    /// Different to [`CoilExt::throw`], this method takes the core into account
+    /// to determine the wrapping behavior. For example, if the winding is
+    /// inserted into a [`RotCore`], a coil can be cyclic whereas it normally
+    /// can't be for a [`LinCore`]. There are exceptions, which is why the
+    /// `wrapping` parameter of [`CoilProperties::new`] can be used to
+    /// override this behavior. See the documentation of [`CoilProperties::new`]
+    /// for details.
+    pub fn throw(&self) -> u16 {
+        if self.wrapping || self.core.rot().is_some() {
+            self.coil.throw(Some(self.winding.slots()))
+        } else {
+            self.coil.throw(None)
+        }
+    }
+
+    /// Returns the phase of the coil.
+    ///
+    /// This method is a convenience wrapper around [`CoilExt::phase`] of the
+    /// underlying [`coil`](CoilProperties::coil), see its docstring for
+    /// more.
+    pub fn phase(&self) -> NonZeroU16 {
+        self.coil.phase()
+    }
+
+    /// Returns the number of turns.
+    ///
+    /// This method is a convenience wrapper around [`CoilExt::turns`] of the
+    /// underlying [`coil`](CoilProperties::coil), see its docstring for
+    /// more.
+    pub fn turns(&self) -> NonZeroUsize {
+        self.coil.turns()
+    }
+
+    /// Returns an arbitrary, but not random, [`Zone`] occupied by the coil.
+    ///
+    /// This method is a convenience wrapper around [`CoilExt::any_zone`] of the
+    /// underlying [`coil`](CoilProperties::coil), see its docstring for
+    /// more.
+    pub fn any_zone(&self) -> Zone {
+        self.coil.any_zone()
     }
 
     /// Returns the conductor volume of the end-winding half turn associated

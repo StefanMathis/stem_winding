@@ -150,8 +150,8 @@ let winding: DistributedWinding = DistributedBuilder {
 // machine geometry, as demonstrated in the stem_core documentation.
 let core = RotCore::from_winding(&winding);
 
-// Assert that the winding is symmetric for a rotary core (cyclic winding).
-assert!(winding.is_symmetric(true));
+// Assert that the winding is symmetric
+assert!(winding.is_symmetric());
 
 // Calculate the phase resistance. Since the winding is symmetric, it
 // suffices to evaluate one phase. The returned VarQuantity can be evaluated
