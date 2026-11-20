@@ -67,7 +67,8 @@ impl Dq0Current {
     /// where `θ` is the angle between the first phase and the d-axis
     /// `first_phase_to_d_axis` in electrical degrees, `α_n` is the
     /// [`phase_angle`](Winding::phase_angle) of phase `n` and `m` is the number
-    /// of [`phases`](Winding::phases).
+    /// of [`phases`](Winding::phases). `α_n` is the product of `Δα * n`, where
+    /// `Δα` is the angle between two neighboring phases.
     ///
     /// # Examples
     ///
@@ -90,9 +91,9 @@ impl Dq0Current {
     ///
     /// // Phase currents for a five-phase system
     /// let phases = NonZeroU16::new(5).expect("not zero");
-    /// let phase_angle = TAU / f64::from(phases.get());
+    /// let angle_between_phases = TAU / f64::from(phases.get());
     ///
-    /// let mut currents = dq0.phase_currents(phases, phase_angle, first_phase_to_d_axis);
+    /// let mut currents = dq0.phase_currents(phases, angle_between_phases, first_phase_to_d_axis);
     /// assert_abs_diff_eq!(currents.next().unwrap().get::<ampere>(), 1.0, epsilon = 1e-3);
     /// assert_abs_diff_eq!(currents.next().unwrap().get::<ampere>(), 0.309, epsilon = 1e-3);
     /// assert_abs_diff_eq!(currents.next().unwrap().get::<ampere>(), -0.809, epsilon = 1e-3);
@@ -103,12 +104,14 @@ impl Dq0Current {
     pub fn phase_currents(
         &self,
         phases: NonZeroU16,
-        phase_angle: f64,
+        angle_between_phases: f64,
         first_phase_to_d_axis: f64,
     ) -> impl Iterator<Item = ElectricCurrent> + '_ {
         (0..phases.get()).into_iter().map(move |phase| {
-            let alpha = f64::from(phase) * phase_angle - first_phase_to_d_axis;
-            self.direct * alpha.cos() + self.quadrature * alpha.sin() + self.zero
+            let alpha = f64::from(phase) * angle_between_phases - first_phase_to_d_axis;
+            self.direct * alpha.cos()
+                + self.quadrature * alpha.sin()
+                + self.zero / f64::from(phases.get())
         })
     }
 }

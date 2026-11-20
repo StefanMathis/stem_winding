@@ -462,6 +462,11 @@ impl<'a> CoilProperties<'a> {
         self.coil.any_zone()
     }
 
+    /// Returns a reference to the underlying [`Wire`] trait object.
+    pub fn wire(&self) -> &Arc<dyn stem_wire::wire::Wire> {
+        self.coil.wire()
+    }
+
     /// Returns the conductor volume of the end-winding half turn associated
     /// with the specified [`Zone`].
     ///

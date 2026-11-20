@@ -313,25 +313,34 @@ impl MmfSpectralAnalysis {
         ))
     }
 
-    /// Returns the complex fourier coefficient from most recent
+    /// Returns the complex Fourier coefficient from the most recent
     /// [`analyze`](MmfSpectralAnalysis::analyze) call for the specified
-    /// `spatial_order` in dq-coordinates.
+    /// `spatial_order`, transformed into dq-coordinates.
     ///
-    /// Since the MMF distribution created by
-    /// [`Winding::magnetomotive_force`] starts in the middle of the first
-    /// slot of the winding, the (mechanical) angle of the coefficients is
-    /// likewise relative to that first slot.  This function retrieves the
-    /// coefficient from [`MmfSpectralAnalysis::coefficient`] and
-    /// transforms it into dq-coordinates using
+    /// The MMF distribution created by [`Winding::magnetomotive_force`]
+    /// starts in the middle of the first slot of the winding. Consequently,
+    /// the spatial reference of the Fourier coefficients is also the middle
+    /// of the first slot.
+    ///
+    /// This function retrieves the coefficient from
+    /// [`MmfSpectralAnalysis::coefficient`] and transforms it into
+    /// dq-coordinates using:
     ///
     /// `c_k_dq = c_k * e^(j * k / p * θ)`
     ///
     /// where `θ` is
     /// [`CoreExt::first_slot_to_d_axis`](stem_core::core::CoreExt::first_slot_to_d_axis)
-    /// and `p` is the number of pole pairs. The factor `1 / p`
-    /// converts the electrical angle `θ` into a mechanical angle. `Re(c_k_dq)`
-    /// is the d-component of the excitation for the k-th mechanical spatial
-    /// order, `Im(c_k_dq)` the q-component.
+    /// and `p` is the number of pole pairs. The factor `k / p` converts the
+    /// mechanical spatial order into the corresponding electrical spatial
+    /// order.
+    ///
+    /// The real and imaginary components represent the d- and q-components
+    /// of the excitation, respectively. Note, however, that the imaginary
+    /// component follows RustFFT's Fourier transform convention, which uses
+    /// a negative complex exponential (`e^(-j * ω * t)`). Consequently,
+    /// positive q-axis excitation corresponds to a negative imaginary
+    /// component. This differs from the conventional dq representation,
+    /// where the q-component is represented by the positive imaginary part.
     pub fn coefficient_dq(
         &self,
         spatial_order: SpatialOrder,

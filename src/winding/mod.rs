@@ -941,53 +941,98 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     /// }
     /// ```
     fn winding_factor(&self, phase: NonZeroU16, spatial_order: SpatialOrder) -> f64 {
-        // It is sufficient to calculate the phasor star for the base winding.
-        // However, this also means that the spatial and likewise the phasor
-        // angle must adjusted accordingly!
-        let base_winding_count = self.base_winding_count().get();
-        let slots_base = self.slots().get() / base_winding_count;
-
-        let elec_order = match spatial_order {
-            SpatialOrder::Mechanical(v) => {
-                if v % u32::from(base_winding_count) != 0 {
-                    // W.r.t. the base winding, no fractional order can exist!
-                    return 0.0;
-                }
-                f64::from(v) / f64::from(self.pole_pairs().get() * base_winding_count)
-            }
-            SpatialOrder::Electrical(v) => f64::from(v) / f64::from(base_winding_count),
-        };
-        let layers = self.layers().get();
-        let alpha_u = self.phasor_angle() * f64::from(base_winding_count);
-
-        let (phasor_sum_geo, phasor_sum_abs) = (0..slots_base)
-            .into_par_iter()
-            .map(|slot| {
-                let mut phasor_sum_abs = 0;
-
-                let mut signed_turns_in_layer: f64 = 0.0;
-                for layer in 0..layers {
-                    let current_phase = self.phase_at(Zone::new(slot, layer));
-                    if current_phase.abs() == i32::from(phase.get()) {
-                        let turns = self.turns_at(Zone::new(slot, layer));
-                        phasor_sum_abs += turns;
-                        signed_turns_in_layer += f64::from(current_phase.signum()) * turns as f64;
-                    }
-                }
-                let phasor_sum_geo = signed_turns_in_layer
-                    * Complex::new(0.0, slot as f64 * alpha_u * elec_order).exp();
-
-                (phasor_sum_geo, phasor_sum_abs)
-            })
-            .reduce(
-                || (Complex::new(0.0, 0.0), 0),
-                |a, b| (a.0 + b.0, a.1 + b.1),
-            );
+        let (phasor, phasor_len) = winding_factor_phasor(self, phase, spatial_order);
+        if phasor_len == 0 {
+            return 0.0;
+        }
 
         // Sum up the phasors and get the absolute value, which equals the resulting
         // phasor length. Calculate winding factor as quotient of the absolute sum of
         // all phasors and the geometrical sum of all phasors.
-        phasor_sum_geo.norm() / (phasor_sum_abs as f64)
+        phasor.norm() / (phasor_len as f64)
+    }
+
+    /// Returns the mechanical angle of the first positive magnetic axis for the
+    /// given `phase` and `spatial_order`.
+    ///
+    /// The positive magnetic axis is the angular position of the maximum of the
+    /// corresponding spatial harmonic of the phase's magnetomotive force (MMF)
+    /// (see [`Winding::magnetomotive_force`]). It is determined from the phase
+    /// angle of the winding-factor phasor, accounting for the 90° electrical
+    /// phase shift between the winding-factor distribution and the resulting MMF.
+    /// The angle is measured in mechanical radians relative to the winding
+    /// reference axis, which is defined in the middle of the first slot.
+    ///
+    /// For a mechanical spatial order `ν`, there are `ν` equivalent positive
+    /// magnetic axes around the air gap. This function returns the first positive
+    /// magnetic axis `α_0`. The other positive axes can be obtained with:
+    ///
+    /// `α_k = α_0 + k * 2 * π / ν`
+    ///
+    /// where `k` is a nonnegative integer smaller than `ν`. The corresponding
+    /// negative magnetic axes (MMF minima) are offset from the positive axes by
+    /// `π / ν`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::f64::consts::TAU;
+    ///
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let winding: DistributedWinding = DistributedMinimalBuilder {
+    ///     slots: 36.try_into().expect("not zero"),
+    ///     pole_pairs: 2.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 1.try_into().expect("not zero"),
+    ///     coil_throw_reduction: 0,
+    ///     zone_shift: 0,
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    /// }
+    /// .try_into()
+    ///
+    /// // Verification of the zone plan
+    /// let winding_table = winding.winding_table(true);
+    /// let expected_result = WindingTable::from_slot_major(
+    ///     [
+    ///         1, 1, 1, -3, -3, -3, 2, 2, 2, -1, -1, -1, 3, 3, 3, -2, -2, -2,
+    ///         1, 1, 1, -3, -3, -3, 2, 2, 2, -1, -1, -1, 3, 3, 3, -2, -2, -2,
+    ///     ]
+    ///     .into_iter(),
+    ///     NonZeroU16::new(18).expect("not zero"),
+    ///     NonZeroU16::new(1).expect("not zero"),
+    /// );
+    /// assert_eq!(winding_table, expected_result);
+    ///
+    /// // Slot numbering starts at 0. The reference axis is in the middle
+    /// // of slot 0.
+    ///
+    /// // Axis for phase 1: 55° mechanical (between 4th and 5th slot = middle of first positive coil group of phase 1)
+    /// assert_abs_diff_eq!(
+    ///     winding.magnetic_axis(1.try_into().expect("not zero"), SpatialOrder::Electrical(1),
+    ///     55.0 / 360.0 * TAU,
+    ///     epsilon = 1e-3,
+    /// );
+    ///
+    /// // Axis for phase 2: 115° mechanical (between 11h and 12th slot slot = middle of first positive coil group of phase 2)
+    /// assert_abs_diff_eq!(
+    ///     winding.magnetic_axis(2.try_into().expect("not zero"), SpatialOrder::Electrical(1),
+    ///     115.0 / 360.0 * TAU,
+    ///     epsilon = 1e-3,
+    /// );
+    ///
+    /// // Axis for phase 3: -5 mechanical between 35th and 0th slot slot = middle of first positive coil group of phase 3)
+    /// assert_abs_diff_eq!(
+    ///     winding.magnetic_axis(3.try_into().expect("not zero"), SpatialOrder::Electrical(1),
+    ///     -5.0 / 360.0 * TAU,
+    ///     epsilon = 1e-3,
+    /// );
+    /// ```
+    fn magnetic_axis(&self, phase: NonZeroU16, spatial_order: SpatialOrder) -> f64 {
+        let (phasor, _) = winding_factor_phasor(self, phase, spatial_order);
+        (phasor.arg() + std::f64::consts::FRAC_PI_2)
+            / f64::from(spatial_order.to_mechanical(self.pole_pairs()))
     }
 
     /// Checks whether all phases have the same winding factor at the
@@ -2708,4 +2753,53 @@ pub fn resistance<W: Winding + ?Sized>(
         .sum();
     let parallel_paths = f64::from(winding.parallel_paths(phase).get());
     resistance / VarQuantity::from(parallel_paths.powi(2))
+}
+
+fn winding_factor_phasor<W: Winding + ?Sized>(
+    winding: &W,
+    phase: NonZeroU16,
+    spatial_order: SpatialOrder,
+) -> (Complex<f64>, usize) {
+    // It is sufficient to calculate the phasor star for the base winding.
+    // However, this also means that the spatial and likewise the phasor
+    // angle must adjusted accordingly!
+    let base_winding_count = winding.base_winding_count().get();
+    let slots_base = winding.slots().get() / base_winding_count;
+
+    let elec_order = match spatial_order {
+        SpatialOrder::Mechanical(v) => {
+            if v % u32::from(base_winding_count) != 0 {
+                // W.r.t. the base winding, no fractional order can exist!
+                return (Complex::new(0.0, 0.0), 0);
+            }
+            f64::from(v) / f64::from(winding.pole_pairs().get() * base_winding_count)
+        }
+        SpatialOrder::Electrical(v) => f64::from(v) / f64::from(base_winding_count),
+    };
+    let layers = winding.layers().get();
+    let alpha_u = winding.phasor_angle() * f64::from(base_winding_count);
+
+    (0..slots_base)
+        .into_par_iter()
+        .map(|slot| {
+            let mut phasor_sum_abs = 0;
+
+            let mut signed_turns_in_layer: f64 = 0.0;
+            for layer in 0..layers {
+                let current_phase = winding.phase_at(Zone::new(slot, layer));
+                if current_phase.abs() == i32::from(phase.get()) {
+                    let turns = winding.turns_at(Zone::new(slot, layer));
+                    phasor_sum_abs += turns;
+                    signed_turns_in_layer += f64::from(current_phase.signum()) * turns as f64;
+                }
+            }
+            let phasor_sum_geo =
+                signed_turns_in_layer * Complex::new(0.0, slot as f64 * alpha_u * elec_order).exp();
+
+            (phasor_sum_geo, phasor_sum_abs)
+        })
+        .reduce(
+            || (Complex::new(0.0, 0.0), 0),
+            |a, b| (a.0 + b.0, a.1 + b.1),
+        )
 }

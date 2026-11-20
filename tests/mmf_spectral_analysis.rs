@@ -15,8 +15,8 @@ fn test_fec_integer_slot_winding() {
         }
         .try_into()
         .unwrap();
-        let mut fec = MmfSpectralAnalysis::new(1024);
-        let output = fec
+        let mut mmf = MmfSpectralAnalysis::new(1024);
+        let output = mmf
             .analyze(
                 &winding,
                 [
@@ -57,7 +57,7 @@ fn test_fec_integer_slot_winding() {
         assert_abs_diff_eq!(val, 0.0967, epsilon = 1e-3);
 
         // Different current
-        let output = fec
+        let output = mmf
             .analyze(
                 &winding,
                 [
@@ -108,8 +108,8 @@ fn test_fec_integer_slot_winding() {
         }
         .try_into()
         .unwrap();
-        let mut fec = MmfSpectralAnalysis::new(1024);
-        let output = fec
+        let mut mmf = MmfSpectralAnalysis::new(1024);
+        let output = mmf
             .analyze(
                 &winding,
                 [
@@ -158,8 +158,8 @@ fn test_fec_trait_object() {
     .try_into()
     .unwrap();
     let trait_object: &dyn Winding = &winding;
-    let mut fec = MmfSpectralAnalysis::new(1024);
-    let output = fec
+    let mut mmf = MmfSpectralAnalysis::new(1024);
+    let output = mmf
         .analyze(
             trait_object,
             [
@@ -212,8 +212,8 @@ fn test_fec_short_pitched_integer_slot_winding() {
     }
     .try_into()
     .unwrap();
-    let mut fec = MmfSpectralAnalysis::new(1024);
-    let output = fec
+    let mut mmf = MmfSpectralAnalysis::new(1024);
+    let output = mmf
         .analyze(
             &winding,
             [
@@ -265,8 +265,8 @@ fn test_fec_tooth_coil_assembly() {
     .try_into()
     .unwrap();
 
-    let mut fec = MmfSpectralAnalysis::new(1024);
-    let output = fec
+    let mut mmf = MmfSpectralAnalysis::new(1024);
+    let output = mmf
         .analyze(
             &winding,
             [
@@ -304,4 +304,82 @@ fn test_fec_tooth_coil_assembly() {
 
     let (val, _) = output[5].to_polar(); // Fifth order
     assert_abs_diff_eq!(val, 0.7126, epsilon = 1e-3);
+}
+
+#[test]
+fn test_dq() {
+    {
+        let winding: DistributedWinding = DistributedMinimalBuilder {
+            slots: 12.try_into().expect("not zero"),
+            pole_pairs: 1.try_into().expect("not zero"),
+            phases: 3.try_into().expect("not zero"),
+            layers: 1.try_into().expect("not zero"),
+            coil_throw_reduction: 0,
+            zone_shift: 0,
+            winding_table_constructor: WindingTableConstructor::Tingley,
+        }
+        .try_into()
+        .unwrap();
+        let mut mmf = MmfSpectralAnalysis::new(1024);
+
+        let phase_a = 1.try_into().unwrap();
+
+        let phase_a_axis = winding.magnetic_axis(phase_a, SpatialOrder::Electrical(1));
+        let first_phase_to_d_axis = 0.0;
+
+        // Convert the electrical displacement to mechanical displacement.
+        let first_slot_to_d_axis =
+            phase_a_axis + first_phase_to_d_axis / f64::from(winding.pole_pairs().get());
+
+        let angle_between_phases = std::f64::consts::TAU / f64::from(winding.phases().get());
+
+        {
+            let dq0 = Dq0Current {
+                direct: ElectricCurrent::new::<ampere>(1.0),
+                quadrature: ElectricCurrent::new::<ampere>(0.0),
+                zero: ElectricCurrent::new::<ampere>(0.0),
+            };
+            let currents = dq0.phase_currents(
+                winding.phases(),
+                angle_between_phases,
+                first_phase_to_d_axis,
+            );
+
+            mmf.analyze(&winding, currents).unwrap();
+
+            let fundamental = mmf
+                .coefficient_dq(
+                    SpatialOrder::Electrical(1),
+                    winding.pole_pairs(),
+                    first_slot_to_d_axis,
+                )
+                .unwrap();
+            assert_abs_diff_eq!(fundamental.re.get::<ampere>(), 1.84536, epsilon = 1e-3);
+            assert_abs_diff_eq!(fundamental.im.get::<ampere>(), 0.0018871, epsilon = 1e-3);
+        }
+        {
+            let dq0 = Dq0Current {
+                direct: ElectricCurrent::new::<ampere>(0.0),
+                quadrature: ElectricCurrent::new::<ampere>(1.0),
+                zero: ElectricCurrent::new::<ampere>(0.0),
+            };
+            let currents = dq0.phase_currents(
+                winding.phases(),
+                angle_between_phases,
+                first_phase_to_d_axis,
+            );
+
+            mmf.analyze(&winding, currents).unwrap();
+
+            let fundamental = mmf
+                .coefficient_dq(
+                    SpatialOrder::Electrical(1),
+                    winding.pole_pairs(),
+                    first_slot_to_d_axis,
+                )
+                .unwrap();
+            assert_abs_diff_eq!(fundamental.re.get::<ampere>(), 0.0018859, epsilon = 1e-3);
+            assert_abs_diff_eq!(fundamental.im.get::<ampere>(), -1.84419, epsilon = 1e-3);
+        }
+    }
 }

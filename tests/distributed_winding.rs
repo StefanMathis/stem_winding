@@ -581,6 +581,23 @@ fn test_winding_36_4() {
             winding.winding_factor(ONE, SpatialOrder::Electrical(17)),
             epsilon = 0.0001
         );
+
+        // Magnetic axis
+        assert_abs_diff_eq!(
+            0.9599,
+            winding.magnetic_axis(1.try_into().unwrap(), SpatialOrder::Electrical(1)),
+            epsilon = 0.0001
+        );
+        assert_abs_diff_eq!(
+            2.0071,
+            winding.magnetic_axis(2.try_into().unwrap(), SpatialOrder::Electrical(1)),
+            epsilon = 0.0001
+        );
+        assert_abs_diff_eq!(
+            -0.0872,
+            winding.magnetic_axis(3.try_into().unwrap(), SpatialOrder::Electrical(1)),
+            epsilon = 0.0001
+        );
     }
 
     {
