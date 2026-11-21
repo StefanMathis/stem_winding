@@ -642,7 +642,7 @@ impl Winding for SquirrelCageWinding {
     /// # Literature
     /// <a id="end_winding_leakage_inductance_cage_1">\[1\]</a>
     /// Mathis, S.: Permanentmagneterregte Line-Start-Antriebe in Ferrittechnik,
-    /// PhD thesis, Shaker, 2019, URL: https://kluedo.ub.rptu.de/frontdoor/index/index/docId/8192
+    /// PhD thesis, Shaker, 2019, URL: <https://kluedo.ub.rptu.de/frontdoor/index/index/docId/8192>
     #[cfg(feature = "stem_core")]
     fn end_winding_leakage_inductance(
         &self,
@@ -678,7 +678,7 @@ impl Winding for SquirrelCageWinding {
     /// # Literature
     /// <a id="end_winding_half_turn_length_1">\[1\]</a>
     /// Mathis, S.: Permanentmagneterregte Line-Start-Antriebe in Ferrittechnik,
-    /// PhD thesis, Shaker, 2019, URL: https://kluedo.ub.rptu.de/frontdoor/index/index/docId/8192
+    /// PhD thesis, Shaker, 2019, URL: <https://kluedo.ub.rptu.de/frontdoor/index/index/docId/8192>
     #[cfg(feature = "stem_core")]
     fn end_winding_half_turn_length(&self, core: CoreRef<'_>, zone: Zone) -> Length {
         let _ = zone;

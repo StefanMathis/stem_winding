@@ -475,14 +475,14 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     /// Checks whether the winding exhibits phase symmetry when inserted in the
     /// specified `core`.
     ///
-    /// This function is an extension of [`Ẁinding::is_symmetric`], which
+    /// This function is an extension of [`Winding::is_symmetric`], which
     /// compares the same properties across all phases:
     ///
     /// - The fundamental winding factor for
     ///   [`SpatialOrder::Electrical(1)`](SpatialOrder).
     /// - The number of series turns per phase.
     /// - The [`throw`](CoilExt::throw) of the coils and hence the end winding
-    ///   lengths. Note that [`Ẁinding::is_symmetric`] compares the
+    ///   lengths. Note that [`Winding::is_symmetric`] compares the
     ///   [`throw`](CoilExt::throw) instead.
     ///
     /// Additionally, it also checks if the phase resistances are equal.
@@ -959,13 +959,20 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     /// corresponding spatial harmonic of the phase's magnetomotive force (MMF)
     /// (see [`Winding::magnetomotive_force`]). It is determined from the phase
     /// angle of the winding-factor phasor, accounting for the 90° electrical
-    /// phase shift between the winding-factor distribution and the resulting MMF.
-    /// The angle is measured in mechanical radians relative to the winding
-    /// reference axis, which is defined in the middle of the first slot.
+    /// phase shift between the winding-factor distribution and the resulting
+    /// MMF. The angle is measured in mechanical radians relative to the
+    /// winding reference axis, which is defined in the middle of the first
+    /// slot.
+    ///
+    /// > If the winding is inserted into a magnetic [`Core`], the winding
+    /// > reference axis is the core reference axis plus
+    /// > [`CoreExt::slot_middle_offset`], see also the image in the example
+    /// > section.
     ///
     /// For a mechanical spatial order `ν`, there are `ν` equivalent positive
-    /// magnetic axes around the air gap. This function returns the first positive
-    /// magnetic axis `α_0`. The other positive axes can be obtained with:
+    /// magnetic axes around the air gap. This function returns the first
+    /// positive magnetic axis `α_0`. The other positive axes can be
+    /// obtained with:
     ///
     /// `α_k = α_0 + k * 2 * π / ν`
     ///
@@ -975,7 +982,27 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     ///
     /// # Examples
     ///
+    /// The following example calculates the magnetic axes in the image shown
+    /// below. Note that only the angles for the first positive magnetic axes
+    /// of each phase are returned; the remaining angles can be found by simple
+    /// rotation as discussed above.
+    #[doc = ""]
+    #[cfg_attr(
+        feature = "doc-images",
+        doc = "![Magnetic axes for example][cad_magnetic_axis]"
+    )]
+    #[cfg_attr(
+        not(feature = "doc-images"),
+        doc = "**Doc images not enabled**. Compile docs with
+        `cargo doc --features 'doc-images'` and Rust version >= 1.54."
+    )]
+    #[cfg_attr(
+        feature = "doc-images",
+        embed_doc_image::embed_doc_image("cad_magnetic_axis", "docs/img/cad_magnetic_axis.svg")
+    )]
+    ///
     /// ```
+    /// use std::num::NonZeroU16;
     /// use std::f64::consts::TAU;
     ///
     /// use approxim::assert_abs_diff_eq;
@@ -990,7 +1017,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     ///     zone_shift: 0,
     ///     winding_table_constructor: WindingTableConstructor::Tingley,
     /// }
-    /// .try_into()
+    /// .try_into().expect("valid winding");
     ///
     /// // Verification of the zone plan
     /// let winding_table = winding.winding_table(true);
@@ -1000,7 +1027,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     ///         1, 1, 1, -3, -3, -3, 2, 2, 2, -1, -1, -1, 3, 3, 3, -2, -2, -2,
     ///     ]
     ///     .into_iter(),
-    ///     NonZeroU16::new(18).expect("not zero"),
+    ///     NonZeroU16::new(36).expect("not zero"),
     ///     NonZeroU16::new(1).expect("not zero"),
     /// );
     /// assert_eq!(winding_table, expected_result);
@@ -1010,21 +1037,21 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     ///
     /// // Axis for phase 1: 55° mechanical (between 4th and 5th slot = middle of first positive coil group of phase 1)
     /// assert_abs_diff_eq!(
-    ///     winding.magnetic_axis(1.try_into().expect("not zero"), SpatialOrder::Electrical(1),
+    ///     winding.magnetic_axis(1.try_into().expect("not zero"), SpatialOrder::Electrical(1)),
     ///     55.0 / 360.0 * TAU,
     ///     epsilon = 1e-3,
     /// );
     ///
     /// // Axis for phase 2: 115° mechanical (between 11h and 12th slot slot = middle of first positive coil group of phase 2)
     /// assert_abs_diff_eq!(
-    ///     winding.magnetic_axis(2.try_into().expect("not zero"), SpatialOrder::Electrical(1),
+    ///     winding.magnetic_axis(2.try_into().expect("not zero"), SpatialOrder::Electrical(1)),
     ///     115.0 / 360.0 * TAU,
     ///     epsilon = 1e-3,
     /// );
     ///
     /// // Axis for phase 3: -5 mechanical between 35th and 0th slot slot = middle of first positive coil group of phase 3)
     /// assert_abs_diff_eq!(
-    ///     winding.magnetic_axis(3.try_into().expect("not zero"), SpatialOrder::Electrical(1),
+    ///     winding.magnetic_axis(3.try_into().expect("not zero"), SpatialOrder::Electrical(1)),
     ///     -5.0 / 360.0 * TAU,
     ///     epsilon = 1e-3,
     /// );
@@ -2142,7 +2169,7 @@ pub trait Winding: Sync + Send + std::any::Any + DynClone + 'static {
     ///
     /// <a id="resistance_1">\[1\]</a>
     /// Mathis, S.: Permanentmagneterregte Line-Start-Antriebe in Ferrittechnik,
-    /// PhD thesis, Shaker, 2019, URL: https://kluedo.ub.rptu.de/frontdoor/index/index/docId/8192
+    /// PhD thesis, Shaker, 2019, URL: <https://kluedo.ub.rptu.de/frontdoor/index/index/docId/8192>
     #[doc = ""]
     #[cfg_attr(
         feature = "doc-images",

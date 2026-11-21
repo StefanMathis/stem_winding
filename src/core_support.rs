@@ -208,7 +208,7 @@ impl<'a> Iterator for CoilPropertyIterator<'a> {
 /// [resistance](CoilProperties::resistance) or
 /// [volume](CoilProperties::volume).
 ///
-/// As with the corresponding methods from [Winding], predefined end-winding
+/// As with the corresponding methods from [`Winding`], predefined end-winding
 /// half-turn lengths can be supplied for individual zones; for zones without
 /// an override, the lengths are calculated on demand.
 ///
@@ -462,7 +462,7 @@ impl<'a> CoilProperties<'a> {
         self.coil.any_zone()
     }
 
-    /// Returns a reference to the underlying [`Wire`] trait object.
+    /// Returns a reference to the underlying [`Wire`](stem_wire::wire::Wire) trait object.
     pub fn wire(&self) -> &Arc<dyn stem_wire::wire::Wire> {
         self.coil.wire()
     }
