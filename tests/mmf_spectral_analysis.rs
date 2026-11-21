@@ -307,11 +307,11 @@ fn test_fec_tooth_coil_assembly() {
 }
 
 #[test]
-fn test_dq() {
+fn test_dq_coefficients() {
     {
         let winding: DistributedWinding = DistributedMinimalBuilder {
             slots: 12.try_into().expect("not zero"),
-            pole_pairs: 1.try_into().expect("not zero"),
+            pole_pairs: 2.try_into().expect("not zero"),
             phases: 3.try_into().expect("not zero"),
             layers: 1.try_into().expect("not zero"),
             coil_throw_reduction: 0,
@@ -322,40 +322,33 @@ fn test_dq() {
         .unwrap();
         let mut mmf = MmfSpectralAnalysis::new(1024);
 
-        let phase_a = 1.try_into().unwrap();
-
-        let phase_a_axis = winding.magnetic_axis(phase_a, SpatialOrder::Electrical(1));
-        let first_phase_to_d_axis = 0.0;
-
-        // Convert the electrical displacement to mechanical displacement.
-        let first_slot_to_d_axis =
-            phase_a_axis + first_phase_to_d_axis / f64::from(winding.pole_pairs().get());
-
-        let angle_between_phases = std::f64::consts::TAU / f64::from(winding.phases().get());
-
         {
             let dq0 = Dq0Current {
                 direct: ElectricCurrent::new::<ampere>(1.0),
                 quadrature: ElectricCurrent::new::<ampere>(0.0),
                 zero: ElectricCurrent::new::<ampere>(0.0),
             };
-            let currents = dq0.phase_currents(
-                winding.phases(),
-                angle_between_phases,
-                first_phase_to_d_axis,
-            );
+            let currents: Vec<_> = dq0
+                .winding_phase_currents(
+                    &winding,
+                    SpatialOrder::Electrical(1),
+                    winding.magnetic_axis(1.try_into().unwrap(), SpatialOrder::Electrical(1)),
+                )
+                .collect();
+            assert_abs_diff_eq!(currents[0].get::<ampere>(), 1.0, epsilon = 1e-3);
+            assert_abs_diff_eq!(currents[1].get::<ampere>(), -0.5, epsilon = 1e-3);
+            assert_abs_diff_eq!(currents[2].get::<ampere>(), -0.5, epsilon = 1e-3);
 
             mmf.analyze(&winding, currents).unwrap();
 
             let fundamental = mmf
                 .coefficient_dq(
                     SpatialOrder::Electrical(1),
-                    winding.pole_pairs(),
-                    first_slot_to_d_axis,
+                    winding.magnetic_axis(1.try_into().unwrap(), SpatialOrder::Electrical(1)),
                 )
                 .unwrap();
-            assert_abs_diff_eq!(fundamental.re.get::<ampere>(), 1.84536, epsilon = 1e-3);
-            assert_abs_diff_eq!(fundamental.im.get::<ampere>(), 0.0018871, epsilon = 1e-3);
+            assert_abs_diff_eq!(fundamental.re.get::<ampere>(), 0.95379, epsilon = 1e-3);
+            assert_abs_diff_eq!(fundamental.im.get::<ampere>(), -0.003906, epsilon = 1e-3);
         }
         {
             let dq0 = Dq0Current {
@@ -363,23 +356,27 @@ fn test_dq() {
                 quadrature: ElectricCurrent::new::<ampere>(1.0),
                 zero: ElectricCurrent::new::<ampere>(0.0),
             };
-            let currents = dq0.phase_currents(
-                winding.phases(),
-                angle_between_phases,
-                first_phase_to_d_axis,
-            );
+            let currents: Vec<_> = dq0
+                .winding_phase_currents(
+                    &winding,
+                    SpatialOrder::Electrical(1),
+                    winding.magnetic_axis(1.try_into().unwrap(), SpatialOrder::Electrical(1)),
+                )
+                .collect();
+            assert_abs_diff_eq!(currents[0].get::<ampere>(), 0.0, epsilon = 1e-3);
+            assert_abs_diff_eq!(currents[1].get::<ampere>(), 0.866, epsilon = 1e-3);
+            assert_abs_diff_eq!(currents[2].get::<ampere>(), -0.866, epsilon = 1e-3);
 
             mmf.analyze(&winding, currents).unwrap();
 
             let fundamental = mmf
                 .coefficient_dq(
                     SpatialOrder::Electrical(1),
-                    winding.pole_pairs(),
-                    first_slot_to_d_axis,
+                    winding.magnetic_axis(1.try_into().unwrap(), SpatialOrder::Electrical(1)),
                 )
                 .unwrap();
-            assert_abs_diff_eq!(fundamental.re.get::<ampere>(), 0.0018859, epsilon = 1e-3);
-            assert_abs_diff_eq!(fundamental.im.get::<ampere>(), -1.84419, epsilon = 1e-3);
+            assert_abs_diff_eq!(fundamental.re.get::<ampere>(), 0.0, epsilon = 1e-3);
+            assert_abs_diff_eq!(fundamental.im.get::<ampere>(), 0.95606, epsilon = 1e-3);
         }
     }
 }

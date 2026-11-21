@@ -186,6 +186,7 @@ is resized as necessary and reallocates only if its capacity is insufficient.
 */
 #[derive(Clone)]
 pub struct MmfSpectralAnalysis {
+    pole_pairs: NonZeroU16,
     mmf_values: Vec<f64>,
     sampled_fec: Vec<f64>,
     phase_currents: Vec<f64>,
@@ -207,7 +208,7 @@ impl MmfSpectralAnalysis {
     /// accuracy of the numerical approximation even for lower orders.
     ///
     /// The number of samples affects FFT performance. When in doubt, use a
-    /// power of two.
+    /// power of two. See the [RustFFT documentation](https://docs.rs/rustfft/latest/rustfft/) for details.
     pub fn new(samples: usize) -> Self {
         // This preallocates a buffer for a 100-slot-winding, which should be enough in
         // most cases. If it is not, a reallocation is necessary (but that is
@@ -228,7 +229,17 @@ impl MmfSpectralAnalysis {
             coefficients,
             fft_scratch_buffer,
             fft_plan,
+            pole_pairs: NonZeroU16::MIN,
         }
+    }
+
+    /// Returns the number of pole pairs of the winding used in the most recent
+    /// [`analyze`](MmfSpectralAnalysis::analyze) call, to which the stored
+    /// [`coefficients`](MmfSpectralAnalysis::coefficients) belong.
+    ///
+    /// If no winding has been analyzed yet, returns [`NonZeroU16::MIN`].
+    pub fn pole_pairs(&self) -> NonZeroU16 {
+        self.pole_pairs
     }
 
     /// Returns the magnetomotive force (MMF) distribution from the most recent
@@ -300,12 +311,8 @@ impl MmfSpectralAnalysis {
     ///
     /// where `p` is the number of pole pairs and `k` is the mechanical
     /// `spatial_order`.
-    pub fn coefficient(
-        &self,
-        spatial_order: SpatialOrder,
-        pole_pairs: NonZeroU16,
-    ) -> Option<Complex<ElectricCurrent>> {
-        let idx = spatial_order.to_mechanical(pole_pairs);
+    pub fn coefficient(&self, spatial_order: SpatialOrder) -> Option<Complex<ElectricCurrent>> {
+        let idx = spatial_order.to_mechanical(self.pole_pairs);
         let val = self.coefficients.get(idx as usize)?;
         Some(Complex::new(
             ElectricCurrent::new::<ampere>(val.re),
@@ -326,45 +333,107 @@ impl MmfSpectralAnalysis {
     /// [`MmfSpectralAnalysis::coefficient`] and transforms it into
     /// dq-coordinates using:
     ///
-    /// `c_k_dq = c_k * e^(j * k / p * θ)`
+    /// `c_k_dq = conj(c_k * e^(j * k * ν * θ))`
     ///
-    /// where `θ` is
-    /// [`CoreExt::first_slot_to_d_axis`](stem_core::core::CoreExt::first_slot_to_d_axis)
-    /// and `p` is the number of pole pairs. The factor `k / p` converts the
-    /// mechanical spatial order into the corresponding electrical spatial
-    /// order.
+    /// where `ν` is the mechanical spatial order. `θ` is the
+    /// `winding_reference_to_d_axis` which describes the offset of the
+    /// d-axis to the reference axis of the winding (which is in the middle
+    /// of the first slot) in mechanical radians. See [`Winding::magnetic_axis`]
+    /// for an illustration.
     ///
-    /// The real and imaginary components represent the d- and q-components
-    /// of the excitation, respectively. Note, however, that the imaginary
-    /// component follows RustFFT's Fourier transform convention, which uses
-    /// a negative complex exponential (`e^(-j * ω * t)`). Consequently,
-    /// positive q-axis excitation corresponds to a negative imaginary
-    /// component. This differs from the conventional dq representation,
-    /// where the q-component is represented by the positive imaginary part.
+    /// The complex conjugation `conj` accounts for the negative-exponent
+    /// convention of the forward Fourier transform used by RustFFT. It ensures
+    /// that the imaginary component follows the conventional dq sign
+    /// convention, where positive q-axis excitation is represented by a
+    /// positive imaginary component.
+    ///
+    /// # Examples
+    ///
+    /// In the following example, the d-axis coincides with the magnetic axis
+    /// of phase 2.
+    ///
+    /// ```
+    /// use std::f64::consts::PI;
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let dq0 = Dq0Current {
+    ///     direct: ElectricCurrent::new::<ampere>(0.0),
+    ///     quadrature: ElectricCurrent::new::<ampere>(1.0),
+    ///     zero: ElectricCurrent::new::<ampere>(0.0),
+    /// };
+    ///
+    /// let winding: DistributedWinding = DistributedMinimalBuilder {
+    ///     slots: 36.try_into().expect("not zero"),
+    ///     pole_pairs: 2.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 1.try_into().expect("not zero"),
+    ///     coil_throw_reduction: 0,
+    ///     zone_shift: 0,
+    ///     winding_table_constructor: WindingTableConstructor::Tingley,
+    /// }
+    /// .try_into()
+    /// .unwrap();
+    ///
+    /// let fundamental = SpatialOrder::Electrical(1);
+    ///
+    /// // Magnetic axis of phase 2 = position of the d-axis
+    /// let winding_reference_to_d_axis = winding.magnetic_axis(
+    ///     2.try_into().expect("not zero"),
+    ///     fundamental
+    /// );
+    ///
+    /// // Derive the current system
+    /// let currents_from_dq = dq0
+    ///     .winding_phase_currents(&winding, fundamental, winding_reference_to_d_axis);
+    ///
+    /// let mut analysis = MmfSpectralAnalysis::new(1024);
+    /// analysis.analyze(&winding, currents_from_dq).expect("succeeds");
+    ///
+    /// let dq_fundamental = analysis.coefficient_dq(
+    ///     fundamental,
+    ///     winding_reference_to_d_axis
+    /// ).expect("exists");
+    /// assert_abs_diff_eq!(dq_fundamental.re.get::<ampere>(), 0.0037, epsilon = 1e-3);
+    /// assert_abs_diff_eq!(dq_fundamental.im.get::<ampere>(), 2.746, epsilon = 1e-3);
+    /// ```
     pub fn coefficient_dq(
         &self,
         spatial_order: SpatialOrder,
-        pole_pairs: NonZeroU16,
-        first_slot_to_d_axis: f64,
+        winding_reference_to_d_axis: f64,
     ) -> Option<Complex<ElectricCurrent>> {
-        let order = spatial_order.to_mechanical(pole_pairs);
-        let coefficient = self.coefficients.get(order as usize)?;
-        let theta = f64::from(order) / f64::from(pole_pairs.get()) * first_slot_to_d_axis;
+        let k = spatial_order.to_mechanical(self.pole_pairs);
+        let coefficient = self.coefficients.get(k as usize)?;
+        let theta = f64::from(k) * winding_reference_to_d_axis;
         let val = coefficient * Complex::from_polar(1.0, theta);
+
+        /*
+        The imaginary component follows RustFFT's Fourier transform convention,
+        which uses a negative complex exponential (`e^(-j * ω * t)`).
+        Consequently, positive q-axis excitation corresponds to a negative
+        imaginary component. This differs from the conventional dq
+        representation, where the q-component is represented by the positive
+        imaginary part. Hence, the sign of val is inverted.
+        */
         Some(Complex::new(
             ElectricCurrent::new::<ampere>(val.re),
-            ElectricCurrent::new::<ampere>(val.im),
+            ElectricCurrent::new::<ampere>(-val.im),
         ))
     }
 
     /// Calculates the magnetomotive force (MMF) spectrum for the given
-    /// currents.
+    /// instantaneous currents.
     ///
     /// The current vector used to determine the MMF has the size
     /// [`winding.phases()`](Winding::phases) and is populated from the
     /// given `currents` iterator. If the iterator does not yield enough
     /// elements, the remaining currents are set to 0. Any additional values
     /// beyond the number of phases created by the iterator are discarded.
+    ///
+    /// As shown in the example below, it is also possible to use a
+    /// [`Dq0Current`] as an input by deriving the phase current iterator via
+    /// [`Dq0Current::winding_phase_currents`]. For retrieving the MMF in
+    /// dq-coordinates, see [`MmfSpectralAnalysis::coefficient_dq`].
     ///
     /// The results are stored internally and can be accessed via
     /// [`coefficients`](MmfSpectralAnalysis::coefficients).
@@ -373,12 +442,12 @@ impl MmfSpectralAnalysis {
     ///
     /// # Examples
     ///
+    /// This example shows how to calculate the MMF coefficients both from the
+    /// phase currents directly and from the dq-currents.
+    ///
     /// ```
     /// use approxim::assert_abs_diff_eq;
     /// use stem_winding::prelude::*;
-    /// use stem_winding::winding::MmfSpectralAnalysis;
-    ///
-    ///
     ///
     /// let winding: DistributedWinding = DistributedMinimalBuilder {
     ///     slots: 12.try_into().expect("not zero"),
@@ -394,24 +463,32 @@ impl MmfSpectralAnalysis {
     ///
     /// let mut analysis = MmfSpectralAnalysis::new(1024);
     ///
+    /// // Get the fundamental for the given phase currents.
     /// let currents = [
     ///     ElectricCurrent::new::<ampere>(1.0),
     ///     ElectricCurrent::new::<ampere>(-0.5),
     ///     ElectricCurrent::new::<ampere>(-0.5),
     /// ];
     /// analysis.analyze(&winding, currents).expect("succeeds");
-    /// let fundamental_1 = analysis.coefficients_raw()[1].norm();
-    /// assert_abs_diff_eq!(fundamental_1, 1.8453, epsilon = 1e-3);
+    /// let fundamental_from_phases = analysis.coefficients_raw()[1].norm();
+    /// assert_abs_diff_eq!(fundamental_from_phases, 1.8453, epsilon = 1e-3);
     ///
-    /// // Reuse the same analyzer for a different current configuration.
-    /// let currents = [
-    ///     ElectricCurrent::new::<ampere>(0.0),
-    ///     ElectricCurrent::new::<ampere>(2.0),
-    ///     ElectricCurrent::new::<ampere>(-2.0),
-    /// ];
-    /// analysis.analyze(&winding, currents).expect("succeeds");
-    /// let fundamental_2 = analysis.coefficients_raw()[1].norm();
-    /// assert_abs_diff_eq!(fundamental_2, 4.2589, epsilon = 1e-3);
+    /// // Reuse the same analyzer for a dq-current where the d-axis
+    /// // coincides with the magnetic axis of phase 1:
+    /// let dq0 = Dq0Current {
+    ///     direct: ElectricCurrent::new::<ampere>(1.0),
+    ///     quadrature: ElectricCurrent::new::<ampere>(0.0),
+    ///     zero: ElectricCurrent::new::<ampere>(0.0),
+    /// };
+    /// let winding_reference_to_d_axis = winding.magnetic_axis(
+    ///     1.try_into().expect("not zero"),
+    ///     SpatialOrder::Electrical(1)
+    /// );
+    /// let currents_from_dq = dq0
+    ///     .winding_phase_currents(&winding, SpatialOrder::Electrical(1), winding_reference_to_d_axis);
+    /// analysis.analyze(&winding, currents_from_dq).expect("succeeds");
+    /// let fundamental_from_dq = analysis.coefficients_raw()[1].norm();
+    /// assert_abs_diff_eq!(fundamental_from_dq, fundamental_from_phases, epsilon = 1e-3);
     /// ```
     pub fn analyze<W: Winding + ?Sized>(
         &mut self,
@@ -436,10 +513,13 @@ impl MmfSpectralAnalysis {
             .expect("buffers have a valid length");
 
         // Switch to non-generic version to reduce code bloat
-        self.analyze_priv()
+        self.analyze_priv(winding.pole_pairs())
     }
 
-    fn analyze_priv(&mut self) -> Result<&[Complex<ElectricCurrent>], FftError> {
+    fn analyze_priv(
+        &mut self,
+        pole_pairs: NonZeroU16,
+    ) -> Result<&[Complex<ElectricCurrent>], FftError> {
         // Upsample the mmf
         sample_mmf_values(self.mmf_values.iter().cloned(), &mut self.sampled_fec);
 
@@ -471,6 +551,9 @@ impl MmfSpectralAnalysis {
         // The first value equals the constant part and does not occur twice, but still
         // needs to be normalized
         self.coefficients[0] *= inverse;
+
+        // Store the pole pairs of the winding
+        self.pole_pairs = pole_pairs;
 
         Ok(self.coefficients())
     }

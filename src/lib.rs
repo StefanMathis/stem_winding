@@ -57,7 +57,7 @@ pub mod prelude {
 
     // Reexporting
     pub use crate::coils::*;
-    pub use crate::winding::{Connection, Dq0Current, Winding};
+    pub use crate::winding::{Connection, Dq0Current, MmfSpectralAnalysis, Winding};
 
     pub use crate::winding::coil_assembly::*;
     pub use crate::winding::distributed::*;

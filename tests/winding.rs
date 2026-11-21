@@ -1,6 +1,7 @@
 use std::num::{NonZeroU16, NonZeroUsize};
 
 use approxim::assert_abs_diff_eq;
+use stem_winding::prelude::*;
 use stem_winding::winding::*;
 
 #[test]
@@ -288,5 +289,190 @@ fn test_line_to_phase_current() {
             Connection::Delta.angle_line_to_phase_current(phases),
             epsilon = 0.0001
         );
+    }
+}
+
+#[test]
+fn test_phase_currents() {
+    let phases = NonZeroU16::new(3).expect("not zero");
+    let angle_between_phases = std::f64::consts::TAU / f64::from(phases.get());
+    {
+        let dq0 = Dq0Current {
+            direct: ElectricCurrent::new::<ampere>(1.0),
+            quadrature: ElectricCurrent::new::<ampere>(0.0),
+            zero: ElectricCurrent::new::<ampere>(0.0),
+        };
+        let currents: Vec<_> = dq0
+            .phase_currents(3.try_into().expect("not zero"), angle_between_phases, 0.0)
+            .collect();
+        assert_abs_diff_eq!(currents[0].get::<ampere>(), 1.0, epsilon = 1e-3);
+        assert_abs_diff_eq!(currents[1].get::<ampere>(), -0.5, epsilon = 1e-3);
+        assert_abs_diff_eq!(currents[2].get::<ampere>(), -0.5, epsilon = 1e-3);
+    }
+    {
+        let dq0 = Dq0Current {
+            direct: ElectricCurrent::new::<ampere>(1.0),
+            quadrature: ElectricCurrent::new::<ampere>(0.0),
+            zero: ElectricCurrent::new::<ampere>(0.0),
+        };
+        let currents: Vec<_> = dq0
+            .phase_currents(
+                3.try_into().expect("not zero"),
+                angle_between_phases,
+                angle_between_phases,
+            )
+            .collect();
+        assert_abs_diff_eq!(currents[0].get::<ampere>(), -0.5, epsilon = 1e-3);
+        assert_abs_diff_eq!(currents[1].get::<ampere>(), 1.0, epsilon = 1e-3);
+        assert_abs_diff_eq!(currents[2].get::<ampere>(), -0.5, epsilon = 1e-3);
+    }
+    {
+        let dq0 = Dq0Current {
+            direct: ElectricCurrent::new::<ampere>(1.0),
+            quadrature: ElectricCurrent::new::<ampere>(0.0),
+            zero: ElectricCurrent::new::<ampere>(0.0),
+        };
+        let currents: Vec<_> = dq0
+            .phase_currents(
+                3.try_into().expect("not zero"),
+                angle_between_phases,
+                2.0 * angle_between_phases,
+            )
+            .collect();
+        assert_abs_diff_eq!(currents[0].get::<ampere>(), -0.5, epsilon = 1e-3);
+        assert_abs_diff_eq!(currents[1].get::<ampere>(), -0.5, epsilon = 1e-3);
+        assert_abs_diff_eq!(currents[2].get::<ampere>(), 1.0, epsilon = 1e-3);
+    }
+}
+
+#[test]
+fn test_winding_phase_currents() {
+    let wdg1: DistributedWinding = DistributedMinimalBuilder {
+        slots: 12.try_into().expect("not zero"),
+        pole_pairs: 1.try_into().expect("not zero"),
+        phases: 3.try_into().expect("not zero"),
+        layers: 1.try_into().expect("not zero"),
+        coil_throw_reduction: 0,
+        zone_shift: 0,
+        winding_table_constructor: WindingTableConstructor::Tingley,
+    }
+    .try_into()
+    .unwrap();
+
+    let wdg2: DistributedWinding = DistributedMinimalBuilder {
+        slots: 24.try_into().expect("not zero"),
+        pole_pairs: 2.try_into().expect("not zero"),
+        phases: 3.try_into().expect("not zero"),
+        layers: 1.try_into().expect("not zero"),
+        coil_throw_reduction: 0,
+        zone_shift: 0,
+        winding_table_constructor: WindingTableConstructor::Tingley,
+    }
+    .try_into()
+    .unwrap();
+
+    for winding in [wdg1, wdg2] {
+        {
+            let dq0 = Dq0Current {
+                direct: ElectricCurrent::new::<ampere>(1.0),
+                quadrature: ElectricCurrent::new::<ampere>(0.0),
+                zero: ElectricCurrent::new::<ampere>(0.0),
+            };
+            let currents: Vec<_> = dq0
+                .winding_phase_currents(
+                    &winding,
+                    SpatialOrder::Electrical(1),
+                    winding.magnetic_axis(1.try_into().unwrap(), SpatialOrder::Electrical(1)),
+                )
+                .collect();
+            assert_abs_diff_eq!(currents[0].get::<ampere>(), 1.0, epsilon = 1e-3);
+            assert_abs_diff_eq!(currents[1].get::<ampere>(), -0.5, epsilon = 1e-3);
+            assert_abs_diff_eq!(currents[2].get::<ampere>(), -0.5, epsilon = 1e-3);
+        }
+        {
+            let dq0 = Dq0Current {
+                direct: ElectricCurrent::new::<ampere>(1.0),
+                quadrature: ElectricCurrent::new::<ampere>(0.0),
+                zero: ElectricCurrent::new::<ampere>(0.0),
+            };
+            let currents: Vec<_> = dq0
+                .winding_phase_currents(
+                    &winding,
+                    SpatialOrder::Electrical(1),
+                    winding.magnetic_axis(2.try_into().unwrap(), SpatialOrder::Electrical(1)),
+                )
+                .collect();
+            assert_abs_diff_eq!(currents[0].get::<ampere>(), -0.5, epsilon = 1e-3);
+            assert_abs_diff_eq!(currents[1].get::<ampere>(), 1.0, epsilon = 1e-3);
+            assert_abs_diff_eq!(currents[2].get::<ampere>(), -0.5, epsilon = 1e-3);
+        }
+        {
+            let dq0 = Dq0Current {
+                direct: ElectricCurrent::new::<ampere>(1.0),
+                quadrature: ElectricCurrent::new::<ampere>(0.0),
+                zero: ElectricCurrent::new::<ampere>(0.0),
+            };
+            let currents: Vec<_> = dq0
+                .winding_phase_currents(
+                    &winding,
+                    SpatialOrder::Electrical(1),
+                    winding.magnetic_axis(3.try_into().unwrap(), SpatialOrder::Electrical(1)),
+                )
+                .collect();
+            assert_abs_diff_eq!(currents[0].get::<ampere>(), -0.5, epsilon = 1e-3);
+            assert_abs_diff_eq!(currents[1].get::<ampere>(), -0.5, epsilon = 1e-3);
+            assert_abs_diff_eq!(currents[2].get::<ampere>(), 1.0, epsilon = 1e-3);
+        }
+        {
+            let dq0 = Dq0Current {
+                direct: ElectricCurrent::new::<ampere>(0.0),
+                quadrature: ElectricCurrent::new::<ampere>(1.0),
+                zero: ElectricCurrent::new::<ampere>(0.0),
+            };
+            let currents: Vec<_> = dq0
+                .winding_phase_currents(
+                    &winding,
+                    SpatialOrder::Electrical(1),
+                    winding.magnetic_axis(1.try_into().unwrap(), SpatialOrder::Electrical(1)),
+                )
+                .collect();
+            assert_abs_diff_eq!(currents[0].get::<ampere>(), 0.0, epsilon = 1e-3);
+            assert_abs_diff_eq!(currents[1].get::<ampere>(), 0.866, epsilon = 1e-3);
+            assert_abs_diff_eq!(currents[2].get::<ampere>(), -0.866, epsilon = 1e-3);
+        }
+        {
+            let dq0 = Dq0Current {
+                direct: ElectricCurrent::new::<ampere>(0.0),
+                quadrature: ElectricCurrent::new::<ampere>(1.0),
+                zero: ElectricCurrent::new::<ampere>(0.0),
+            };
+            let currents: Vec<_> = dq0
+                .winding_phase_currents(
+                    &winding,
+                    SpatialOrder::Electrical(1),
+                    winding.magnetic_axis(2.try_into().unwrap(), SpatialOrder::Electrical(1)),
+                )
+                .collect();
+            assert_abs_diff_eq!(currents[0].get::<ampere>(), -0.866, epsilon = 1e-3);
+            assert_abs_diff_eq!(currents[1].get::<ampere>(), 0.0, epsilon = 1e-3);
+            assert_abs_diff_eq!(currents[2].get::<ampere>(), 0.866, epsilon = 1e-3);
+        }
+        {
+            let dq0 = Dq0Current {
+                direct: ElectricCurrent::new::<ampere>(0.0),
+                quadrature: ElectricCurrent::new::<ampere>(1.0),
+                zero: ElectricCurrent::new::<ampere>(0.0),
+            };
+            let currents: Vec<_> = dq0
+                .winding_phase_currents(
+                    &winding,
+                    SpatialOrder::Electrical(1),
+                    winding.magnetic_axis(3.try_into().unwrap(), SpatialOrder::Electrical(1)),
+                )
+                .collect();
+            assert_abs_diff_eq!(currents[0].get::<ampere>(), 0.866, epsilon = 1e-3);
+            assert_abs_diff_eq!(currents[1].get::<ampere>(), -0.866, epsilon = 1e-3);
+            assert_abs_diff_eq!(currents[2].get::<ampere>(), 0.0, epsilon = 1e-3);
+        }
     }
 }

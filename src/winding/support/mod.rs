@@ -64,11 +64,16 @@ impl Dq0Current {
     ///
     /// `i_n = id * cos(α_n - θ) + iq * sin(α_n - θ) + i0 / m`
     ///
-    /// where `θ` is the angle between the first phase and the d-axis
-    /// `first_phase_to_d_axis` in electrical degrees, `α_n` is the
-    /// [`phase_angle`](Winding::phase_angle) of phase `n` and `m` is the number
-    /// of [`phases`](Winding::phases). `α_n` is the product of `Δα * n`, where
-    /// `Δα` is the angle between two neighboring phases.
+    /// where `θ` is the angle between the
+    /// [`magnetic_axis`](Winding::magnetic_axis) of the first phase and the
+    /// d-axis in electrical radians, `α_n` is the
+    /// [`phase_angle`](Winding::phase_angle) of phase `n` in electrical radians
+    /// and `m` is the number of [`phases`](Winding::phases). `α_n` is the
+    /// product of `Δα * n`, where `Δα` is the angle between two neighboring
+    /// phases in electrical radians.
+    ///
+    /// The current system can also be reconstructed directly from the
+    /// associated [`Winding`], see [`Dq0Current::winding_phase_currents`].
     ///
     /// # Examples
     ///
@@ -112,6 +117,98 @@ impl Dq0Current {
             self.direct * alpha.cos()
                 + self.quadrature * alpha.sin()
                 + self.zero / f64::from(phases.get())
+        })
+    }
+
+    /// Returns an iterator over the phase current system represented by self
+    /// for the given `winding` and `spatial_order`.
+    ///
+    /// This is a variant of [`Dq0Current::phase_currents`] where the function
+    /// arguments are directly derived from the provided `winding` and the
+    /// `spatial_order` of the current system. The `winding_reference_to_d_axis`
+    /// describes the offset of the d-axis to the reference axis of the winding
+    /// (which is in the middle of the first slot) in mechanical radians. See
+    /// [`Winding::magnetic_axis`] for an illustration.
+    ///
+    /// Unlike [`Dq0Current::phase_currents`], this function also supports
+    /// windings with non-equally spaced phase magnetic axes.
+    ///
+    /// # Examples
+    ///
+    /// In the following example, the d-axis is exactly in the middle of the
+    /// [`magnetic_axis`](Winding::magnetic_axis) of phase 2. Hence, its offset
+    /// to the winding reference axis is the same as that of the magnetic axis.
+    ///
+    /// ```
+    /// use approxim::assert_abs_diff_eq;
+    /// use stem_winding::prelude::*;
+    ///
+    /// let dq0 = Dq0Current {
+    ///     direct: ElectricCurrent::new::<ampere>(1.0),
+    ///     quadrature: ElectricCurrent::new::<ampere>(0.0),
+    ///     zero: ElectricCurrent::new::<ampere>(0.0),
+    /// };
+    ///
+    /// let winding: DistributedWinding = DistributedMinimalBuilder {
+    ///     slots: 12.try_into().expect("not zero"),
+    ///     pole_pairs: 1.try_into().expect("not zero"),
+    ///     phases: 3.try_into().expect("not zero"),
+    ///     layers: 1.try_into().expect("not zero"),
+    ///     coil_throw_reduction: 0,
+    ///     zone_shift: 0,
+    ///     winding_table_constructor: WindingTableConstructor::CoilSide,
+    /// }
+    /// .try_into()
+    /// .unwrap();
+    ///
+    /// // d-axis directly in magnetic axis of phase 1
+    /// let winding_reference_to_d_axis = winding.magnetic_axis(
+    ///     2.try_into().expect("not zero"),
+    ///     SpatialOrder::Electrical(1)
+    /// );
+    ///
+    /// // Calculate all phase currents:
+    /// let currents: Vec<_> = dq0
+    ///     .winding_phase_currents(&winding, SpatialOrder::Electrical(1), winding_reference_to_d_axis)
+    ///     .collect();
+    /// assert_eq!(currents.len(), 3);
+    ///
+    /// // Current of phase 1
+    /// assert_abs_diff_eq!(currents[0].get::<ampere>(), -0.5, epsilon = 1e-3);
+    ///
+    /// // Current of phase 2
+    /// assert_abs_diff_eq!(currents[1].get::<ampere>(), 1.0, epsilon = 1e-3);
+    ///
+    /// // Current of phase 3
+    /// assert_abs_diff_eq!(currents[2].get::<ampere>(), -0.5, epsilon = 1e-3);
+    ///
+    /// // Only the current of phase 2 is calculated (calculation of phase 1 current is skipped!)
+    /// let phase_2_current = dq0
+    ///     .winding_phase_currents(&winding, SpatialOrder::Electrical(1), winding_reference_to_d_axis)
+    ///     .nth(1) // zero-based index of phase 2 is 1!
+    ///     .unwrap();
+    /// assert_abs_diff_eq!(phase_2_current.get::<ampere>(), 1.0, epsilon = 1e-3);
+    /// ```
+    pub fn winding_phase_currents<'a, W: Winding + ?Sized>(
+        &'a self,
+        winding: &'a W,
+        spatial_order: SpatialOrder,
+        winding_reference_to_d_axis: f64,
+    ) -> impl Iterator<Item = ElectricCurrent> + 'a {
+        let phases = winding.phases().get();
+        let pole_pairs = winding.pole_pairs();
+        let mechanical_spatial_order = f64::from(spatial_order.to_mechanical(pole_pairs));
+
+        (1..=phases).map(move |phase| {
+            let phase = NonZeroU16::new(phase).expect("not zero");
+
+            let magnetic_axis = winding.magnetic_axis(phase, spatial_order);
+
+            let alpha = mechanical_spatial_order * (magnetic_axis - winding_reference_to_d_axis);
+
+            self.direct * alpha.cos()
+                + self.quadrature * alpha.sin()
+                + self.zero / f64::from(phases)
         })
     }
 }
